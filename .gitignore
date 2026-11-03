@@ -1,0 +1,14 @@
+node_modules/
+.next/
+out/
+.env
+.env.local
+.env*.local
+*.tsbuildinfo
+.vercel
+# Dados pessoais: nunca versionar
+dados-privados/
+supabase/seed_privado*.sql
+*.pdf
+*.ofx
+*.xlsx
