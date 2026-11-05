@@ -1,30 +1,63 @@
 @import "tailwindcss";
 
+/*
+ * ALVVO — identidade "luxo de entrada": marfim, espresso, bronze e sálvia.
+ * As escalas emerald/rose/amber/sky/violet/orange são retonalizadas para a mesma paleta,
+ * assim todos os avisos e etiquetas seguem o visual sem cores saturadas.
+ */
 @theme {
-  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
-  --color-ink: #0f1b2d;
-  --color-paper: #f4f5f2;
-  --color-brand: #0f766e;
-  --color-brand-soft: #ccebe6;
-  --color-gain: #15803d;
-  --color-loss: #be123c;
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-serif: var(--font-display), "Iowan Old Style", Georgia, serif;
+
+  --color-ink: #1f1b17;
+  --color-paper: #f4f1eb;
+  --color-surface: #fffdf9;
+  --color-espresso: #191613;
+  --color-brand: #7d5f36;
+  --color-brand-soft: #efe5d3;
+  --color-gold: #b8955a;
+  --color-sage: #8a9a7b;
+  --color-gain: #4f7a52;
+  --color-loss: #a33f30;
+
+  /* sálvia */
+  --color-emerald-50: #f1f4ee; --color-emerald-100: #e2e9dc; --color-emerald-200: #c9d6c0; --color-emerald-500: #6f8f68;
+  --color-emerald-600: #557553; --color-emerald-700: #456246; --color-emerald-800: #374f39;
+  /* bordô */
+  --color-rose-50: #f9efec; --color-rose-100: #f2ddd7; --color-rose-200: #e6bfb5; --color-rose-300: #d9a093; --color-rose-500: #b35a49;
+  --color-rose-600: #9c4436; --color-rose-700: #84382d; --color-rose-800: #6b2e26;
+  /* ocre */
+  --color-amber-50: #faf4e8; --color-amber-100: #f3e6c9; --color-amber-200: #e8d2a1; --color-amber-500: #c0954f;
+  --color-amber-700: #8a6527; --color-amber-800: #73531f; --color-amber-900: #5b4119;
+  /* azul ardósia */
+  --color-sky-50: #eef1f4; --color-sky-100: #dde3ea; --color-sky-700: #3f5a70;
+  /* ameixa */
+  --color-violet-50: #f4eff4; --color-violet-100: #e8dde8; --color-violet-600: #6e4f72; --color-violet-700: #5d4361; --color-violet-800: #4b3650;
+  /* cobre */
+  --color-orange-50: #faf0e8; --color-orange-200: #ecc8a8; --color-orange-500: #b8743f; --color-orange-700: #8e5428; --color-orange-800: #74431f; --color-orange-900: #5b3519;
+  /* bronze (substitui o verde-água antigo) */
+  --color-teal-400: #c9a96e; --color-teal-500: #b8955a; --color-teal-800: #3a322b;
 }
 
 @layer base {
   body { @apply bg-paper text-ink antialiased; font-feature-settings: "cv11", "ss01"; }
-  h1 { @apply text-[26px] font-semibold tracking-tight; }
-  h2 { @apply text-base font-semibold tracking-tight; }
+  h1 { @apply font-serif text-[34px] font-normal leading-[1.1] tracking-[-0.01em]; }
+  h2 { @apply text-[15px] font-semibold tracking-tight; }
+  ::selection { background: #e8d9bd; }
 }
 
 @layer components {
-  .card { @apply rounded-2xl border border-ink/[0.06] bg-white p-5 shadow-[0_1px_2px_rgba(15,27,45,.04),0_4px_16px_-8px_rgba(15,27,45,.08)]; }
-  .btn { @apply inline-flex items-center justify-center gap-2 rounded-xl bg-brand px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-teal-800 disabled:opacity-50; }
-  .btn-ghost { @apply inline-flex items-center justify-center gap-2 rounded-xl border border-ink/10 bg-white px-3 py-2 text-sm font-medium text-ink shadow-sm transition hover:bg-ink/[0.03]; }
-  .input { @apply w-full rounded-xl border border-ink/10 bg-white px-3 py-2 text-sm outline-none transition focus:border-brand focus:ring-4 focus:ring-brand/10 disabled:bg-ink/[0.03] disabled:text-ink/40; }
-  .label { @apply mb-1 block text-[11px] font-semibold uppercase tracking-wider text-ink/45; }
+  .card { @apply rounded-[20px] border border-ink/[0.07] bg-surface p-5 shadow-[0_1px_0_rgba(31,27,23,.02),0_10px_30px_-18px_rgba(60,45,30,.18)]; }
+  .btn { @apply inline-flex items-center justify-center gap-2 rounded-full bg-ink px-5 py-2 text-sm font-medium text-[#f6efe2] transition hover:bg-[#3a322b] disabled:opacity-50; }
+  .btn-ghost { @apply inline-flex items-center justify-center gap-2 rounded-full border border-ink/12 bg-surface px-4 py-2 text-sm font-medium text-ink transition hover:border-ink/25 hover:bg-white; }
+  .input { @apply w-full rounded-xl border border-ink/10 bg-surface px-3 py-2 text-sm outline-none transition focus:border-gold focus:ring-4 focus:ring-gold/15 disabled:bg-ink/[0.03] disabled:text-ink/40; }
+  .label { @apply mb-1 block text-[10.5px] font-medium uppercase tracking-[0.14em] text-ink/45; }
   .table { @apply w-full text-sm; }
-  .table th { @apply border-b border-ink/[0.07] px-4 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-ink/40; }
+  .table th { @apply border-b border-ink/[0.08] px-4 py-3 text-left text-[10.5px] font-medium uppercase tracking-[0.12em] text-ink/40; }
   .table td { @apply border-b border-ink/[0.05] px-4 py-2.5 align-middle; }
   .num { @apply text-right tabular-nums whitespace-nowrap; }
   .chip { @apply inline-flex items-center gap-1 rounded-md bg-ink/[0.05] px-1.5 py-0.5 text-[11px] text-ink/55; }
+  /* Números de destaque em serifa, como em extratos de private banking */
+  .display { @apply font-serif font-normal tracking-[-0.01em] tabular-nums; }
+  .eyebrow { @apply text-[10.5px] font-medium uppercase tracking-[0.18em] text-gold; }
 }

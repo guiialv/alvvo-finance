@@ -44,7 +44,7 @@ export default async function FaturasPage() {
             return (
               <Link key={b.id} href={`/faturas/${b.id}`} className="card group transition hover:-translate-y-0.5 hover:shadow-md">
                 <div className="flex items-center gap-3">
-                  <div className="grid h-11 w-11 place-items-center rounded-xl bg-[#ec7000] text-sm font-bold text-white">{(b.institution ?? "?").slice(0, 4).toLowerCase()}</div>
+                  <div className="grid h-11 w-11 place-items-center rounded-xl bg-[#b0703f] text-sm font-bold text-white">{(b.institution ?? "?").slice(0, 4).toLowerCase()}</div>
                   <div className="flex-1"><div className="font-semibold">{b.institution ?? "Fatura"}</div><div className="text-xs text-ink/50">{b.due_date ? `Vencimento ${formatDateBR(b.due_date)} · ciclo ${cycleLabel(cycleOf(b.due_date, ctx.household.cycle_start_day))}` : b.file_name}</div></div>
                   <span className="text-ink/30 transition group-hover:translate-x-0.5 group-hover:text-brand"><Icon name="right" /></span>
                 </div>
@@ -54,7 +54,7 @@ export default async function FaturasPage() {
                   <span>{items.length} itens · {cards} cartões</span>
                   <span className={`font-medium ${unc ? "text-orange-700" : "text-emerald-700"}`}>{unc ? `${unc} a classificar` : "tudo classificado"}</span>
                 </div>
-                <div className="mt-1"><Bar value={items.length - unc} max={items.length || 1} color={unc ? "#ea580c" : "#15803d"} /></div>
+                <div className="mt-1"><Bar value={items.length - unc} max={items.length || 1} color={unc ? "#c08a3e" : "#4f7a52"} /></div>
               </Link>
             );
           })}

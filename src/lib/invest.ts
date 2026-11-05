@@ -1,8 +1,8 @@
 /** Carteira: posições por preço médio, renda fixa estimada, resultado realizado e próximo aporte. Funções puras. */
 export type Cls = "acao" | "fii" | "etf" | "exterior" | "cripto" | "rf";
 export const CLS: Record<Cls, { l: string; c: string }> = {
-  acao: { l: "Ações", c: "#0f766e" }, fii: { l: "FIIs", c: "#0369a1" }, etf: { l: "ETFs", c: "#7c3aed" },
-  exterior: { l: "Exterior", c: "#c026d3" }, cripto: { l: "Cripto", c: "#d97706" }, rf: { l: "Renda fixa", c: "#475569" },
+  acao: { l: "Ações", c: "#7d5f36" }, fii: { l: "FIIs", c: "#4a5a73" }, etf: { l: "ETFs", c: "#7b5c7e" },
+  exterior: { l: "Exterior", c: "#8a5a6e" }, cripto: { l: "Cripto", c: "#b8955a" }, rf: { l: "Renda fixa", c: "#6b6459" },
 };
 export const RF_TYPES = ["CDB", "LCI", "LCA", "Tesouro Selic", "Tesouro Prefixado", "Tesouro IPCA+", "Debênture", "CRI", "CRA", "Outro"];
 

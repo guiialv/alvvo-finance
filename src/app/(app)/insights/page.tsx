@@ -20,9 +20,9 @@ import { Icon } from "@/components/icons";
 import { dismissInsight, restoreInsights } from "./actions";
 
 const KIND: Record<InsightKind, { label: string; color: string; bg: string; icon: string }> = {
-  atencao: { label: "Atenção", color: "#be123c", bg: "#fff1f2", icon: "bell" },
-  oportunidade: { label: "Oportunidade", color: "#15803d", bg: "#f0fdf4", icon: "trend" },
-  info: { label: "Informação", color: "#0369a1", bg: "#f0f9ff", icon: "spark" },
+  atencao: { label: "Atenção", color: "#a33f30", bg: "#f9efec", icon: "bell" },
+  oportunidade: { label: "Oportunidade", color: "#4f7a52", bg: "#f1f4ee", icon: "trend" },
+  info: { label: "Informação", color: "#4a5a73", bg: "#eef1f4", icon: "spark" },
 };
 const AREA: Record<InsightArea, string> = {
   precos: "Preços e assinaturas", orcamento: "Orçamento", cartao: "Cartão", investimentos: "Investimentos", agenda: "Agenda", organizacao: "Organização",

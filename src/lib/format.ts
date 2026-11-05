@@ -23,3 +23,21 @@ export function parseMoneyInput(s: string | null | undefined): number | null {
 }
 
 export const round2 = (n: number) => Math.round(n * 100) / 100;
+
+/** Valor na moeda do ativo (BRL, USD, EUR...). Sem moeda conhecida, só o número. */
+export function formatMoney(v: number | null | undefined, currency?: string | null, digits?: number) {
+  if (v === null || v === undefined || !isFinite(Number(v))) return "—";
+  const d = digits ?? (Math.abs(Number(v)) < 1 ? 4 : 2);
+  try {
+    return currency ? new Intl.NumberFormat("pt-BR", { style: "currency", currency, minimumFractionDigits: d, maximumFractionDigits: d }).format(Number(v))
+      : new Intl.NumberFormat("pt-BR", { minimumFractionDigits: d, maximumFractionDigits: d }).format(Number(v));
+  } catch { return new Intl.NumberFormat("pt-BR", { minimumFractionDigits: d, maximumFractionDigits: d }).format(Number(v)); }
+}
+
+/** 1,2 tri / 350 bi / 12 mi */
+export function formatCompact(v: number | null | undefined, currency?: string | null) {
+  if (v === null || v === undefined || !isFinite(Number(v))) return "—";
+  const a = Math.abs(Number(v)), sym = currency === "USD" ? "US$ " : currency === "BRL" ? "R$ " : "";
+  const [div, suf] = a >= 1e12 ? [1e12, " tri"] : a >= 1e9 ? [1e9, " bi"] : a >= 1e6 ? [1e6, " mi"] : a >= 1e3 ? [1e3, " mil"] : [1, ""];
+  return `${sym}${(Number(v) / div).toLocaleString("pt-BR", { maximumFractionDigits: a / div >= 100 ? 0 : 1 })}${suf}`;
+}

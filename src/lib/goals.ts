@@ -9,9 +9,9 @@ export interface GoalData {
   balance?: number; auto?: "reserva" | null;
 }
 export const GOAL_T: Record<GoalType, { l: string; c: string; i: string }> = {
-  patrimonio: { l: "Meta de patrimônio", c: "#0f766e", i: "trend" },
-  independencia: { l: "Independência financeira", c: "#7c3aed", i: "target" },
-  caixinha: { l: "Caixinha", c: "#d97706", i: "layers" },
+  patrimonio: { l: "Meta de patrimônio", c: "#7d5f36", i: "trend" },
+  independencia: { l: "Independência financeira", c: "#7b5c7e", i: "target" },
+  caixinha: { l: "Caixinha", c: "#b8955a", i: "layers" },
 };
 
 export const monthsBetween = (a: string, b: string) => (+b.slice(0, 4) - +a.slice(0, 4)) * 12 + (+b.slice(5, 7) - +a.slice(5, 7));

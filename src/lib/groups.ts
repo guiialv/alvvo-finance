@@ -15,7 +15,7 @@ export interface Group {
 
 export const KIND_LABEL: Record<Kind, string> = { receita: "Receitas", investimento: "Investimentos", despesa: "Despesas", transferencia: "Transferências" };
 export const KIND_ORDER: Kind[] = ["receita", "investimento", "despesa", "transferencia"];
-export const KIND_COLOR: Record<Kind, string> = { receita: "#15803d", investimento: "#0369a1", despesa: "#e11d48", transferencia: "#64748b" };
+export const KIND_COLOR: Record<Kind, string> = { receita: "#4f7a52", investimento: "#a8834f", despesa: "#9a4b35", transferencia: "#8c8579" };
 export const KIND_HINT: Record<Kind, string> = {
   receita: "Dinheiro que entra",
   investimento: "Dinheiro que você guarda e faz render",

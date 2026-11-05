@@ -78,7 +78,7 @@ export default async function FaturaDetailPage({ params, searchParams }: { param
           <div className={`mt-1 text-xs font-medium ${Math.abs(sumAll - total) < 0.05 ? "text-emerald-700" : "text-amber-700"}`}>{Math.abs(sumAll - total) < 0.05 ? "✓ confere com o PDF" : `itens somam ${formatBRL(sumAll)}`}</div></div>
         <div className="card"><div className="label">Parcelados</div><div className="mt-1 text-[26px] font-semibold tabular-nums">{formatBRL(parc)}</div>{batch.future_total != null && <div className="mt-1 text-xs text-ink/50">{formatBRL(batch.future_total)} já comprometidos nas próximas</div>}</div>
         <div className="card"><div className="label">Internacional + IOF</div><div className="mt-1 text-[26px] font-semibold tabular-nums">{formatBRL(intl)}</div><div className="mt-1 text-xs text-ink/50">{total ? formatPct(intl / total) : "—"} da fatura</div></div>
-        <div className="card"><div className="label">Classificação</div><div className="mt-1 text-[26px] font-semibold tabular-nums">{all.length - unc}<span className="text-base text-ink/40">/{all.length}</span></div><div className="mt-2"><Bar value={all.length - unc} max={all.length || 1} color={unc ? "#ea580c" : "#15803d"} /></div></div>
+        <div className="card"><div className="label">Classificação</div><div className="mt-1 text-[26px] font-semibold tabular-nums">{all.length - unc}<span className="text-base text-ink/40">/{all.length}</span></div><div className="mt-2"><Bar value={all.length - unc} max={all.length || 1} color={unc ? "#c08a3e" : "#4f7a52"} /></div></div>
       </div>
 
       <div className="mt-5 grid gap-4 xl:grid-cols-[1fr_320px]">

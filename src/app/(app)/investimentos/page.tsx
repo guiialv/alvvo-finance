@@ -43,10 +43,10 @@ export default async function InvestPage({ searchParams }: { searchParams: Promi
       {tab !== "noticias" && (
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
           <Kpi label="Patrimônio investido" value={sm.total} sub={`${sm.rows.length} ativos · ${sm.rf.length} títulos de renda fixa`} />
-          <Kpi label="Custo de aquisição" value={sm.invested} accent="#475569" />
-          <Kpi label="Resultado em aberto" value={sm.total - sm.invested} tone="auto" accent={sm.total - sm.invested >= 0 ? "#15803d" : "#e11d48"} sub={sm.invested ? pctS((sm.total - sm.invested) / sm.invested) : undefined} />
-          <Kpi label="Resultado realizado" value={sm.realized} accent="#0369a1" sub="todas as vendas, já descontados custos" />
-          <Kpi label="Proventos 12 meses" value={sm.divs12} accent="#d97706" />
+          <Kpi label="Custo de aquisição" value={sm.invested} accent="#6b6459" />
+          <Kpi label="Resultado em aberto" value={sm.total - sm.invested} tone="auto" accent={sm.total - sm.invested >= 0 ? "#4f7a52" : "#a33f30"} sub={sm.invested ? pctS((sm.total - sm.invested) / sm.invested) : undefined} />
+          <Kpi label="Resultado realizado" value={sm.realized} accent="#4a5a73" sub="todas as vendas, já descontados custos" />
+          <Kpi label="Proventos 12 meses" value={sm.divs12} accent="#b8955a" />
         </div>
       )}
       <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-ink/50">
@@ -138,7 +138,7 @@ export default async function InvestPage({ searchParams }: { searchParams: Promi
             </tbody><tfoot><tr className="font-semibold"><td colSpan={6}>Resultado total</td><td className={`num ${tot >= 0 ? "text-gain" : "text-loss"}`}>{formatBRL(tot)}<div className="text-[11px]">{totCost ? pctS(tot / totCost) : ""}</div></td></tr></tfoot></table></section>
           <aside className="space-y-4">
             <section className="card"><div className="label">Resultado total</div><div className={`mt-1 text-[26px] font-semibold tabular-nums ${tot >= 0 ? "text-gain" : "text-loss"}`}>{formatBRL(tot)}</div><div className="mt-1 text-xs text-ink/50">{rows.length} vendas · {wins} com lucro</div></section>
-            <section className="card"><h2 className="mb-3">Por ano</h2><div className="space-y-2">{Object.entries(years).sort().map(([y, v]) => <div key={y}><div className="mb-1 flex justify-between text-sm"><span>{y}</span><span className={`tabular-nums ${v >= 0 ? "text-gain" : "text-loss"}`}>{formatBRL(v)}</span></div><Bar value={Math.abs(v)} max={ymax} color={v >= 0 ? "#15803d" : "#e11d48"} /></div>)}</div></section>
+            <section className="card"><h2 className="mb-3">Por ano</h2><div className="space-y-2">{Object.entries(years).sort().map(([y, v]) => <div key={y}><div className="mb-1 flex justify-between text-sm"><span>{y}</span><span className={`tabular-nums ${v >= 0 ? "text-gain" : "text-loss"}`}>{formatBRL(v)}</span></div><Bar value={Math.abs(v)} max={ymax} color={v >= 0 ? "#4f7a52" : "#a33f30"} /></div>)}</div></section>
           </aside>
         </div>
       </div>

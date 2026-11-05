@@ -15,10 +15,10 @@ const qs = (params: Record<string, string | undefined>) => {
 
 export function PageHeader({ title, subtitle, children }: { title: React.ReactNode; subtitle?: React.ReactNode; children?: React.ReactNode }) {
   return (
-    <div className="mb-7 flex flex-wrap items-end justify-between gap-4">
+    <div className="mb-8 flex flex-wrap items-end justify-between gap-4 border-b border-ink/[0.07] pb-6">
       <div>
         <h1>{title}</h1>
-        {subtitle && <p className="mt-1 max-w-2xl text-sm text-ink/55">{subtitle}</p>}
+        {subtitle && <p className="mt-2 max-w-2xl text-sm leading-relaxed text-ink/55">{subtitle}</p>}
       </div>
       <div className="flex flex-wrap items-center gap-2">{children}</div>
     </div>
@@ -34,10 +34,10 @@ export function CycleNav({ cycle, startDay, basePath, params = {}, today }: {
   return (
     <div className="inline-flex items-center gap-2">
     {cycle !== now && <Link href={href(now)} className="btn-ghost !py-2">Hoje</Link>}
-    <div className="inline-flex items-center rounded-xl border border-ink/10 bg-white shadow-sm">
+    <div className="inline-flex items-center rounded-full border border-ink/10 bg-surface">
       <Link className="grid h-10 w-9 place-items-center text-ink/50 hover:text-ink" href={href(shiftCycle(cycle, -1))} aria-label="Ciclo anterior"><Icon name="left" /></Link>
       <div className="min-w-[124px] border-x border-ink/5 px-3 py-1 text-center">
-        <div className="text-sm font-semibold leading-tight">{cycleLong(cycle)}</div>
+        <div className="font-serif text-[17px] leading-tight">{cycleLong(cycle)}</div>
         <div className="text-[11px] text-ink/45">{cycleRangeLabel(cycle, startDay)}</div>
       </div>
       <Link className="grid h-10 w-9 place-items-center text-ink/50 hover:text-ink" href={href(shiftCycle(cycle, 1))} aria-label="Próximo ciclo"><Icon name="right" /></Link>
@@ -49,7 +49,7 @@ export function CycleNav({ cycle, startDay, basePath, params = {}, today }: {
 export function YearNav({ year, basePath, params = {}, param = "ano" }: { year: number; basePath: string; params?: Record<string, string | undefined>; param?: string }) {
   const href = (y: number) => `${basePath}?${qs({ ...params, [param]: String(y) })}`;
   return (
-    <div className="inline-flex items-center rounded-xl border border-ink/10 bg-white shadow-sm">
+    <div className="inline-flex items-center rounded-full border border-ink/10 bg-surface">
       <Link className="grid h-10 w-9 place-items-center text-ink/50" href={href(year - 1)}><Icon name="left" /></Link>
       <span className="px-3 font-semibold">{year}</span>
       <Link className="grid h-10 w-9 place-items-center text-ink/50" href={href(year + 1)}><Icon name="right" /></Link>
@@ -60,9 +60,9 @@ export function YearNav({ year, basePath, params = {}, param = "ano" }: { year: 
 /** Abas segmentadas baseadas em links. */
 export function Seg({ options, current, hrefFor }: { options: [string, string][]; current: string; hrefFor: (v: string) => string }) {
   return (
-    <div className="inline-flex rounded-xl bg-ink/[0.05] p-1 text-sm">
+    <div className="inline-flex rounded-full bg-ink/[0.05] p-1 text-sm">
       {options.map(([v, l]) => (
-        <Link key={v} href={hrefFor(v)} className={`rounded-lg px-3 py-1.5 font-medium transition ${current === v ? "bg-white text-ink shadow-sm" : "text-ink/55 hover:text-ink"}`}>{l}</Link>
+        <Link key={v} href={hrefFor(v)} className={`rounded-full px-3.5 py-1.5 font-medium transition ${current === v ? "bg-ink text-[#f6efe2]" : "text-ink/55 hover:text-ink"}`}>{l}</Link>
       ))}
     </div>
   );
@@ -72,12 +72,11 @@ export function ScopeTabs({ scope, basePath, params = {} }: { scope: string; bas
   return <Seg options={[["pessoal", "Pessoal"], ["pj", "PJ"]]} current={scope} hrefFor={(s) => `${basePath}?${qs({ ...params, escopo: s })}`} />;
 }
 
-export function Kpi({ label, value, sub, accent = "#0f766e", tone }: { label: string; value: number; sub?: React.ReactNode; accent?: string; tone?: "auto" }) {
+export function Kpi({ label, value, sub, accent = "#7d5f36", tone }: { label: string; value: number; sub?: React.ReactNode; accent?: string; tone?: "auto" }) {
   return (
     <div className="card relative overflow-hidden">
-      <div className="absolute inset-x-0 top-0 h-0.5" style={{ background: accent }} />
-      <div className="label">{label}</div>
-      <div className={`mt-1 text-[26px] font-semibold tracking-tight tabular-nums ${tone === "auto" ? (value >= 0 ? "text-gain" : "text-loss") : ""}`}>{formatBRL(value)}</div>
+      <div className="flex items-center gap-2"><span className="h-1.5 w-1.5 rounded-full" style={{ background: accent }} /><div className="label !mb-0">{label}</div></div>
+      <div className={`display mt-2 text-[32px] leading-none ${tone === "auto" ? (value >= 0 ? "text-gain" : "text-loss") : ""}`}>{formatBRL(value)}</div>
       {sub && <div className="mt-1 text-xs text-ink/45">{sub}</div>}
     </div>
   );
@@ -95,7 +94,7 @@ export function Delta({ cur, prev, invert, prevLabel }: { cur: number; prev: num
   );
 }
 
-export function Bar({ value, max, color = "#0f766e" }: { value: number; max: number; color?: string }) {
+export function Bar({ value, max, color = "#7d5f36" }: { value: number; max: number; color?: string }) {
   const pct = max > 0 ? Math.max(0, Math.min(100, (value / max) * 100)) : 0;
   return <div className="h-1.5 w-full overflow-hidden rounded-full bg-ink/[0.06]"><div className="h-full rounded-full" style={{ width: `${pct}%`, background: color }} /></div>;
 }
@@ -134,15 +133,15 @@ export function Donut({ parts, total, center }: { parts: { label: string; v: num
   let off = 0;
   return (
     <svg viewBox="0 0 128 128" className="h-36 w-36 shrink-0">
-      <circle cx="64" cy="64" r={R} fill="none" stroke="#0f1b2d0d" strokeWidth="14" />
+      <circle cx="64" cy="64" r={R} fill="none" stroke="#1f1b170d" strokeWidth="14" />
       {parts.filter((p) => p.v > 0).map((p) => {
         const len = total ? (p.v / total) * C : 0;
         const el = <circle key={p.label} cx="64" cy="64" r={R} fill="none" stroke={p.color} strokeWidth="14" strokeDasharray={`${Math.max(0, len - 2)} ${C}`} strokeDashoffset={-off} transform="rotate(-90 64 64)"><title>{`${p.label}: ${formatBRL(p.v)}`}</title></circle>;
         off += len;
         return el;
       })}
-      <text x="64" y="60" textAnchor="middle" fill="#0f1b2d73" style={{ fontSize: 9 }}>{center[0]}</text>
-      <text x="64" y="76" textAnchor="middle" fill="#0f1b2d" style={{ fontSize: 14, fontWeight: 600 }}>{center[1]}</text>
+      <text x="64" y="60" textAnchor="middle" fill="#1f1b1773" style={{ fontSize: 9 }}>{center[0]}</text>
+      <text x="64" y="76" textAnchor="middle" fill="#1f1b17" style={{ fontSize: 14, fontWeight: 600 }}>{center[1]}</text>
     </svg>
   );
 }

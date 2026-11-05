@@ -59,9 +59,9 @@ export default async function AgendaPage({ searchParams }: { searchParams: Promi
       )}
 
       <div className="grid gap-4 sm:grid-cols-3">
-        <Kpi label="A pagar no mês" value={pagar} sub="contas + faturas previstas" accent="#e11d48" />
-        <Kpi label="A receber no mês" value={receber} sub="receitas cadastradas" accent="#15803d" />
-        <Kpi label="Saldo previsto" value={receber - pagar} sub="antes dos gastos variáveis" accent="#0f766e" />
+        <Kpi label="A pagar no mês" value={pagar} sub="contas + faturas previstas" accent="#a33f30" />
+        <Kpi label="A receber no mês" value={receber} sub="receitas cadastradas" accent="#4f7a52" />
+        <Kpi label="Saldo previsto" value={receber - pagar} sub="antes dos gastos variáveis" accent="#7d5f36" />
       </div>
 
       <div className="mt-5 grid gap-4 xl:grid-cols-[1fr_380px]">

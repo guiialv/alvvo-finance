@@ -11,6 +11,8 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const admin = isAdminRole(member.role) && !viewer.simulated;
   const areas = visibleAreas(ctx);
   const allowed = [...AREAS.filter(([k]) => areas.includes(k)).map(([, , href]) => href), ...(admin ? ["/acessos", "/configuracoes"] : [])];
+  if (areas.includes("orcamento") || areas.includes("visao-geral")) allowed.push("/fluxo");
+  if (areas.includes("analise")) allowed.push("/mercado", "/mercado/carteiras");
   let pending = 0;
   if (admin) {
     const { count } = await ctx.supabase.from("household_members").select("user_id", { count: "exact", head: true }).eq("household_id", household.id).eq("status", "pendente");
@@ -25,16 +27,16 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         </div>
       )}
       <div className="min-h-screen md:flex">
-        <aside className="bg-ink text-white md:sticky md:top-0 md:flex md:h-screen md:w-64 md:shrink-0 md:flex-col">
+        <aside className="bg-espresso text-[#efe7da] md:sticky md:top-0 md:flex md:h-screen md:w-64 md:shrink-0 md:flex-col">
           <div className="flex items-center gap-3 p-4 md:p-5">
-            <div className="grid h-9 w-9 place-items-center rounded-xl bg-gradient-to-br from-teal-500 to-brand font-bold shadow-lg shadow-brand/30">A</div>
+            <div className="grid h-10 w-10 place-items-center rounded-full border border-gold/50 font-serif text-[22px] leading-none text-gold">A</div>
             <div className="min-w-0">
               <div className="truncate text-sm font-semibold leading-tight">{household.name}</div>
-              <div className="text-xs text-white/45">ALVVO Finance</div>
+              <div className="text-[10px] uppercase tracking-[0.22em] text-gold/80">ALVVO Finance</div>
             </div>
           </div>
           <Nav allowed={allowed} badges={{ "/acessos": pending }} />
-          <div className="hidden border-t border-white/5 p-4 md:block">
+          <div className="hidden border-t border-white/[0.06] p-4 md:block">
             <div className="flex items-center gap-3">
               <Avatar name={viewer.name} index={viewer.role === "dono" ? 0 : 1} size="h-8 w-8 text-xs" />
               <div className="flex-1 text-sm">
@@ -44,7 +46,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
             </div>
           </div>
         </aside>
-        <main className="min-w-0 flex-1 px-4 py-6 md:px-10 md:py-9"><div className="mx-auto max-w-[1280px]">{children}</div></main>
+        <main className="min-w-0 flex-1 px-4 py-6 md:px-12 md:py-10"><div className="mx-auto max-w-[1280px]">{children}</div></main>
       </div>
     </>
   );

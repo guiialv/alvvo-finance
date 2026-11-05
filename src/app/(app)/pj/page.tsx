@@ -49,9 +49,9 @@ export default async function PJPage({ searchParams }: { searchParams: Promise<{
       </PageHeader>
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
-        <Kpi label="Faturado (NFs)" value={faturado} accent="#15803d" sub={`Média ${formatBRL(faturado / monthsWithNF)}/mês`} />
-        <Kpi label="Impostos" value={impostos} accent="#e11d48" sub={faturado ? `${((impostos / faturado) * 100).toFixed(1)}% do faturamento` : undefined} />
-        <Kpi label="Custos PJ" value={custos} accent="#475569" />
+        <Kpi label="Faturado (NFs)" value={faturado} accent="#4f7a52" sub={`Média ${formatBRL(faturado / monthsWithNF)}/mês`} />
+        <Kpi label="Impostos" value={impostos} accent="#a33f30" sub={faturado ? `${((impostos / faturado) * 100).toFixed(1)}% do faturamento` : undefined} />
+        <Kpi label="Custos PJ" value={custos} accent="#6b6459" />
         <Kpi label="Resultado PJ" value={resultado} tone="auto" />
         <Kpi label="Retiradas p/ pessoal" value={retiradas} accent="#0284c7" />
       </div>

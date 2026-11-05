@@ -8,6 +8,8 @@ import { formatBRL, formatPct } from "@/lib/format";
 import { AGENDA_COLOR, groupColor } from "@/lib/theme";
 import { Bar, cycleLong, CycleNav, Delta, Donut, Empty, Kpi, PageHeader, Pill } from "@/components/ui";
 import { Icon } from "@/components/icons";
+import { buildFlow } from "@/lib/flow";
+import { Sankey } from "@/components/sankey";
 
 const kfmt = (v: number) => (Math.abs(v) >= 1000 ? `${(v / 1000).toLocaleString("pt-BR", { maximumFractionDigits: 1 })}k` : String(Math.round(v)));
 
@@ -32,6 +34,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
   ]);
   const { byId } = categoryIndex(cats);
   const curTx = txs.filter((t) => t.cycle === cycle);
+  const flow = buildFlow(curTx, cats, "grupo", 6);
   const s = summarize(curTx, cats);
   const p = summarize(txs.filter((t) => t.cycle === prevC), cats);
   const hist = history.map((c) => ({ c, ...summarize(txs.filter((t) => t.cycle === c), cats) }));
@@ -59,10 +62,10 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
       </PageHeader>
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <Kpi label="Receitas" value={s.receitas} accent="#15803d" sub={<Delta cur={s.receitas} prev={p.receitas} prevLabel={cycleLabel(prevC)} />} />
-        <Kpi label="Despesas" value={s.despesas} accent="#e11d48" sub={<Delta cur={s.despesas} prev={p.despesas} invert prevLabel={cycleLabel(prevC)} />} />
-        <Kpi label="Investido" value={s.investimentos} accent="#0369a1" sub={s.receitas ? `${formatPct(s.investimentos / s.receitas)} da receita` : "—"} />
-        <Kpi label="Sobra do ciclo" value={s.saldo} accent={s.saldo >= 0 ? "#0f766e" : "#e11d48"} sub={s.receitas ? `${formatPct(s.saldo / s.receitas)} da receita` : "—"} />
+        <Kpi label="Receitas" value={s.receitas} accent="#4f7a52" sub={<Delta cur={s.receitas} prev={p.receitas} prevLabel={cycleLabel(prevC)} />} />
+        <Kpi label="Despesas" value={s.despesas} accent="#a33f30" sub={<Delta cur={s.despesas} prev={p.despesas} invert prevLabel={cycleLabel(prevC)} />} />
+        <Kpi label="Investido" value={s.investimentos} accent="#4a5a73" sub={s.receitas ? `${formatPct(s.investimentos / s.receitas)} da receita` : "—"} />
+        <Kpi label="Sobra do ciclo" value={s.saldo} accent={s.saldo >= 0 ? "#7d5f36" : "#a33f30"} sub={s.receitas ? `${formatPct(s.saldo / s.receitas)} da receita` : "—"} />
       </div>
 
       {upcoming.length > 0 && (
@@ -88,21 +91,31 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
         </Link>
       )}
 
+      {flow && flow.receitas > 0 && (
+        <section className="card mt-5 px-6">
+          <div className="mb-2 flex flex-wrap items-baseline justify-between gap-2">
+            <div><div className="eyebrow">Fluxo de {cycleLong(cycle).toLowerCase()}</div><h2 className="mt-1 font-serif text-[24px] font-normal">Para onde foi sua renda</h2></div>
+            <Link href={`/fluxo?ciclo=${cycle}`} className="text-sm text-brand hover:underline">Ver fluxo completo →</Link>
+          </div>
+          <Sankey data={flow} compact />
+        </section>
+      )}
+
       <div className="mt-5 grid gap-4 xl:grid-cols-5">
         <section className="card xl:col-span-3">
           <div className="mb-2 flex items-center justify-between"><h2>Receitas × despesas</h2>
-            <div className="flex gap-3 text-xs text-ink/55"><span className="flex items-center gap-1"><span className="h-2 w-2 rounded-sm bg-[#15803d]" />Receitas</span><span className="flex items-center gap-1"><span className="h-2 w-2 rounded-sm bg-[#e11d48]" />Despesas</span></div></div>
+            <div className="flex gap-3 text-xs text-ink/55"><span className="flex items-center gap-1"><span className="h-2 w-2 rounded-sm bg-[#4f7a52]" />Receitas</span><span className="flex items-center gap-1"><span className="h-2 w-2 rounded-sm bg-[#a33f30]" />Despesas</span></div></div>
           <svg viewBox={`0 0 ${W} ${H}`} className="w-full">
-            {[0, 0.5, 1].map((f) => <line key={f} x1="0" x2={W} y1={150 - f * 130} y2={150 - f * 130} stroke="#0f1b2d" strokeOpacity=".06" />)}
+            {[0, 0.5, 1].map((f) => <line key={f} x1="0" x2={W} y1={150 - f * 130} y2={150 - f * 130} stroke="#1f1b17" strokeOpacity=".06" />)}
             {hist.map((x, i) => {
               const cx = gap * i + gap / 2, hr = (x.receitas / max) * 130, hd = (x.despesas / max) * 130, act = x.c === cycle;
               return (
                 <a key={x.c} href={`/?ciclo=${x.c}`}>
-                  <rect x={cx - gap / 2 + 4} y="0" width={gap - 8} height={H} rx="10" fill={act ? "#0f766e0d" : "transparent"} />
-                  <rect x={cx - bw - 2} y={150 - hr} width={bw} height={Math.max(hr, 1)} rx="5" fill="#15803d" opacity={act ? 1 : 0.55}><title>{`Receitas ${formatBRL(x.receitas)}`}</title></rect>
-                  <rect x={cx + 2} y={150 - hd} width={bw} height={Math.max(hd, 1)} rx="5" fill="#e11d48" opacity={act ? 1 : 0.5}><title>{`Despesas ${formatBRL(x.despesas)}`}</title></rect>
-                  <text x={cx} y="170" textAnchor="middle" style={{ fontSize: 11, fontWeight: act ? 600 : 400 }} fill={act ? "#0f1b2d" : "#0f1b2d80"}>{cycleLabel(x.c).slice(0, 3)}</text>
-                  <text x={cx} y="185" textAnchor="middle" style={{ fontSize: 10 }} fill={x.saldo >= 0 ? "#15803d" : "#e11d48"}>{x.receitas || x.despesas ? `${x.saldo >= 0 ? "+" : "−"}${kfmt(Math.abs(x.saldo))}` : ""}</text>
+                  <rect x={cx - gap / 2 + 4} y="0" width={gap - 8} height={H} rx="10" fill={act ? "#7d5f360d" : "transparent"} />
+                  <rect x={cx - bw - 2} y={150 - hr} width={bw} height={Math.max(hr, 1)} rx="5" fill="#4f7a52" opacity={act ? 1 : 0.55}><title>{`Receitas ${formatBRL(x.receitas)}`}</title></rect>
+                  <rect x={cx + 2} y={150 - hd} width={bw} height={Math.max(hd, 1)} rx="5" fill="#a33f30" opacity={act ? 1 : 0.5}><title>{`Despesas ${formatBRL(x.despesas)}`}</title></rect>
+                  <text x={cx} y="170" textAnchor="middle" style={{ fontSize: 11, fontWeight: act ? 600 : 400 }} fill={act ? "#1f1b17" : "#1f1b1780"}>{cycleLabel(x.c).slice(0, 3)}</text>
+                  <text x={cx} y="185" textAnchor="middle" style={{ fontSize: 10 }} fill={x.saldo >= 0 ? "#4f7a52" : "#a33f30"}>{x.receitas || x.despesas ? `${x.saldo >= 0 ? "+" : "−"}${kfmt(Math.abs(x.saldo))}` : ""}</text>
                 </a>
               );
             })}
@@ -149,7 +162,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
               {alerts.map((a) => (
                 <div key={a.cat!.id}>
                   <div className="mb-1 flex justify-between text-sm"><span>{a.cat!.name}</span><span className={`tabular-nums ${a.real > a.planned ? "font-medium text-rose-700" : "text-ink/60"}`}>{formatBRL(a.real)} <span className="text-ink/35">/ {formatBRL(a.planned)}</span></span></div>
-                  <Bar value={a.real} max={a.planned} color={a.real > a.planned ? "#e11d48" : "#d97706"} />
+                  <Bar value={a.real} max={a.planned} color={a.real > a.planned ? "#a33f30" : "#b8955a"} />
                 </div>
               ))}
             </div>
@@ -158,7 +171,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
             <div className="mt-5 border-t border-ink/5 pt-4">
               <div className="label mb-2">Última fatura</div>
               <Link href={`/faturas/${batch.id}`} className="flex items-center gap-3 rounded-xl bg-ink/[0.03] p-3 hover:bg-ink/[0.05]">
-                <div className="grid h-9 w-9 place-items-center rounded-lg bg-[#ec7000] text-xs font-bold text-white">{(batch.institution ?? "").slice(0, 4).toLowerCase()}</div>
+                <div className="grid h-9 w-9 place-items-center rounded-lg bg-[#b0703f] text-xs font-bold text-white">{(batch.institution ?? "").slice(0, 4).toLowerCase()}</div>
                 <div className="flex-1 text-sm"><div className="font-medium">{batch.due_date ? `Venc. ${String(batch.due_date).split("-").reverse().join("/")}` : "Fatura"}</div><div className="text-xs text-ink/50">{batch.tx_count} itens</div></div>
                 <div className="font-semibold tabular-nums">{formatBRL(batch.statement_total)}</div>
               </Link>

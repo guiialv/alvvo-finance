@@ -2,10 +2,17 @@ import { NextResponse } from "next/server";
 import { getContext } from "@/lib/context";
 import { refreshMacro, refreshNews, refreshQuotes } from "@/lib/market/refresh";
 import { yahooSymbol } from "@/lib/market/sources";
+import { refreshUniverse } from "@/lib/market/universe";
+
+export const maxDuration = 60;
 
 /** Botão "Atualizar": busca agora taxas, Focus e as cotações da conta. */
-export async function POST() {
+export async function POST(request: Request) {
   const ctx = await getContext();
+  if (new URL(request.url).searchParams.get("universo") === "1") {
+    const r = await refreshUniverse();
+    return NextResponse.json({ ok: true, ...r, at: new Date().toISOString() });
+  }
   const [{ data: ops }, { data: wl }] = await Promise.all([
     ctx.supabase.from("inv_ops").select("ticker, cls").eq("household_id", ctx.household.id),
     ctx.supabase.from("watchlist").select("ticker").eq("household_id", ctx.household.id),

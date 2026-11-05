@@ -45,7 +45,7 @@ function viewSeries(t) {
 }
 const UNIT_LBL = { D: "diário", W: "semanal", M: "mensal" };
 const fmtPct = (v) => (v == null ? "—" : `${v >= 0 ? "+" : ""}${(v * 100).toFixed(2).replace(".", ",")}%`);
-const perfColor = (v) => { if (v == null) return "color:#0f1b2d55"; const a = Math.min(1, Math.abs(v) / 0.5) * 0.28 + 0.04; return v >= 0 ? `background:rgba(21,128,61,${a});color:#14532d` : `background:rgba(225,29,72,${a});color:#881337`; };
+const perfColor = (v) => { if (v == null) return "color:#1f1b1755"; const a = Math.min(1, Math.abs(v) / 0.5) * 0.28 + 0.04; return v >= 0 ? `background:rgba(21,128,61,${a});color:#14532d` : `background:rgba(225,29,72,${a});color:#881337`; };
 
 // ---------- Ferramentas de desenho ----------
 const AN_TOOLS = [
@@ -62,7 +62,7 @@ const AN_TOOLS = [
   { k: "rect", ic: "▭", l: "Zona", pts: 2, tip: "Arraste para marcar uma região de preço (zona de acumulação, gap, área de compra)." },
   { k: "measure", ic: "⇕", l: "Régua", pts: 2, tip: "Arraste entre dois pontos para medir a variação em %, em reais e o tempo decorrido." },
 ];
-const DRAW_COLORS = ["#7c3aed", "#0369a1", "#d97706", "#0f1b2d"];
+const DRAW_COLORS = ["#7b5c7e", "#4a5a73", "#b8955a", "#1f1b17"];
 const FIB_R = [0, 0.236, 0.382, 0.5, 0.618, 0.786, 1], FIBEXT_R = [0, 0.618, 1, 1.618, 2.618];
 let AN_GEO = null, AN_DRAG = null;
 
@@ -113,7 +113,7 @@ function drawShape(dr, G, opt = {}) {
     case "channel": { if (!c) return drawShape({ ...dr, type: "trend" }, G, opt); const A1 = P(a), B1 = P(b), C1 = P(c), m = (B1.v - A1.v) / (B1.i - A1.i || 1e-9), dv = C1.v - (A1.v + m * (C1.i - A1.i));
       const yy = (xi, d0) => G.y(G.fi(A1.v + m * (xi - A1.i) + d0)), x1 = Math.min(A1.i, B1.i), x2 = dr.extend === false ? Math.max(A1.i, B1.i) : xiR;
       return hit(`<path d="M${G.x(x1)},${yy(x1, 0)} L${G.x(x2)},${yy(x2, 0)} L${G.x(x2)},${yy(x2, dv)} L${G.x(x1)},${yy(x1, dv)}Z" fill="${col}" fill-opacity=".06"/>` + seg(G.x(x1), yy(x1, 0), G.x(x2), yy(x2, 0)) + seg(G.x(x1), yy(x1, dv), G.x(x2), yy(x2, dv)) + `<line x1="${G.x(x1)}" y1="${yy(x1, dv / 2)}" x2="${G.x(x2)}" y2="${yy(x2, dv / 2)}" stroke="${col}" stroke-opacity=".45" stroke-dasharray="4 4"/>` + (dr.label ? tag(G.x(x1) + 4, yy(x1, dv) - 5, esc(dr.label)) : "") + handles([a, b, c])); }
-    case "fib": { const A1 = P(a), B1 = P(b), x1 = Math.min(A1.X, B1.X), up = b.p >= a.p; const cols = ["#64748b", "#e11d48", "#d97706", "#15803d", "#0f766e", "#0369a1", "#64748b"];
+    case "fib": { const A1 = P(a), B1 = P(b), x1 = Math.min(A1.X, B1.X), up = b.p >= a.p; const cols = ["#8c8579", "#a33f30", "#b8955a", "#4f7a52", "#7d5f36", "#4a5a73", "#8c8579"];
       return hit(FIB_R.map((r, j) => { const pr = b.p - (b.p - a.p) * r, Y = G.y(pr), Yn = j < FIB_R.length - 1 ? G.y(b.p - (b.p - a.p) * FIB_R[j + 1]) : Y; return `${j < FIB_R.length - 1 ? `<rect x="${x1}" y="${Math.min(Y, Yn)}" width="${R - x1}" height="${Math.abs(Yn - Y)}" fill="${cols[j]}" fill-opacity=".06"/>` : ""}<line x1="${x1}" x2="${R}" y1="${Y}" y2="${Y}" stroke="${cols[j]}" stroke-width="${[0.382, 0.5, 0.618].includes(r) ? 1.4 : 0.9}"/>${tag(x1 + 3, Y - 3, `${(r * 100).toFixed(1).replace(".", ",")}% · ${fmtP(pr)}`, cols[j])}`; }).join("") + `<line x1="${A1.X}" y1="${A1.Y}" x2="${B1.X}" y2="${B1.Y}" stroke="${col}" stroke-dasharray="3 3" stroke-opacity=".6"/>` + (opt.k != null ? `<rect x="${x1}" y="${Math.min(A1.Y, B1.Y)}" width="${R - x1}" height="${Math.abs(A1.Y - B1.Y)}" fill="transparent"/>` : "") + handles([a, b]) + (dr.label ? tag(x1 + 3, Math.min(A1.Y, B1.Y) - 12, esc(dr.label), col) : "") + `<title>${up ? "Retração de uma alta" : "Retração de uma queda"}</title>`); }
     case "fibext": { if (!c) return drawShape({ ...dr, type: "trend" }, G, opt); const C1 = P(c), mv = b.p - a.p; const x1 = C1.X;
       return hit(`<polyline points="${P(a).X},${P(a).Y} ${P(b).X},${P(b).Y} ${C1.X},${C1.Y}" fill="none" stroke="${col}" stroke-dasharray="3 3" stroke-opacity=".6"/>` + FIBEXT_R.map((r) => { const pr = c.p + mv * r, Y = G.y(pr); return `<line x1="${x1}" x2="${R}" y1="${Y}" y2="${Y}" stroke="${col}" stroke-width="${r === 1 || r === 1.618 ? 1.4 : 0.9}"/>${tag(x1 + 3, Y - 3, `${(r * 100).toFixed(1).replace(".", ",")}% · ${fmtP(pr)}`)}`; }).join("") + (opt.k != null ? `<rect x="${x1}" y="${Math.min(G.y(c.p), G.y(c.p + mv * 2.618))}" width="${R - x1}" height="${Math.abs(G.y(c.p) - G.y(c.p + mv * 2.618))}" fill="transparent"/>` : "") + handles([a, b, c])); }
@@ -121,7 +121,7 @@ function drawShape(dr, G, opt = {}) {
       const ln = (i0, v0) => seg(G.x(i0), G.y(G.fi(v0)), R, G.y(G.fi(v0 + m * (xiR - i0))));
       return hit(ln(A1.i, A1.v) + ln(B1.i, B1.v) + ln(C1.i, C1.v) + `<line x1="${B1.X}" y1="${B1.Y}" x2="${C1.X}" y2="${C1.Y}" stroke="${col}" stroke-dasharray="3 3" stroke-opacity=".6"/>` + handles([a, b, c])); }
     case "rect": { const A1 = P(a), B1 = P(b); return hit(`<rect x="${Math.min(A1.X, B1.X)}" y="${Math.min(A1.Y, B1.Y)}" width="${Math.abs(B1.X - A1.X)}" height="${Math.abs(B1.Y - A1.Y)}" fill="${col}" fill-opacity=".12" stroke="${col}" stroke-width="${sw}"/>` + handles([a, b])); }
-    case "measure": { const A1 = P(a), B1 = P(b), ch = b.p / a.p - 1, days = Math.round((Date.parse(b.d) - Date.parse(a.d)) / 864e5), cand = Math.round(B1.i - A1.i), cc = ch >= 0 ? "#15803d" : "#e11d48";
+    case "measure": { const A1 = P(a), B1 = P(b), ch = b.p / a.p - 1, days = Math.round((Date.parse(b.d) - Date.parse(a.d)) / 864e5), cand = Math.round(B1.i - A1.i), cc = ch >= 0 ? "#4f7a52" : "#a33f30";
       const bx = Math.min(G.xr - 120, Math.max(G.P + 120, (A1.X + B1.X) / 2)), by0 = Math.min(A1.Y, B1.Y) - 26, by = by0 < G.top ? Math.max(A1.Y, B1.Y) + 4 : by0;
       return hit(`<rect x="${Math.min(A1.X, B1.X)}" y="${Math.min(A1.Y, B1.Y)}" width="${Math.abs(B1.X - A1.X)}" height="${Math.abs(B1.Y - A1.Y)}" fill="${cc}" fill-opacity=".1"/><line x1="${bx}" y1="${A1.Y}" x2="${bx}" y2="${B1.Y}" stroke="${cc}" marker-end="url(#arr)"/>` +
         (() => { const txt = `${fmtPct(ch)} · ${brl(b.p - a.p)} · ${Math.abs(days)} dias (${Math.abs(cand)} candles)`, wd = txt.length * 6 + 14; return `<rect x="${bx - wd / 2}" y="${by}" width="${wd}" height="22" rx="5" fill="${cc}"/><text x="${bx}" y="${by + 15}" text-anchor="middle" style="font-size:10.5px;font-weight:600" fill="#fff">${txt}</text>`; })() + handles([a, b])); }
@@ -140,16 +140,16 @@ function anOverlay(G) {
 function anRefreshOverlay() { const g = document.getElementById("an-ov"); if (g && AN_GEO) g.innerHTML = anOverlay(AN_GEO); }
 
 // ---------- Tendências automáticas ----------
-const AUTO_STYLE = { lta: ["#15803d", ""], ltb: ["#e11d48", ""], canal: ["#64748b", "5 4"], suporte: ["#15803d", "2 4"], resistencia: ["#e11d48", "2 4"] };
+const AUTO_STYLE = { lta: ["#4f7a52", ""], ltb: ["#a33f30", ""], canal: ["#8c8579", "5 4"], suporte: ["#4f7a52", "2 4"], resistencia: ["#a33f30", "2 4"] };
 function anAuto(G) { const key = G.t + "|" + G.vs.range[0] + "|" + G.vs.unit + "|" + G.n; if (anAuto.k !== key) { anAuto.k = key; anAuto.v = TA.autoAnalysis(G.s); } return anAuto.v; }
 function anAutoLines(G) {
   const au = anAuto(G), d = (i) => G.dateAt(i), out = [];
   for (const l of au.lines) {
-    const [color, dash] = AUTO_STYLE[l.kind] ?? ["#0f1b2d", ""];
+    const [color, dash] = AUTO_STYLE[l.kind] ?? ["#1f1b17", ""];
     if (l.kind === "suporte" || l.kind === "resistencia") out.push({ type: "hline", price: l.a.p, color, dash, label: l.label });
     else out.push({ type: "ray", a: { d: d(l.a.i), p: l.a.p }, b: { d: d(l.b.i), p: l.b.p }, color, dash, label: l.label });
   }
-  if (au.fibo) out.push({ type: "fib", a: { d: d(au.fibo.from.i), p: au.fibo.from.p }, b: { d: d(au.fibo.to.i), p: au.fibo.to.p }, color: "#d97706", label: "Fibonacci do último movimento" });
+  if (au.fibo) out.push({ type: "fib", a: { d: d(au.fibo.from.i), p: au.fibo.from.p }, b: { d: d(au.fibo.to.i), p: au.fibo.to.p }, color: "#b8955a", label: "Fibonacci do último movimento" });
   return out;
 }
 
@@ -173,26 +173,26 @@ function anChartSection(t, r) {
   const lastC = s[n - 1];
   const tool = A.tool ?? "cursor", tdef = AN_TOOLS.find((x) => x.k === tool);
   const price = ctype === "candle"
-    ? s.map((c, i) => { const up = c.close >= c.open, col = up ? "#15803d" : "#e11d48"; return `<line x1="${x(i)}" x2="${x(i)}" y1="${y(c.high)}" y2="${y(c.low)}" stroke="${col}"/><rect x="${x(i) - cw / 2}" y="${y(Math.max(c.open, c.close))}" width="${cw}" height="${Math.max(1, Math.abs(y(c.open) - y(c.close)))}" fill="${col}"/>`; }).join("")
-    : `<path d="${path(s.map((c) => c.close))} L${x(n - 1)},${bot} L${x(0)},${bot}Z" fill="url(#an-grad)"/><path d="${path(s.map((c) => c.close))}" fill="none" stroke="#0f766e" stroke-width="1.6"/>`;
+    ? s.map((c, i) => { const up = c.close >= c.open, col = up ? "#4f7a52" : "#a33f30"; return `<line x1="${x(i)}" x2="${x(i)}" y1="${y(c.high)}" y2="${y(c.low)}" stroke="${col}"/><rect x="${x(i) - cw / 2}" y="${y(Math.max(c.open, c.close))}" width="${cw}" height="${Math.max(1, Math.abs(y(c.open) - y(c.close)))}" fill="${col}"/>`; }).join("")
+    : `<path d="${path(s.map((c) => c.close))} L${x(n - 1)},${bot} L${x(0)},${bot}Z" fill="url(#an-grad)"/><path d="${path(s.map((c) => c.close))}" fill="none" stroke="#7d5f36" stroke-width="1.6"/>`;
   const svg = `<svg id="an-chart" viewBox="0 0 ${W} ${H}" class="w-full touch-none select-none" style="cursor:${tool === "cursor" ? "default" : "crosshair"}">
-    <defs><clipPath id="an-clip"><rect x="${P}" y="${top}" width="${xr - P}" height="${bot - top}"/></clipPath><linearGradient id="an-grad" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#0f766e" stop-opacity=".18"/><stop offset="1" stop-color="#0f766e" stop-opacity="0"/></linearGradient><marker id="arr" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,0L10,5L0,10z" fill="context-stroke"/></marker></defs>
+    <defs><clipPath id="an-clip"><rect x="${P}" y="${top}" width="${xr - P}" height="${bot - top}"/></clipPath><linearGradient id="an-grad" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#7d5f36" stop-opacity=".18"/><stop offset="1" stop-color="#7d5f36" stop-opacity="0"/></linearGradient><marker id="arr" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,0L10,5L0,10z" fill="context-stroke"/></marker></defs>
     <rect x="${P}" y="${top}" width="${xr - P}" height="${bot - top}" fill="transparent"/>
-    ${grid.map((g) => `<line x1="${P}" x2="${xr}" y1="${y(g)}" y2="${y(g)}" stroke="#0f1b2d" stroke-opacity=".06"/><text x="${xr + 4}" y="${y(g) + 4}" style="font-size:10px" fill="#0f1b2d80">${fmtP(g)}</text>`).join("")}
-    ${ticks.map(([i, l]) => `<line x1="${x(i)}" x2="${x(i)}" y1="${top}" y2="${bot}" stroke="#0f1b2d" stroke-opacity=".04"/><text x="${x(i)}" y="${H - 5}" text-anchor="middle" style="font-size:10px" fill="#0f1b2d80">${l}</text>`).join("")}
-    <line x1="${x(n - 1) + G.cwid / 2}" x2="${x(n - 1) + G.cwid / 2}" y1="${top}" y2="${bot}" stroke="#0f1b2d" stroke-opacity=".12" stroke-dasharray="2 3"/>
+    ${grid.map((g) => `<line x1="${P}" x2="${xr}" y1="${y(g)}" y2="${y(g)}" stroke="#1f1b17" stroke-opacity=".06"/><text x="${xr + 4}" y="${y(g) + 4}" style="font-size:10px" fill="#1f1b1780">${fmtP(g)}</text>`).join("")}
+    ${ticks.map(([i, l]) => `<line x1="${x(i)}" x2="${x(i)}" y1="${top}" y2="${bot}" stroke="#1f1b17" stroke-opacity=".04"/><text x="${x(i)}" y="${H - 5}" text-anchor="middle" style="font-size:10px" fill="#1f1b1780">${l}</text>`).join("")}
+    <line x1="${x(n - 1) + G.cwid / 2}" x2="${x(n - 1) + G.cwid / 2}" y1="${top}" y2="${bot}" stroke="#1f1b17" stroke-opacity=".12" stroke-dasharray="2 3"/>
     <g clip-path="url(#an-clip)">
-    ${A.bb ? `<path d="${path(G.bbu)}" fill="none" stroke="#0369a1" stroke-opacity=".35"/><path d="${path(G.bbl)}" fill="none" stroke="#0369a1" stroke-opacity=".35"/>` : ""}
+    ${A.bb ? `<path d="${path(G.bbu)}" fill="none" stroke="#4a5a73" stroke-opacity=".35"/><path d="${path(G.bbl)}" fill="none" stroke="#4a5a73" stroke-opacity=".35"/>` : ""}
     ${price}
-    <path d="${path(s20)}" fill="none" stroke="#d97706" stroke-width="1.3"/><path d="${path(s50)}" fill="none" stroke="#4f46e5" stroke-width="1.3"/>${A.ma200 ? `<path d="${path(s200)}" fill="none" stroke="#be185d" stroke-width="1.3"/>` : ""}
-    ${target(G.w.buy, "#15803d", "meu alvo compra")}${target(G.w.sell, "#be123c", "meu alvo venda")}
+    <path d="${path(s20)}" fill="none" stroke="#b8955a" stroke-width="1.3"/><path d="${path(s50)}" fill="none" stroke="#4f46e5" stroke-width="1.3"/>${A.ma200 ? `<path d="${path(s200)}" fill="none" stroke="#be185d" stroke-width="1.3"/>` : ""}
+    ${target(G.w.buy, "#4f7a52", "meu alvo compra")}${target(G.w.sell, "#a33f30", "meu alvo venda")}
     <g id="an-ov">${anOverlay(G)}</g></g>
-    <rect x="${xr + 1}" y="${y(lastC.close) - 8}" width="${G.AX - 2}" height="16" rx="3" fill="#0f766e"/><text x="${xr + 4}" y="${y(lastC.close) + 4}" style="font-size:10px;font-weight:600" fill="#fff">${fmtP(lastC.close)}</text>
+    <rect x="${xr + 1}" y="${y(lastC.close) - 8}" width="${G.AX - 2}" height="16" rx="3" fill="#7d5f36"/><text x="${xr + 4}" y="${y(lastC.close) + 4}" style="font-size:10px;font-weight:600" fill="#fff">${fmtP(lastC.close)}</text>
     <g id="an-cross" pointer-events="none"></g></svg>`;
-  const sub = (arr, h, lo2, hi2, color, refs = []) => { const yy = (v) => 4 + (1 - (v - lo2) / (hi2 - lo2)) * (h - 8); return `<svg viewBox="0 0 ${W} ${h}" class="w-full">${refs.map(([v, c]) => `<line x1="${P}" x2="${xr}" y1="${yy(v)}" y2="${yy(v)}" stroke="${c}" stroke-dasharray="3 3" stroke-opacity=".5"/><text x="${xr + 4}" y="${yy(v) + 3}" style="font-size:9px" fill="#0f1b2d80">${v}</text>`).join("")}<path d="${arr.map((v, i) => (isFinite(v) ? `${i && isFinite(arr[i - 1]) ? "L" : "M"}${x(i).toFixed(1)},${yy(v).toFixed(1)}` : "")).join("")}" fill="none" stroke="${color}" stroke-width="1.3"/></svg>`; };
+  const sub = (arr, h, lo2, hi2, color, refs = []) => { const yy = (v) => 4 + (1 - (v - lo2) / (hi2 - lo2)) * (h - 8); return `<svg viewBox="0 0 ${W} ${h}" class="w-full">${refs.map(([v, c]) => `<line x1="${P}" x2="${xr}" y1="${yy(v)}" y2="${yy(v)}" stroke="${c}" stroke-dasharray="3 3" stroke-opacity=".5"/><text x="${xr + 4}" y="${yy(v) + 3}" style="font-size:9px" fill="#1f1b1780">${v}</text>`).join("")}<path d="${arr.map((v, i) => (isFinite(v) ? `${i && isFinite(arr[i - 1]) ? "L" : "M"}${x(i).toFixed(1)},${yy(v).toFixed(1)}` : "")).join("")}" fill="none" stroke="${color}" stroke-width="1.3"/></svg>`; };
   const mmax = Math.max(0.0001, ...mh.filter(isFinite).map(Math.abs), ...ml.filter(isFinite).map(Math.abs));
-  const macdSvg = `<svg viewBox="0 0 ${W} 80" class="w-full">${mh.map((v, i) => (isFinite(v) ? `<rect x="${x(i) - cw / 2}" y="${v >= 0 ? 40 - (v / mmax) * 36 : 40}" width="${cw}" height="${Math.abs(v / mmax) * 36}" fill="${v >= 0 ? "#15803d" : "#e11d48"}" opacity=".5"/>` : "")).join("")}<path d="${ml.map((v, i) => (isFinite(v) ? `${i && isFinite(ml[i - 1]) ? "L" : "M"}${x(i)},${40 - (v / mmax) * 36}` : "")).join("")}" fill="none" stroke="#4f46e5"/><path d="${msg.map((v, i) => (isFinite(v) ? `${i && isFinite(msg[i - 1]) ? "L" : "M"}${x(i)},${40 - (v / mmax) * 36}` : "")).join("")}" fill="none" stroke="#d97706"/></svg>`;
-  const vmax = Math.max(...s.map((c) => c.volume)), volSvg = `<svg viewBox="0 0 ${W} 46" class="w-full">${s.map((c, i) => `<rect x="${x(i) - cw / 2}" y="${46 - (c.volume / vmax) * 42}" width="${cw}" height="${(c.volume / vmax) * 42}" fill="${c.close >= c.open ? "#15803d" : "#e11d48"}" opacity=".3"/>`).join("")}</svg>`;
+  const macdSvg = `<svg viewBox="0 0 ${W} 80" class="w-full">${mh.map((v, i) => (isFinite(v) ? `<rect x="${x(i) - cw / 2}" y="${v >= 0 ? 40 - (v / mmax) * 36 : 40}" width="${cw}" height="${Math.abs(v / mmax) * 36}" fill="${v >= 0 ? "#4f7a52" : "#a33f30"}" opacity=".5"/>` : "")).join("")}<path d="${ml.map((v, i) => (isFinite(v) ? `${i && isFinite(ml[i - 1]) ? "L" : "M"}${x(i)},${40 - (v / mmax) * 36}` : "")).join("")}" fill="none" stroke="#4f46e5"/><path d="${msg.map((v, i) => (isFinite(v) ? `${i && isFinite(msg[i - 1]) ? "L" : "M"}${x(i)},${40 - (v / mmax) * 36}` : "")).join("")}" fill="none" stroke="#b8955a"/></svg>`;
+  const vmax = Math.max(...s.map((c) => c.volume)), volSvg = `<svg viewBox="0 0 ${W} 46" class="w-full">${s.map((c, i) => `<rect x="${x(i) - cw / 2}" y="${46 - (c.volume / vmax) * 42}" width="${cw}" height="${(c.volume / vmax) * 42}" fill="${c.close >= c.open ? "#4f7a52" : "#a33f30"}" opacity=".3"/>`).join("")}</svg>`;
   const draws = A.draw[t] ?? [], selD = A.selDraw != null ? draws[A.selDraw] : null;
   const tb = (k, ic, l, on) => `<button data-a="an-tool" data-v="${k}" title="${l}" class="flex h-8 min-w-8 items-center justify-center gap-1 rounded-lg px-2 text-sm ${on ? "bg-violet-600 text-white" : "text-ink/65 hover:bg-ink/5"}"><span class="w-4 text-center">${ic}</span><span class="hidden text-xs 2xl:inline">${l}</span></button>`;
   const perf = TA.performance(vs.full), a = MKT.assets[t] ?? {};
@@ -200,7 +200,7 @@ function anChartSection(t, r) {
     return `<button ${rk ? `data-a="an-range" data-v="${rk}"` : "disabled"} class="px-2 py-2 text-center ${A.range === rk ? "ring-2 ring-inset ring-brand" : ""}" style="${perfColor(v)}"><div class="text-[10px] font-medium uppercase tracking-wide opacity-70">${p.key === "MAX" ? `Desde ${(a.since ?? s[0].date).slice(0, 4)}` : p.label}</div><div class="text-sm font-semibold tabular-nums">${fmtPct(v)}</div></button>`; }).join("")}</div>`;
   const au = A.auto?.[t] ? anAuto(G) : null;
   const autoCard = au ? `<section class="card border-amber-200/70 bg-gradient-to-b from-amber-50/60 to-white"><div class="mb-2 flex flex-wrap items-center justify-between gap-2"><h2>Leitura automática do gráfico</h2><span class="text-xs text-ink/45">${vs.range[1]} · ${n} candles ${UNIT_LBL[vs.unit]}s</span></div>
-      <div class="mb-3 flex flex-wrap gap-2 text-[11px]">${[["LTA", "#15803d", ""], ["LTB", "#e11d48", ""], ["Canal", "#64748b", "5 4"], ["Suporte", "#15803d", "2 4"], ["Resistência", "#e11d48", "2 4"], ["Fibonacci", "#d97706", ""]].map(([l, c, d]) => `<span class="flex items-center gap-1 rounded-md bg-white px-1.5 py-0.5 ring-1 ring-ink/5"><svg width="18" height="6"><line x1="0" x2="18" y1="3" y2="3" stroke="${c}" stroke-width="2" stroke-dasharray="${d}"/></svg>${l}</span>`).join("")}</div>
+      <div class="mb-3 flex flex-wrap gap-2 text-[11px]">${[["LTA", "#4f7a52", ""], ["LTB", "#a33f30", ""], ["Canal", "#8c8579", "5 4"], ["Suporte", "#4f7a52", "2 4"], ["Resistência", "#a33f30", "2 4"], ["Fibonacci", "#b8955a", ""]].map(([l, c, d]) => `<span class="flex items-center gap-1 rounded-md bg-white px-1.5 py-0.5 ring-1 ring-ink/5"><svg width="18" height="6"><line x1="0" x2="18" y1="3" y2="3" stroke="${c}" stroke-width="2" stroke-dasharray="${d}"/></svg>${l}</span>`).join("")}</div>
       <ul class="space-y-2 text-sm text-ink/75">${au.reading.map((x) => `<li class="flex gap-2"><span class="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-amber-500"></span><span>${esc(x)}</span></li>`).join("")}</ul>
       <div class="mt-3 flex flex-wrap gap-2"><button class="btn-ghost !py-1.5 text-xs" data-a="an-auto-keep">Copiar para meus desenhos</button><button class="btn-ghost !py-1.5 text-xs" data-a="an-auto">Ocultar</button></div>
       <p class="mt-2 text-[11px] text-ink/45">Como a plataforma encontra as linhas: topos e fundos (pivôs) do período, LTA/LTB ligando os dois últimos fundos ascendentes/topos descendentes, canal pela paralela no extremo oposto, suportes e resistências onde 2+ pivôs se repetem (±1,5%), Fibonacci do maior movimento da metade final e regressão linear para a força da tendência. Mude o período para outra leitura (curto prazo × longo prazo). Não é recomendação.</p></section>` : "";
@@ -212,7 +212,7 @@ function anChartSection(t, r) {
         <label class="flex items-center gap-1 text-xs text-ink/60" title="Escala logarítmica: distâncias iguais = variações % iguais. Essencial para períodos longos."><input type="checkbox" data-anlog ${A.log ? "checked" : ""}> Log</label>
         <label class="flex items-center gap-1 text-xs text-ink/60"><input type="checkbox" data-anbb ${A.bb ? "checked" : ""}> Bollinger</label>
         <label class="flex items-center gap-1 text-xs text-ink/60"><input type="checkbox" data-anma200 ${A.ma200 ? "checked" : ""}> MMS200</label>
-        <span class="ml-auto flex items-center gap-1 text-[11px] text-ink/50"><span class="h-0.5 w-3 bg-[#d97706]"></span>MMS20 <span class="ml-1 h-0.5 w-3 bg-[#4f46e5]"></span>MMS50${A.ma200 ? ` <span class="ml-1 h-0.5 w-3 bg-[#be185d]"></span>MMS200` : ""}</span>
+        <span class="ml-auto flex items-center gap-1 text-[11px] text-ink/50"><span class="h-0.5 w-3 bg-[#b8955a]"></span>MMS20 <span class="ml-1 h-0.5 w-3 bg-[#4f46e5]"></span>MMS50${A.ma200 ? ` <span class="ml-1 h-0.5 w-3 bg-[#be185d]"></span>MMS200` : ""}</span>
       </div>
       <div class="flex">
         <div class="flex w-11 shrink-0 flex-col items-center gap-0.5 border-r border-ink/5 py-2 2xl:w-auto 2xl:items-stretch 2xl:px-1.5">${AN_TOOLS.map((x) => tb(x.k, x.ic, x.l, tool === x.k)).join("")}
@@ -228,7 +228,7 @@ function anChartSection(t, r) {
           <div class="px-3 py-1.5 text-xs ${tool === "cursor" ? "text-ink/45" : "bg-violet-50 text-violet-800"}"><b>${tdef.l}:</b> ${tdef.tip}${vs.forced ? ` <span class="text-amber-700">${vs.forced}</span>` : ""}</div>
           ${selD ? `<div class="flex flex-wrap items-center gap-2 border-y border-violet-100 bg-violet-50/50 px-3 py-1.5 text-xs"><span class="font-medium text-violet-800">Desenho selecionado: ${AN_TOOLS.find((x) => x.k === selD.type)?.l ?? "Linha"}</span>${DRAW_COLORS.map((c) => `<button data-a="an-color" data-v="${c}" class="h-4 w-4 rounded-full ring-2 ${(selD.color ?? DRAW_COLORS[0]) === c ? "ring-ink/40" : "ring-transparent"}" style="background:${c}"></button>`).join("")}<input data-anlabel class="w-44 rounded-md border border-ink/10 bg-white px-2 py-0.5" placeholder="Rótulo (opcional)" value="${esc(selD.label ?? "")}"><button data-a="an-deldraw" class="ml-auto text-rose-700 hover:underline">Excluir (Delete)</button></div>` : ""}
           <div class="px-1 pt-1">${svg}</div><div class="px-1">${volSvg}</div>
-          <div class="border-t border-ink/5 px-3 pt-2 text-[11px] font-semibold uppercase tracking-wider text-ink/40">RSI (14) · ${isFinite(rs.at(-1)) ? rs.at(-1).toFixed(1) : "—"}</div><div class="px-1">${sub(rs, 64, 0, 100, "#7c3aed", [[70, "#be123c"], [30, "#15803d"]])}</div>
+          <div class="border-t border-ink/5 px-3 pt-2 text-[11px] font-semibold uppercase tracking-wider text-ink/40">RSI (14) · ${isFinite(rs.at(-1)) ? rs.at(-1).toFixed(1) : "—"}</div><div class="px-1">${sub(rs, 64, 0, 100, "#7b5c7e", [[70, "#a33f30"], [30, "#4f7a52"]])}</div>
           <div class="border-t border-ink/5 px-3 pt-2 text-[11px] font-semibold uppercase tracking-wider text-ink/40">MACD (12, 26, 9)</div><div class="px-1 pb-2">${macdSvg}</div>
         </div></div>
       <p class="border-t border-ink/5 px-4 py-2.5 text-[11px] text-ink/40">Histórico desde ${dBR(vs.full[0].date)} (primeiro pregão disponível), ajustado por proventos e desdobramentos. Fonte: Yahoo Finance, com atraso. Os desenhos ficam salvos por ação e valem em qualquer período e intervalo.${OPTS.readOnly ? " Você está no modo somente leitura." : ""}</p></section>`;
@@ -266,7 +266,7 @@ const onMove = (e) => {
   const pt = anPoint(e, G), A = anState();
   // mira (crosshair) + leitura OHLC
   const ci = Math.max(0, Math.min(G.n - 1, pt.i)), cross = document.getElementById("an-cross");
-  if (cross) cross.innerHTML = `<line x1="${G.x(pt.i)}" x2="${G.x(pt.i)}" y1="${G.top}" y2="${G.bot}" stroke="#0f1b2d" stroke-opacity=".3" stroke-dasharray="3 3"/><line x1="${G.P}" x2="${G.xr}" y1="${pt.py}" y2="${pt.py}" stroke="#0f1b2d" stroke-opacity=".3" stroke-dasharray="3 3"/><rect x="${G.xr + 1}" y="${pt.py - 8}" width="${G.AX - 2}" height="16" rx="3" fill="#0f1b2d"/><text x="${G.xr + 4}" y="${pt.py + 4}" style="font-size:10px;font-weight:600" fill="#fff">${fmtP(pt.p)}</text><rect x="${G.x(pt.i) - 32}" y="${G.bot + 1}" width="64" height="15" rx="3" fill="#0f1b2d"/><text x="${G.x(pt.i)}" y="${G.bot + 12}" text-anchor="middle" style="font-size:10px" fill="#fff">${dBR(pt.d)}</text>`;
+  if (cross) cross.innerHTML = `<line x1="${G.x(pt.i)}" x2="${G.x(pt.i)}" y1="${G.top}" y2="${G.bot}" stroke="#1f1b17" stroke-opacity=".3" stroke-dasharray="3 3"/><line x1="${G.P}" x2="${G.xr}" y1="${pt.py}" y2="${pt.py}" stroke="#1f1b17" stroke-opacity=".3" stroke-dasharray="3 3"/><rect x="${G.xr + 1}" y="${pt.py - 8}" width="${G.AX - 2}" height="16" rx="3" fill="#1f1b17"/><text x="${G.xr + 4}" y="${pt.py + 4}" style="font-size:10px;font-weight:600" fill="#fff">${fmtP(pt.p)}</text><rect x="${G.x(pt.i) - 32}" y="${G.bot + 1}" width="64" height="15" rx="3" fill="#1f1b17"/><text x="${G.x(pt.i)}" y="${G.bot + 12}" text-anchor="middle" style="font-size:10px" fill="#fff">${dBR(pt.d)}</text>`;
   const rd = document.getElementById("an-read"); if (rd) rd.innerHTML = anReadout(G, ci);
   if (!AN_DRAG || (OPTS.readOnly && AN_DRAG.kind !== "new")) return;
   if (AN_DRAG.kind === "new") { AN_DRAG.draft[AN_DRAG.await ?? "b"] = { d: pt.d, p: pt.p }; anRefreshOverlay(); return; }
