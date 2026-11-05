@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { templateCategories, type Template } from "@/lib/categories-default";
+import { templateGroups } from "@/lib/groups";
 
 export type OnbState = { error?: string } | undefined;
 
@@ -31,6 +32,7 @@ export async function onboard(_: OnbState, formData: FormData): Promise<OnbState
   const rows = templateCategories(template).map((c, i) => ({ household_id: hh as string, sort: i, ...c }));
   const { error: catErr } = await supabase.from("categories").insert(rows);
   if (catErr) return { error: "Conta criada, mas falhou ao criar as categorias: " + catErr.message };
+  await supabase.from("category_groups").insert(templateGroups(templateCategories(template)).map((g) => ({ household_id: hh as string, ...g })));
   redirect("/");
 }
 

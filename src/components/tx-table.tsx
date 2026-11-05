@@ -4,7 +4,7 @@ import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { cycleLabel, cycleRangeLabel, shiftCycle } from "@/lib/cycle";
 import { formatBRL, formatDateBR } from "@/lib/format";
-import { GROUP_ORDER, type Scope } from "@/lib/categories-default";
+import type { Scope } from "@/lib/categories-default";
 import { groupColor } from "@/lib/theme";
 import { deleteTransactionById, updateTransaction } from "@/app/(app)/lancamentos/actions";
 import { Avatar, GroupTag, Pill } from "./ui";
@@ -17,7 +17,7 @@ export interface TxView {
   international: boolean; foreign_amount: number | null; foreign_currency: string | null; fx_rate: number | null;
   source: string; account_name: string | null; batch_label: string | null; same_merchant: number;
 }
-export interface CatLite { id: string; name: string; grp: string; subgroup: string; scope: Scope; kind: string; active: boolean }
+export interface CatLite { id: string; name: string; grp: string; subgroup: string; scope: Scope; kind: string; active: boolean; color?: string | null }
 export interface MemberLite { user_id: string; display_name: string; index: number }
 
 const title = (s: string | null) => (s ?? "").toLowerCase().replace(/(^|\s)\S/g, (m) => m.toUpperCase());
@@ -83,7 +83,7 @@ export function TxDrawer({ tx, cats, byId, members, cycleStartDay, onClose }: {
   const [learn, setLearn] = useState(true);
   const [pending, start] = useTransition();
   const [msg, setMsg] = useState<string | null>(null);
-  const groups = GROUP_ORDER[scope].filter((g) => g !== "A classificar");
+  const groups = [...new Set(cats.filter((c) => c.active && c.scope === scope).map((c) => c.grp))].filter((g) => g !== "A classificar");
   const options = cats.filter((c) => c.active && c.scope === scope && c.grp === grp);
 
   const row = (l: string, v: React.ReactNode) => <div className="flex justify-between gap-4 py-2 text-sm"><span className="text-ink/50">{l}</span><span className="text-right font-medium">{v}</span></div>;
@@ -136,7 +136,7 @@ export function TxDrawer({ tx, cats, byId, members, cycleStartDay, onClose }: {
             </div>
             <div className="flex flex-wrap gap-1.5">
               {groups.map((g) => {
-                const col = groupColor(g);
+                const col = groupColor(g, cats.find((c) => c.grp === g && c.scope === scope)?.color);
                 return (
                   <button key={g} type="button" onClick={() => { setGrp(g); setCatId(""); }} className="rounded-full border px-3 py-1.5 text-xs font-medium transition"
                     style={grp === g ? { background: col, borderColor: col, color: "#fff" } : { borderColor: `${col}40`, color: col }}>{g}</button>

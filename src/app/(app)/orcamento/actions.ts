@@ -28,7 +28,7 @@ export async function fillBudget(formData: FormData) {
   const hh = ctx.household.id;
 
   const { data: cats } = await ctx.supabase.from("categories").select("id, kind").eq("household_id", hh).eq("scope", scope);
-  const ids = new Set((cats ?? []).filter((c) => c.kind !== "receita").map((c) => c.id as string));
+  const ids = new Set((cats ?? []).filter((c) => c.kind !== "transferencia").map((c) => c.id as string));
   let rows: { household_id: string; category_id: string; cycle: string; planned: number }[] = [];
 
   if (mode === "copiar") {

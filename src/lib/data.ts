@@ -11,6 +11,10 @@ export interface Category {
   sort: number;
   excluded_from_totals: boolean;
   active: boolean;
+  /** Cor do grupo (definida no Orçamento). */
+  color?: string | null;
+  /** Posição do grupo na ordem definida pelo usuário. */
+  group_sort?: number;
 }
 
 export interface Transaction {
@@ -46,14 +50,22 @@ export interface Account {
 export async function loadCategories(ctx: Ctx, scope?: Scope): Promise<Category[]> {
   let q = ctx.supabase.from("categories").select("*").eq("household_id", ctx.household.id);
   if (scope) q = q.eq("scope", scope);
-  const { data } = await q.order("sort");
-  return sortCategories((data ?? []) as Category[]);
+  let gq = ctx.supabase.from("category_groups").select("scope, name, color, sort").eq("household_id", ctx.household.id);
+  if (scope) gq = gq.eq("scope", scope);
+  const [{ data }, { data: groups }] = await Promise.all([q.order("sort"), gq]);
+  const gm = new Map<string, { color: string | null; sort: number }>(((groups ?? []) as { scope: string; name: string; color: string | null; sort: number }[]).map((g) => [`${g.scope}|${g.name}`, g] as [string, { color: string | null; sort: number }]));
+  const cats = ((data ?? []) as Category[]).map((c) => {
+    const g = gm.get(`${c.scope}|${c.grp}`);
+    return { ...c, color: g?.color ?? null, group_sort: g?.sort };
+  });
+  return sortCategories(cats);
 }
 
 export function sortCategories(cats: Category[]): Category[] {
   const order = (c: Category) => {
+    if (c.group_sort != null) return (c.scope === "pj" ? 100000 : 0) + c.group_sort;
     const g = GROUP_ORDER[c.scope]?.indexOf(c.grp) ?? 99;
-    return (c.scope === "pj" ? 1000 : 0) + (g < 0 ? 99 : g);
+    return (c.scope === "pj" ? 100000 : 0) + (g < 0 ? 9999 : (g + 1) * 10);
   };
   return [...cats].sort((a, b) => order(a) - order(b) || a.sort - b.sort || a.name.localeCompare(b.name));
 }

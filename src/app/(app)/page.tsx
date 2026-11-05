@@ -9,7 +9,6 @@ import { AGENDA_COLOR, groupColor } from "@/lib/theme";
 import { Bar, cycleLong, CycleNav, Delta, Donut, Empty, Kpi, PageHeader, Pill } from "@/components/ui";
 import { Icon } from "@/components/icons";
 
-const GROUPS = ["Fixas", "Variáveis", "Extras", "Adicionais", "A classificar"];
 const kfmt = (v: number) => (Math.abs(v) >= 1000 ? `${(v / 1000).toLocaleString("pt-BR", { maximumFractionDigits: 1 })}k` : String(Math.round(v)));
 
 export default async function DashboardPage({ searchParams }: { searchParams: Promise<{ ciclo?: string }> }) {
@@ -45,7 +44,8 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
   const top = [...spent.entries()].map(([id, v]) => ({ cat: byId.get(id), v }))
     .filter((x) => x.cat && x.cat.kind === "despesa" && !x.cat.excluded_from_totals).sort((a, b) => b.v - a.v).slice(0, 7);
   const toClassify = curTx.filter((t) => !t.category_id || byId.get(t.category_id)?.grp === "A classificar").length;
-  const groups = GROUPS.map((g) => ({ label: g, v: s.porGrupo[g] ?? 0, color: groupColor(g) }));
+  const groups = [...new Set(cats.filter((c) => c.kind === "despesa" && c.scope === "pessoal").map((c) => c.grp))]
+    .map((g) => ({ label: g, v: s.porGrupo[g] ?? 0, color: groupColor(g, cats.find((c) => c.grp === g)?.color) }));
   const upcoming = agenda.occ.filter((o) => !o.paid && (o.date >= today || o.event !== "fechamento")).slice(0, 4);
   const batch = lastBatch.data?.[0];
 
@@ -134,7 +134,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
               {top.map((x) => (
                 <Link key={x.cat!.id} href={`/lancamentos?ciclo=${cycle}&categoria=${x.cat!.id}`} className="flex items-center gap-3 py-2.5 hover:bg-ink/[0.02]">
                   <div className="w-44 shrink-0"><Pill cat={x.cat} /></div>
-                  <div className="flex-1"><Bar value={x.v} max={top[0].v} color={groupColor(x.cat!.grp)} /></div>
+                  <div className="flex-1"><Bar value={x.v} max={top[0].v} color={groupColor(x.cat!.grp, x.cat!.color)} /></div>
                   <div className="w-28 text-right text-sm font-medium tabular-nums">{formatBRL(x.v)}</div>
                 </Link>
               ))}

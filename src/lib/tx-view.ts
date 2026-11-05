@@ -30,7 +30,7 @@ export async function buildTxViews(ctx: Ctx, txs: Transaction[], accounts: Accou
 }
 
 export const toCatLite = (cats: Category[]): CatLite[] =>
-  cats.map((c) => ({ id: c.id, name: c.name, grp: c.grp, subgroup: c.subgroup, scope: c.scope, kind: c.kind, active: c.active }));
+  cats.map((c) => ({ id: c.id, name: c.name, grp: c.grp, subgroup: c.subgroup, scope: c.scope, kind: c.kind, active: c.active, color: c.color ?? null }));
 
 export const toMemberLite = (members: { user_id: string; display_name: string; role: string }[]): MemberLite[] =>
   [...members].sort((a, b) => (a.role === "dono" ? -1 : b.role === "dono" ? 1 : 0)).map((m, i) => ({ user_id: m.user_id, display_name: m.display_name, index: i }));

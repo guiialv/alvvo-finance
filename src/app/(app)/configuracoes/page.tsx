@@ -1,10 +1,8 @@
 import { requireAdmin } from "@/lib/context";
 import { categoryIndex, loadAccounts, loadCategories, loadMembers } from "@/lib/data";
-import { GROUP_ORDER } from "@/lib/categories-default";
 import { PageHeader } from "@/components/ui";
 import { addCategory, deleteRule, renameCategory, saveAiKey, setAiMode, toggleCategory, updateAccount, updateHousehold } from "./actions";
 
-const GROUP_KIND: Record<string, string> = { Receitas: "receita", Investimentos: "investimento", "Receitas PJ": "receita", Retiradas: "transferencia" };
 
 export default async function ConfigPage() {
   const ctx = await requireAdmin();
@@ -106,12 +104,12 @@ export default async function ConfigPage() {
       </section>
 
       <section className="card">
-        <h2 className="mb-4">Categorias</h2>
+        <div className="mb-4 flex items-baseline justify-between gap-3"><h2>Categorias</h2><a href="/orcamento?editar=1" className="text-sm text-brand hover:underline">Editar grupos e categorias no Orçamento →</a></div>
         <form action={addCategory} className="mb-5 flex flex-wrap gap-2">
           <select className="input max-w-[200px]" name="group" defaultValue="pessoal|despesa|Variáveis">
-            {(["pessoal", "pj"] as const).flatMap((s) => GROUP_ORDER[s].filter((g) => g !== "A classificar").map((g) => (
-              <option key={s + g} value={`${s}|${GROUP_KIND[g] ?? "despesa"}|${g}`}>{s === "pj" ? "PJ · " : ""}{g}</option>
-            )))}
+            {[...new Map(cats.filter((c) => c.grp !== "A classificar").map((c) => [`${c.scope}|${c.grp}`, c] as [string, typeof c])).values()].map((c) => (
+              <option key={c.scope + c.grp} value={`${c.scope}|${c.kind}|${c.grp}`}>{c.scope === "pj" ? "PJ · " : ""}{c.grp}</option>
+            ))}
           </select>
           <input className="input max-w-[180px]" name="subgroup" placeholder="Subgrupo (opcional)" />
           <input className="input max-w-[220px]" name="name" placeholder="Nova categoria" required />
