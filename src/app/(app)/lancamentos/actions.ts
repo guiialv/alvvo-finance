@@ -5,6 +5,19 @@ import { requireEdit } from "@/lib/context";
 import { cycleOf } from "@/lib/cycle";
 import { normalizeMerchant } from "@/lib/categorize";
 import { parseMoneyInput } from "@/lib/format";
+import { type Flow, signedAmount } from "@/lib/reconcile";
+import type { Kind } from "@/lib/categories-default";
+import type { Ctx } from "@/lib/context";
+
+/** Lançamentos de extrato: o sinal do valor acompanha o tipo da categoria (ex.: entrada numa categoria de despesa = estorno). */
+async function fixSigns(ctx: Ctx, ids: string[]) {
+  if (!ids.length) return;
+  const { data } = await ctx.supabase.from("transactions").select("id, amount, flow, kind").in("id", ids).not("flow", "is", null);
+  await Promise.all(((data ?? []) as { id: string; amount: number; flow: Flow; kind: Kind }[]).map((t) => {
+    const v = signedAmount(Number(t.amount), t.flow, t.kind);
+    return v === Number(t.amount) ? null : ctx.supabase.from("transactions").update({ amount: v }).eq("id", t.id);
+  }));
+}
 
 function refresh() {
   revalidatePath("/lancamentos");
@@ -28,6 +41,7 @@ export async function setCategory(txId: string, categoryId: string, learn = true
 
   const { error } = await ctx.supabase.from("transactions").update({ category_id: cat.id, kind: cat.kind, scope: cat.scope }).eq("id", txId);
   if (error) return { error: error.message };
+  await fixSigns(ctx, [txId]);
 
   let applied = 0;
   const mk = tx.merchant_key || normalizeMerchant(tx.description);
@@ -47,6 +61,7 @@ export async function setCategory(txId: string, categoryId: string, learn = true
       .or(filter)
       .select("id");
     applied = upd?.length ?? 0;
+    await fixSigns(ctx, (upd ?? []).map((x) => x.id as string));
   }
   refresh();
   return { ok: true, applied };
@@ -116,6 +131,7 @@ export async function updateTransaction(txId: string, u: TxUpdate): Promise<{ er
   }
   const { error } = await ctx.supabase.from("transactions").update(patch).eq("id", txId);
   if (error) return { error: error.message };
+  if (cat) await fixSigns(ctx, [txId]);
 
   let applied = 0;
   const mk = tx.merchant_key || normalizeMerchant(tx.description);
@@ -129,6 +145,7 @@ export async function updateTransaction(txId: string, u: TxUpdate): Promise<{ er
     const { data: upd2 } = await ctx.supabase.from("transactions").update({ category_id: cat.id, kind: cat.kind, scope: cat.scope })
       .eq("household_id", hh).eq("merchant_key", mk).neq("id", txId).is("category_id", null).select("id");
     applied = (upd?.length ?? 0) + (upd2?.length ?? 0);
+    await fixSigns(ctx, [...(upd ?? []), ...(upd2 ?? [])].map((x) => x.id as string));
   }
   refresh();
   revalidatePath("/faturas", "layout");

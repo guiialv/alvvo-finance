@@ -40,7 +40,12 @@ export function parseOFX(text: string): ParsedStatement {
     const last4 = acct.replace(/\D/g, "").slice(-4) || null;
     st.transactions.forEach((t) => (t.cardLast4 = last4));
   }
-  if (!isCard) st.warnings.push("Extrato de conta: valores positivos são saídas e negativos são entradas. Revise o tipo de cada lançamento.");
+  if (!isCard) {
+    // Extrato de conta: valor sempre positivo + sentido (entrada/saída)
+    st.docType = "extrato";
+    st.accountRef = acct ?? null;
+    st.transactions.forEach((t) => { t.flow = t.amount > 0 ? "saida" : "entrada"; t.amount = Math.abs(t.amount); t.cardLast4 = null; });
+  }
   return st;
 }
 

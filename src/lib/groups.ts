@@ -47,7 +47,7 @@ export async function loadGroups(ctx: Ctx, scope?: Scope): Promise<Group[]> {
       const pos = GROUP_ORDER[m.scope].indexOf(m.name);
       return {
         household_id: ctx.household.id, scope: m.scope, kind: m.kind, name: m.name, hint: GROUP_HINT[m.name] ?? null,
-        sort: pos >= 0 ? (pos + 1) * 10 + (m.scope === "pj" ? 70 : 0) : max + (i + 1) * 10, system: m.name === "A classificar",
+        sort: pos >= 0 ? (pos + 1) * 10 + (m.scope === "pj" ? 70 : 0) : max + (i + 1) * 10, system: m.name === "A classificar" || m.name === "Transferências",
       };
     });
     const { data: ins } = await ctx.supabase.from("category_groups").upsert(rows, { onConflict: "household_id,scope,name", ignoreDuplicates: true }).select("*");
@@ -67,7 +67,7 @@ export function templateGroups(cats: { scope: Scope; kind: Kind; grp: string }[]
     const k = `${c.scope}|${c.grp}`;
     if (seen.has(k)) continue;
     const pos = GROUP_ORDER[c.scope].indexOf(c.grp);
-    seen.set(k, { scope: c.scope, kind: c.kind, name: c.grp, hint: GROUP_HINT[c.grp] ?? null, sort: (pos + 1) * 10 + (c.scope === "pj" ? 70 : 0), system: c.grp === "A classificar" });
+    seen.set(k, { scope: c.scope, kind: c.kind, name: c.grp, hint: GROUP_HINT[c.grp] ?? null, sort: (pos + 1) * 10 + (c.scope === "pj" ? 70 : 0), system: c.grp === "A classificar" || c.grp === "Transferências" });
   }
   return [...seen.values()];
 }

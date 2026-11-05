@@ -109,7 +109,7 @@ export function Empty({ children, icon = "spark" }: { children: React.ReactNode;
 }
 
 export function Pill({ cat }: { cat?: { name: string; grp: string; color?: string | null } | null }) {
-  if (!cat || cat.grp === "A classificar") {
+  if (!cat || (cat.grp === "A classificar" && cat.name === "A classificar")) {
     return <span className="inline-flex items-center gap-1.5 rounded-full bg-orange-50 px-2.5 py-1 text-xs font-medium text-orange-700 ring-1 ring-orange-200"><span className="h-1.5 w-1.5 rounded-full bg-orange-500" />A classificar</span>;
   }
   const c = groupColor(cat.grp, cat.color);

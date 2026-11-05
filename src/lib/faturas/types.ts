@@ -31,9 +31,17 @@ export interface ParsedCardTransaction {
   foreignAmount?: number | null;
   foreignCurrency?: string | null;
   fxRate?: number | null;
+  /** Extratos: sentido do dinheiro na conta. Em extratos, amount é sempre positivo. */
+  flow?: "entrada" | "saida";
+  /** Extratos: natureza identificada (pagamento_fatura, pix_credito, emprestimo, aplicacao_automatica, ...) */
+  nature?: string | null;
 }
 
 export interface ParsedStatement {
+  /** "fatura" de cartão (padrão) ou "extrato" de conta corrente */
+  docType?: "fatura" | "extrato";
+  /** Extratos: agência/conta, quando aparecem */
+  accountRef?: string | null;
   bank: string;
   holder: string | null;
   dueDate: string | null; // AAAA-MM-DD

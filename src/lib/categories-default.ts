@@ -19,7 +19,7 @@ export interface DefaultCategory {
 export const UNCATEGORIZED = { scope: "pessoal", kind: "despesa", grp: "A classificar", subgroup: "", name: "A classificar" } as const;
 
 export const GROUP_ORDER: Record<Scope, string[]> = {
-  pessoal: ["Receitas", "Investimentos", "Fixas", "Variáveis", "Extras", "Adicionais", "A classificar"],
+  pessoal: ["Receitas", "Investimentos", "Fixas", "Variáveis", "Extras", "Adicionais", "Transferências", "A classificar"],
   pj: ["Receitas PJ", "Impostos", "Custos PJ", "Retiradas"],
 };
 
@@ -28,6 +28,7 @@ export const GROUP_HINT: Record<string, string> = {
   "Variáveis": "Todo mês, mas dá para reduzir",
   Extras: "Extraordinárias — esteja preparado",
   Adicionais: "Não precisam acontecer todo mês",
+  "Transferências": "Pagamento de fatura, PIX no crédito, empréstimos e transferências entre suas contas — não entram nos totais",
 };
 
 type Def = [grp: string, subgroup: string, names: string[], kind?: Kind, excluded?: boolean];
@@ -53,7 +54,8 @@ const PESSOAL: Def[] = [
   ["Adicionais", "Lazer", ["Viagens", "Vinhos", "Cinema/teatro", "Restaurantes/bares", "Passeios/Eventos", "Apostas/Loterias", "Outros lazer"]],
   ["Adicionais", "Vestuário", ["Roupas", "Calçados", "Acessórios"]],
   ["Adicionais", "Outros", ["Presentes", "Casamento", "Compras diversas"]],
-  ["A classificar", "", ["A classificar"]],
+  ["Transferências", "", ["Pagamento de fatura", "PIX no crédito", "Empréstimos", "Entre contas próprias"], "transferencia"],
+  ["A classificar", "", ["A classificar", "Fatura de cartão sem detalhe"]],
 ];
 
 const PJ: Def[] = [

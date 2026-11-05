@@ -19,7 +19,9 @@ const shift = (c: string, n: number) => {
 };
 
 type Status = "fila" | "lendo" | "senha" | "pronta" | "importando" | "feita" | "erro";
-interface Item { id: string; file: File; status: Status; password: string; preview?: Preview; result?: { inserted?: number; batchId?: string; error?: string }; note?: string }
+interface Item { id: string; file: File; status: Status; password: string; preview?: Preview; result?: { inserted?: number; batchId?: string; error?: string; reconciled?: number }; note?: string }
+/** Soma com sinal: em extratos, entradas somam e saídas subtraem. */
+const net = (rows: { amount: number; flow: "entrada" | "saida" | null }[]) => rows.reduce((a, r) => a + (r.flow === "entrada" ? r.amount : r.flow === "saida" ? -r.amount : r.amount), 0);
 const ACCEPT = ".pdf,.csv,.ofx,.qfx,.txt";
 const okExt = (f: File) => /\.(pdf|csv|ofx|qfx|txt)$/i.test(f.name);
 const ST: Record<Status, [string, string]> = {
@@ -58,7 +60,7 @@ export function ImportWizard({ options }: { options: CatOpt[] }) {
     if (!rows.length) { patch(it.id, { status: "feita", preview: pv, result: { inserted: 0 }, note: "Todos os lançamentos já tinham sido importados antes." }); return; }
     patch(it.id, { status: "importando", preview: pv });
     const r = await confirmImport({
-      fileName: pv.fileName!, source: pv.source!, bank: pv.bank!, dueDate: pv.dueDate ?? null, statementTotal: pv.statementTotal ?? null, futureTotal: pv.futureTotal ?? null,
+      fileName: pv.fileName!, source: pv.source!, docType: pv.docType, accountRef: pv.accountRef ?? null, bank: pv.bank!, dueDate: pv.dueDate ?? null, statementTotal: pv.statementTotal ?? null, futureTotal: pv.futureTotal ?? null,
       cycle: pv.cycle!, cards: (pv.cards ?? []).map((c) => ({ last4: c.last4, ownerUserId: c.ownerUserId })), rows: rows.map((x) => ({ ...x, categoryId: x.suggestedCategoryId })),
     });
     patch(it.id, r.error ? { status: "erro", note: r.error, result: r } : { status: "feita", result: r });
@@ -83,9 +85,9 @@ export function ImportWizard({ options }: { options: CatOpt[] }) {
         onDrop={(e) => { e.preventDefault(); setDrag(false); add(e.dataTransfer.files); }}
         className={`card flex flex-col items-center gap-3 border-2 border-dashed py-10 text-center transition ${drag ? "border-brand bg-brand/[0.04]" : "border-ink/10"}`}>
         <div className="text-3xl">📄</div>
-        <div><div className="font-semibold">Arraste e solte as faturas aqui</div><p className="text-sm text-ink/50">Quantos arquivos quiser: PDF de qualquer banco, CSV ou OFX.</p></div>
+        <div><div className="font-semibold">Arraste e solte faturas e extratos aqui</div><p className="text-sm text-ink/50">Quantos arquivos quiser: faturas de cartão e extratos de conta, em PDF de qualquer banco, CSV ou OFX.</p></div>
         <label className="btn cursor-pointer">Selecionar arquivos<input type="file" multiple accept={ACCEPT} className="hidden" onChange={(e) => { add(e.currentTarget.files); e.currentTarget.value = ""; }} /></label>
-        <p className="text-xs text-ink/40">Faturas do Itaú são lidas pelo leitor próprio; as de outros bancos, com IA. Os arquivos são lidos no servidor e não ficam armazenados.</p>
+        <p className="text-xs text-ink/40">Faturas do Itaú são lidas pelo leitor próprio; as de outros bancos e os extratos, com IA. Pagamentos de fatura no extrato são conferidos com as faturas para não contar em dobro. Os arquivos são lidos no servidor e não ficam armazenados.</p>
       </div>
 
       {items.length > 0 && (
@@ -98,14 +100,14 @@ export function ImportWizard({ options }: { options: CatOpt[] }) {
             <button className="btn" disabled={running || !pendingCount} onClick={() => runAll()}>{running ? "Processando…" : `Ler e importar ${pendingCount} arquivo(s)`}</button>
           </div>
           <div className="divide-y divide-ink/5">
-            {items.map((it) => { const pv = it.preview, tot = pv?.rows?.filter((r) => !r.duplicate).reduce((a, r) => a + r.amount, 0) ?? 0, diff = pv?.statementTotal != null ? Math.abs(tot - pv.statementTotal) : null; return (
+            {items.map((it) => { const pv = it.preview, isExt = pv?.docType === "extrato", tot = pv?.rows ? (isExt ? net(pv.rows.filter((r) => !r.duplicate)) : pv.rows.filter((r) => !r.duplicate).reduce((a, r) => a + r.amount, 0)) : 0, diff = !isExt && pv?.statementTotal != null ? Math.abs(tot - pv.statementTotal) : null; return (
               <div key={it.id} className="flex flex-wrap items-center gap-3 px-5 py-3 text-sm">
                 <div className="min-w-[200px] flex-1">
                   <div className="font-medium">{it.file.name} <span className="text-xs font-normal text-ink/40">{(it.file.size / 1024).toFixed(0)} KB</span></div>
-                  {pv?.rows && <div className="text-xs text-ink/55">{pv.bank} · ciclo {cycleName(pv.cycle!)} · {pv.rows.length} itens · {brl(tot)}{pv.readWith === "ia" ? " · lida com IA" : ""}
+                  {pv?.rows && <div className="text-xs text-ink/55">{pv.bank} · {isExt ? "extrato bancário" : `fatura · ciclo ${cycleName(pv.cycle!)}`} · {pv.rows.length} itens · {isExt ? `saldo do período ${brl(tot)}` : brl(tot)}{pv.readWith === "ia" ? " · lida com IA" : ""}
                     {diff != null && (diff < 1 ? <span className="text-gain"> · confere com o total da fatura</span> : <span className="text-amber-700"> · total da fatura {brl(pv.statementTotal!)} (confira)</span>)}</div>}
                   {it.note && <div className={`text-xs ${it.status === "erro" ? "text-loss" : "text-ink/55"}`}>{it.note}</div>}
-                  {it.result?.inserted != null && it.status === "feita" && it.result.inserted > 0 && <div className="text-xs text-gain">{it.result.inserted} lançamentos importados</div>}
+                  {it.result?.inserted != null && it.status === "feita" && it.result.inserted > 0 && <div className="text-xs text-gain">{it.result.inserted} lançamentos importados{it.result.reconciled ? ` · ${it.result.reconciled} pagamento do extrato conferido com esta fatura (sem duplicidade)` : ""}</div>}
                 </div>
                 <span className={`rounded-md px-2 py-0.5 text-[11px] font-medium ${ST[it.status][1]}`}>{ST[it.status][0]}</span>
                 {it.status === "senha" && (
@@ -115,7 +117,7 @@ export function ImportWizard({ options }: { options: CatOpt[] }) {
                   </span>)}
                 {it.status === "erro" && <button className="btn-ghost !py-1 text-xs" disabled={running} onClick={() => runAll(it.id)}>Tentar de novo</button>}
                 {it.status === "pronta" && <button className="btn-ghost !py-1 text-xs" onClick={() => setReviewId(it.id)}>Revisar e importar</button>}
-                {it.result?.batchId && <Link className="btn-ghost !py-1 text-xs" href={`/faturas/${it.result.batchId}`}>Ver fatura</Link>}
+                {it.result?.batchId && <Link className="btn-ghost !py-1 text-xs" href={`/faturas/${it.result.batchId}`}>{isExt ? "Ver extrato" : "Ver fatura"}</Link>}
                 {["fila", "senha", "erro"].includes(it.status) && !running && <button className="text-xs text-ink/35 hover:text-loss" onClick={() => setItems((xs) => xs.filter((x) => x.id !== it.id))}>Remover</button>}
               </div>); })}
           </div>
@@ -130,6 +132,7 @@ export function ImportWizard({ options }: { options: CatOpt[] }) {
 
 function Review({ preview, options, onDone }: { preview: Preview; options: CatOpt[]; onDone?: (r: { error?: string; inserted?: number; batchId?: string }) => void }) {
   const rows = preview.rows!;
+  const isExt = preview.docType === "extrato";
   const [cats, setCats] = useState<Record<number, string | null>>(() => Object.fromEntries(rows.map((r) => [r.idx, r.suggestedCategoryId])));
   const [include, setInclude] = useState<Record<number, boolean>>(() => Object.fromEntries(rows.map((r) => [r.idx, !r.duplicate])));
   const [owners, setOwners] = useState<Record<string, string | null>>(() => Object.fromEntries((preview.cards ?? []).map((c) => [c.last4, c.ownerUserId])));
@@ -142,7 +145,8 @@ function Review({ preview, options, onDone }: { preview: Preview; options: CatOp
   const uncIds = useMemo(() => new Set(options.filter((o) => o.group.endsWith("A classificar")).map((o) => o.id)), [options]);
 
   const selected = rows.filter((r) => include[r.idx]);
-  const total = selected.reduce((a, r) => a + r.amount, 0);
+  const total = isExt ? net(selected) : selected.reduce((a, r) => a + r.amount, 0);
+  const entradas = selected.filter((r) => r.flow === "entrada").reduce((a, r) => a + r.amount, 0), saidas = selected.filter((r) => r.flow === "saida").reduce((a, r) => a + r.amount, 0);
   const dupes = rows.filter((r) => r.duplicate).length;
   const toClassify = selected.filter((r) => !cats[r.idx] || uncIds.has(cats[r.idx]!)).length;
   const visible = filter === "classificar" ? rows.filter((r) => !cats[r.idx] || uncIds.has(cats[r.idx]!)) : rows;
@@ -150,7 +154,7 @@ function Review({ preview, options, onDone }: { preview: Preview; options: CatOp
   if (result?.inserted !== undefined) {
     return (
       <div className="card space-y-2">
-        <h2 className="text-gain">✓ {result.inserted} lançamentos importados no ciclo {cycleName(cycle)}</h2>
+        <h2 className="text-gain">✓ {result.inserted} lançamentos importados{isExt ? "" : ` no ciclo ${cycleName(cycle)}`}</h2>
         {!!result.learned && <p className="text-sm text-ink/60">A plataforma aprendeu {result.learned} nova(s) regra(s) com as suas correções.</p>}
         <div className="flex gap-2 pt-2">
           <Link className="btn" href={`/lancamentos?ciclo=${cycle}`}>Ver lançamentos</Link>
@@ -162,7 +166,7 @@ function Review({ preview, options, onDone }: { preview: Preview; options: CatOp
 
   const submit = () => start(async () => {
     const r = await confirmImport({
-      fileName: preview.fileName!, source: preview.source!, bank: preview.bank!, dueDate: preview.dueDate ?? null,
+      fileName: preview.fileName!, source: preview.source!, docType: preview.docType, accountRef: preview.accountRef ?? null, bank: preview.bank!, dueDate: preview.dueDate ?? null,
       statementTotal: preview.statementTotal ?? null, futureTotal: preview.futureTotal ?? null, cycle,
       cards: (preview.cards ?? []).map((c) => ({ last4: c.last4, ownerUserId: owners[c.last4] ?? null })),
       rows: selected.map((r) => ({ ...r, categoryId: cats[r.idx] ?? null })),
@@ -176,6 +180,11 @@ function Review({ preview, options, onDone }: { preview: Preview; options: CatOp
     <div className="space-y-4">
       <div className="card grid gap-4 md:grid-cols-4">
         <div><div className="label">Banco</div><div className="font-medium">{preview.bank}</div></div>
+        {isExt ? (<>
+          <div><div className="label">Entradas</div><div className="font-medium tabular-nums text-gain">{brl(entradas)}</div></div>
+          <div><div className="label">Saídas</div><div className="font-medium tabular-nums">{brl(saidas)}</div></div>
+          <div><div className="label">Ciclos</div><div className="text-sm">Cada lançamento entra no ciclo da sua data</div></div>
+        </>) : (<>
         <div><div className="label">Vencimento</div><div className="font-medium">{preview.dueDate ? dt(preview.dueDate) : "—"}</div></div>
         <div><div className="label">Total da fatura</div><div className="font-medium tabular-nums">{preview.statementTotal != null ? brl(preview.statementTotal) : "—"}</div></div>
         <div>
@@ -183,7 +192,9 @@ function Review({ preview, options, onDone }: { preview: Preview; options: CatOp
           <select className="input py-1" value={cycle} onChange={(e) => setCycle(e.target.value)}>
             {[-2, -1, 0, 1, 2].map((n) => { const c = shift(preview.cycle!, n); return <option key={c} value={c}>{cycleName(c)}</option>; })}
           </select>
+          <p className="mt-1 text-[11px] text-ink/45">Compras no cartão contam no ciclo em que a fatura é paga.</p>
         </div>
+        </>)}
         {!!preview.futureTotal && <p className="text-xs text-ink/50 md:col-span-4">Parcelas já comprometidas para as próximas faturas: <b>{brl(preview.futureTotal)}</b> (serão importadas quando as faturas chegarem).</p>}
         {preview.warnings?.map((w) => <p key={w} className="text-sm text-amber-700 md:col-span-4">⚠ {w}</p>)}
       </div>
@@ -218,7 +229,7 @@ function Review({ preview, options, onDone }: { preview: Preview; options: CatOp
           </div>
         </div>
         <table className="table min-w-[860px]">
-          <thead><tr><th className="w-8"></th><th>Data</th><th>Descrição</th><th>Cartão</th><th>Categoria</th><th className="num">Valor</th></tr></thead>
+          <thead><tr><th className="w-8"></th><th>Data</th><th>Descrição</th><th>{isExt ? "Ciclo" : "Cartão"}</th><th>Categoria</th><th className="num">Valor</th></tr></thead>
           <tbody>
             {visible.map((r) => (
               <tr key={r.idx} className={!include[r.idx] ? "opacity-40" : ""}>
@@ -231,11 +242,12 @@ function Review({ preview, options, onDone }: { preview: Preview; options: CatOp
                     {r.bankCategory && <span className="chip">{r.bankCategory.toLowerCase()}</span>}
                     {r.city && <span className="chip">{r.city.toLowerCase()}</span>}
                     {r.duplicate && <span className="chip bg-amber-100 text-amber-800">já importado</span>}
+                    {r.note && <span className={`chip ${r.reconciledBatchId ? "bg-emerald-50 text-emerald-700" : "bg-sky-50 text-sky-700"}`}>{r.reconciledBatchId ? "✓ " : ""}{r.note}</span>}
                     {r.suggestionSource === "regra" && cats[r.idx] === r.suggestedCategoryId && <span className="chip bg-brand-soft text-brand">aprendido</span>}
                     {r.suggestionSource === "ia" && cats[r.idx] === r.suggestedCategoryId && <span className="chip bg-violet-50 text-violet-700">IA</span>}
                   </div>
                 </td>
-                <td className="text-xs text-ink/60">{r.cardLast4 ? `•••• ${r.cardLast4}` : ""}</td>
+                <td className="text-xs text-ink/60">{isExt ? cycleName(r.cycle) : r.cardLast4 ? `•••• ${r.cardLast4}` : ""}</td>
                 <td>
                   <select className={`max-w-[230px] rounded-md border border-transparent bg-ink/[0.03] px-2 py-1 text-sm hover:border-ink/10 ${!cats[r.idx] || uncIds.has(cats[r.idx]!) ? "text-amber-700" : ""}`}
                     value={cats[r.idx] ?? ""} onChange={(e) => {
@@ -248,7 +260,7 @@ function Review({ preview, options, onDone }: { preview: Preview; options: CatOp
                     {groups.map((g) => <optgroup key={g} label={g}>{options.filter((o) => o.group === g).map((o) => <option key={o.id} value={o.id}>{o.label}</option>)}</optgroup>)}
                   </select>
                 </td>
-                <td className={`num ${r.amount < 0 ? "text-gain" : ""}`}>{brl(r.amount)}</td>
+                <td className={`num ${r.flow === "entrada" || r.amount < 0 ? "text-gain" : ""}`}>{r.flow === "entrada" ? `+ ${brl(r.amount)}` : r.flow === "saida" ? `− ${brl(r.amount)}` : brl(r.amount)}</td>
               </tr>
             ))}
           </tbody>
@@ -257,7 +269,7 @@ function Review({ preview, options, onDone }: { preview: Preview; options: CatOp
 
       <div className="sticky bottom-4 flex items-center justify-end gap-3 rounded-2xl bg-ink/95 p-3 text-white shadow-lg">
         {result?.error && <span className="text-sm text-rose-300">{result.error}</span>}
-        <span className="text-sm text-white/70">{selected.length} lançamentos · {brl(total)} → ciclo {cycleName(cycle)}</span>
+        <span className="text-sm text-white/70">{selected.length} lançamentos · {brl(total)}{isExt ? "" : ` → ciclo ${cycleName(cycle)}`}</span>
         <button className="btn" onClick={submit} disabled={pending || selected.length === 0}>{pending ? "Importando…" : "Confirmar importação"}</button>
       </div>
     </div>
