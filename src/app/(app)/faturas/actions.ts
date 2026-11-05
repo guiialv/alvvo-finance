@@ -7,7 +7,7 @@ import { requireEdit } from "@/lib/context";
 import { cycleOf } from "@/lib/cycle";
 import { normalizeMerchant, suggestCategory, UNCATEGORIZED_KEY, type LearnedRule } from "@/lib/categorize";
 import { categoryIndex, loadAccounts, loadCategories, loadMembers } from "@/lib/data";
-import { parseStatementFile } from "@/lib/faturas";
+import { PdfPasswordError, pagesToText, parseStatementFile } from "@/lib/faturas";
 import { aiAvailable, aiKeyFor } from "@/lib/ai";
 import { aiCategorize, aiReadStatement } from "@/lib/ai-tasks";
 
@@ -34,6 +34,9 @@ export interface PreviewRow {
 
 export interface Preview {
   error?: string;
+  /** "SENHA_NECESSARIA" | "SENHA_INCORRETA" quando o PDF tem senha */
+  needsPassword?: string;
+  readWith?: "leitor" | "ia";
   fileName?: string;
   source?: "fatura_pdf" | "csv" | "ofx";
   bank?: string;
@@ -54,20 +57,25 @@ export async function analyzeStatement(_: Preview | undefined, formData: FormDat
   if (file.size > 15 * 1024 * 1024) return { error: "Arquivo muito grande (máx. 15 MB)." };
 
   let st;
+  let readWith: "leitor" | "ia" = "leitor";
   const bytes = new Uint8Array(await file.arrayBuffer());
+  const password = String(formData.get("password") ?? "").trim() || undefined;
   try {
-    st = await parseStatementFile(file.name, bytes);
+    st = await parseStatementFile(file.name, bytes, password);
     // PDF de outro banco: lê com IA (quando a conta tem IA ativa)
     if (!st.transactions.length && file.name.toLowerCase().endsWith(".pdf")) {
-      if (!aiAvailable(ctx)) return { error: "Ainda não reconheço este PDF sem IA. Ative a IA em Configurações (chave do Claude) ou envie CSV/OFX." };
+      if (!aiAvailable(ctx)) return { fileName: file.name, error: "Ainda não reconheço este PDF sem IA. Ative a IA em Configurações (chave do Claude) ou envie CSV/OFX." };
       const key = await aiKeyFor(ctx);
-      if (!key) return { error: "Nenhuma chave de IA disponível. Salve a sua chave do Claude em Configurações." };
-      st = await aiReadStatement(key, bytes, file.name);
+      if (!key) return { fileName: file.name, error: "Nenhuma chave de IA disponível. Salve a sua chave do Claude em Configurações." };
+      // PDF com senha: a IA recebe o texto já aberto aqui no servidor
+      st = await aiReadStatement(key, bytes, file.name, password && st.pages ? pagesToText(st.pages) : undefined);
+      readWith = "ia";
     }
   } catch (e) {
-    return { error: e instanceof Error ? e.message : "Não foi possível ler o arquivo." };
+    if (e instanceof PdfPasswordError) return { fileName: file.name, needsPassword: e.code, error: e.message };
+    return { fileName: file.name, error: e instanceof Error ? e.message : "Não foi possível ler o arquivo." };
   }
-  if (!st.transactions.length) return { error: st.warnings[0] ?? "Nenhum lançamento encontrado no arquivo.", warnings: st.warnings };
+  if (!st.transactions.length) return { fileName: file.name, error: st.warnings[0] ?? "Nenhum lançamento encontrado no arquivo.", warnings: st.warnings };
 
   const [cats, rulesRes, accounts, members] = await Promise.all([
     loadCategories(ctx),
@@ -137,7 +145,7 @@ export async function analyzeStatement(_: Preview | undefined, formData: FormDat
   });
 
   return {
-    fileName: file.name, source, bank: st.bank, dueDate: st.dueDate, statementTotal: st.statementTotal, cycle,
+    fileName: file.name, readWith, source, bank: st.bank, dueDate: st.dueDate, statementTotal: st.statementTotal, cycle,
     warnings: st.warnings, rows, cards, members: members.map((m) => ({ user_id: m.user_id, display_name: m.display_name })),
     futureTotal: Math.round(st.futureInstallments.reduce((a, f) => a + f.amount, 0) * 100) / 100,
   };

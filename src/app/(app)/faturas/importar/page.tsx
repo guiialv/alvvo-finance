@@ -5,6 +5,8 @@ import { PageHeader } from "@/components/ui";
 import { Icon } from "@/components/icons";
 import { ImportWizard, type CatOpt } from "../import-wizard";
 
+export const maxDuration = 300;
+
 export default async function ImportarFaturaPage() {
   const ctx = await requireArea("faturas");
   const cats = await loadCategories(ctx);
@@ -14,7 +16,7 @@ export default async function ImportarFaturaPage() {
   return (
     <div>
       <Link href="/faturas" className="mb-4 inline-flex items-center gap-1 text-sm text-ink/55 hover:text-ink"><Icon name="left" /> Faturas</Link>
-      <PageHeader title="Importar fatura" subtitle="Envie o PDF da fatura (Itaú) ou um CSV/OFX de qualquer banco. A plataforma lê cada item, sugere a categoria e aprende com as suas correções." />
+      <PageHeader title="Importar faturas" subtitle="Envie quantas faturas quiser, de qualquer banco (PDF, CSV ou OFX). A plataforma lê cada item, sugere a categoria e aprende com as suas correções." />
       <ImportWizard options={options} />
     </div>
   );

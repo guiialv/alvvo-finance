@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useActionState, useMemo, useState, useTransition } from "react";
+import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { analyzeStatement, confirmImport, type Preview } from "./actions";
 
@@ -18,22 +18,117 @@ const shift = (c: string, n: number) => {
   return `${Math.floor(i / 12)}-${String((i % 12) + 1).padStart(2, "0")}`;
 };
 
+type Status = "fila" | "lendo" | "senha" | "pronta" | "importando" | "feita" | "erro";
+interface Item { id: string; file: File; status: Status; password: string; preview?: Preview; result?: { inserted?: number; batchId?: string; error?: string }; note?: string }
+const ACCEPT = ".pdf,.csv,.ofx,.qfx,.txt";
+const okExt = (f: File) => /\.(pdf|csv|ofx|qfx|txt)$/i.test(f.name);
+const ST: Record<Status, [string, string]> = {
+  fila: ["Na fila", "bg-ink/5 text-ink/55"], lendo: ["Lendo…", "bg-sky-50 text-sky-700"], senha: ["Precisa de senha", "bg-amber-50 text-amber-800"],
+  pronta: ["Pronta para revisar", "bg-violet-50 text-violet-700"], importando: ["Importando…", "bg-sky-50 text-sky-700"], feita: ["Importada", "bg-emerald-50 text-emerald-700"], erro: ["Erro", "bg-rose-50 text-rose-700"],
+};
+
+/** Importação em lote: vários arquivos (botão ou arrastar e soltar), leitura com o leitor do banco ou IA, e importação automática. */
 export function ImportWizard({ options }: { options: CatOpt[] }) {
-  const [preview, analyze, analyzing] = useActionState<Preview | undefined, FormData>(analyzeStatement, undefined);
+  const [items, setItems] = useState<Item[]>([]);
+  const [password, setPassword] = useState("");
+  const [auto, setAuto] = useState(true);
+  const [running, setRunning] = useState(false);
+  const [drag, setDrag] = useState(false);
+  const [reviewId, setReviewId] = useState<string | null>(null);
+  const router = useRouter();
+  const patch = (id: string, p: Partial<Item>) => setItems((xs) => xs.map((x) => (x.id === id ? { ...x, ...p } : x)));
+  const add = (files: FileList | File[] | null) => {
+    if (!files) return;
+    const list = [...files].filter(okExt);
+    setItems((xs) => [...xs, ...list.filter((f) => !xs.some((x) => x.file.name === f.name && x.file.size === f.size)).map((f) => ({ id: `${f.name}-${f.size}-${Math.random()}`, file: f, status: "fila" as Status, password: "" }))]);
+  };
+
+  async function processOne(it: Item, globalPw: string) {
+    patch(it.id, { status: "lendo", note: undefined });
+    const fd = new FormData();
+    fd.append("file", it.file);
+    const pw = it.password || globalPw;
+    if (pw) fd.append("password", pw);
+    let pv: Preview;
+    try { pv = await analyzeStatement(undefined, fd); } catch (e) { patch(it.id, { status: "erro", note: (e as Error).message || "Falha ao ler o arquivo." }); return; }
+    if (pv.needsPassword) { patch(it.id, { status: "senha", note: pv.error }); return; }
+    if (pv.error || !pv.rows) { patch(it.id, { status: "erro", note: pv.error ?? "Nenhum lançamento encontrado." }); return; }
+    if (!auto) { patch(it.id, { status: "pronta", preview: pv }); return; }
+    const rows = pv.rows.filter((r) => !r.duplicate);
+    if (!rows.length) { patch(it.id, { status: "feita", preview: pv, result: { inserted: 0 }, note: "Todos os lançamentos já tinham sido importados antes." }); return; }
+    patch(it.id, { status: "importando", preview: pv });
+    const r = await confirmImport({
+      fileName: pv.fileName!, source: pv.source!, bank: pv.bank!, dueDate: pv.dueDate ?? null, statementTotal: pv.statementTotal ?? null, futureTotal: pv.futureTotal ?? null,
+      cycle: pv.cycle!, cards: (pv.cards ?? []).map((c) => ({ last4: c.last4, ownerUserId: c.ownerUserId })), rows: rows.map((x) => ({ ...x, categoryId: x.suggestedCategoryId })),
+    });
+    patch(it.id, r.error ? { status: "erro", note: r.error, result: r } : { status: "feita", result: r });
+  }
+
+  async function runAll(only?: string) {
+    setRunning(true);
+    const queue = items.filter((x) => (only ? x.id === only : ["fila", "senha", "erro"].includes(x.status)));
+    for (const it of queue) await processOne(it, password); // um de cada vez: mais estável para PDFs grandes e para a IA
+    setRunning(false);
+    router.refresh();
+  }
+
+  const done = items.filter((x) => x.status === "feita"), inserted = done.reduce((a, x) => a + (x.result?.inserted ?? 0), 0);
+  const pendingCount = items.filter((x) => ["fila", "senha", "erro"].includes(x.status)).length;
+  const reviewing = items.find((x) => x.id === reviewId && x.preview?.rows);
+
   return (
     <div className="space-y-4">
-      <form action={analyze} className="card flex flex-wrap items-center gap-3">
-        <input type="file" name="file" accept=".pdf,.csv,.ofx,.qfx,.txt" required className="text-sm file:mr-3 file:rounded-lg file:border-0 file:bg-brand-soft file:px-3 file:py-2 file:text-sm file:font-medium file:text-brand" />
-        <button className="btn" disabled={analyzing}>{analyzing ? "Lendo arquivo…" : "Ler fatura"}</button>
-        <p className="w-full text-xs text-ink/40">PDF da fatura Itaú (todos os cartões), ou CSV/OFX de qualquer banco. O arquivo é lido no servidor e não fica armazenado.</p>
-      </form>
-      {preview?.error && <div className="card border-loss/30 text-sm text-loss">{preview.error}</div>}
-      {preview?.rows && <Review key={preview.fileName + String(preview.rows.length)} preview={preview} options={options} />}
+      <div
+        onDragOver={(e) => { e.preventDefault(); setDrag(true); }} onDragLeave={() => setDrag(false)}
+        onDrop={(e) => { e.preventDefault(); setDrag(false); add(e.dataTransfer.files); }}
+        className={`card flex flex-col items-center gap-3 border-2 border-dashed py-10 text-center transition ${drag ? "border-brand bg-brand/[0.04]" : "border-ink/10"}`}>
+        <div className="text-3xl">📄</div>
+        <div><div className="font-semibold">Arraste e solte as faturas aqui</div><p className="text-sm text-ink/50">Quantos arquivos quiser: PDF de qualquer banco, CSV ou OFX.</p></div>
+        <label className="btn cursor-pointer">Selecionar arquivos<input type="file" multiple accept={ACCEPT} className="hidden" onChange={(e) => { add(e.currentTarget.files); e.currentTarget.value = ""; }} /></label>
+        <p className="text-xs text-ink/40">Faturas do Itaú são lidas pelo leitor próprio; as de outros bancos, com IA. Os arquivos são lidos no servidor e não ficam armazenados.</p>
+      </div>
+
+      {items.length > 0 && (
+        <section className="card p-0">
+          <div className="flex flex-wrap items-end gap-3 border-b border-ink/5 px-5 py-3">
+            <div className="min-w-[220px] flex-1"><label className="label">Senha dos PDFs protegidos (opcional)</label>
+              <input className="input" type="password" autoComplete="off" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Ex.: os 5 primeiros dígitos do CPF" />
+              <p className="mt-1 text-[11px] text-ink/45">Usada só para abrir os arquivos nesta leitura; não fica salva.</p></div>
+            <label className="flex items-center gap-2 pb-2 text-sm"><input type="checkbox" checked={auto} onChange={(e) => setAuto(e.target.checked)} /> Importar automaticamente (sem revisar uma a uma)</label>
+            <button className="btn" disabled={running || !pendingCount} onClick={() => runAll()}>{running ? "Processando…" : `Ler e importar ${pendingCount} arquivo(s)`}</button>
+          </div>
+          <div className="divide-y divide-ink/5">
+            {items.map((it) => { const pv = it.preview, tot = pv?.rows?.filter((r) => !r.duplicate).reduce((a, r) => a + r.amount, 0) ?? 0, diff = pv?.statementTotal != null ? Math.abs(tot - pv.statementTotal) : null; return (
+              <div key={it.id} className="flex flex-wrap items-center gap-3 px-5 py-3 text-sm">
+                <div className="min-w-[200px] flex-1">
+                  <div className="font-medium">{it.file.name} <span className="text-xs font-normal text-ink/40">{(it.file.size / 1024).toFixed(0)} KB</span></div>
+                  {pv?.rows && <div className="text-xs text-ink/55">{pv.bank} · ciclo {cycleName(pv.cycle!)} · {pv.rows.length} itens · {brl(tot)}{pv.readWith === "ia" ? " · lida com IA" : ""}
+                    {diff != null && (diff < 1 ? <span className="text-gain"> · confere com o total da fatura</span> : <span className="text-amber-700"> · total da fatura {brl(pv.statementTotal!)} (confira)</span>)}</div>}
+                  {it.note && <div className={`text-xs ${it.status === "erro" ? "text-loss" : "text-ink/55"}`}>{it.note}</div>}
+                  {it.result?.inserted != null && it.status === "feita" && it.result.inserted > 0 && <div className="text-xs text-gain">{it.result.inserted} lançamentos importados</div>}
+                </div>
+                <span className={`rounded-md px-2 py-0.5 text-[11px] font-medium ${ST[it.status][1]}`}>{ST[it.status][0]}</span>
+                {it.status === "senha" && (
+                  <span className="flex items-center gap-1">
+                    <input className="input w-40 py-1" type="password" placeholder="Senha deste PDF" value={it.password} onChange={(e) => patch(it.id, { password: e.target.value })} />
+                    <button className="btn-ghost !py-1 text-xs" disabled={running || !it.password} onClick={() => runAll(it.id)}>Abrir</button>
+                  </span>)}
+                {it.status === "erro" && <button className="btn-ghost !py-1 text-xs" disabled={running} onClick={() => runAll(it.id)}>Tentar de novo</button>}
+                {it.status === "pronta" && <button className="btn-ghost !py-1 text-xs" onClick={() => setReviewId(it.id)}>Revisar e importar</button>}
+                {it.result?.batchId && <Link className="btn-ghost !py-1 text-xs" href={`/faturas/${it.result.batchId}`}>Ver fatura</Link>}
+                {["fila", "senha", "erro"].includes(it.status) && !running && <button className="text-xs text-ink/35 hover:text-loss" onClick={() => setItems((xs) => xs.filter((x) => x.id !== it.id))}>Remover</button>}
+              </div>); })}
+          </div>
+          {done.length > 0 && <div className="border-t border-ink/5 px-5 py-3 text-sm text-ink/70">✓ {done.length} fatura(s) processada(s), {inserted} lançamentos importados. As categorias vêm das suas regras e da IA; você ajusta item a item em cada fatura, e a plataforma aprende com as correções.</div>}
+        </section>
+      )}
+
+      {reviewing && <Review key={reviewing.id} preview={reviewing.preview!} options={options} onDone={(r) => { patch(reviewing.id, { status: r.error ? "erro" : "feita", result: r, note: r.error }); setReviewId(null); router.refresh(); }} />}
     </div>
   );
 }
 
-function Review({ preview, options }: { preview: Preview; options: CatOpt[] }) {
+function Review({ preview, options, onDone }: { preview: Preview; options: CatOpt[]; onDone?: (r: { error?: string; inserted?: number; batchId?: string }) => void }) {
   const rows = preview.rows!;
   const [cats, setCats] = useState<Record<number, string | null>>(() => Object.fromEntries(rows.map((r) => [r.idx, r.suggestedCategoryId])));
   const [include, setInclude] = useState<Record<number, boolean>>(() => Object.fromEntries(rows.map((r) => [r.idx, !r.duplicate])));
@@ -72,6 +167,7 @@ function Review({ preview, options }: { preview: Preview; options: CatOpt[] }) {
       cards: (preview.cards ?? []).map((c) => ({ last4: c.last4, ownerUserId: owners[c.last4] ?? null })),
       rows: selected.map((r) => ({ ...r, categoryId: cats[r.idx] ?? null })),
     });
+    if (onDone) { onDone(r); return; }
     setResult(r);
     if (r.batchId) router.push(`/faturas/${r.batchId}`);
   });

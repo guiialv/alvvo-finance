@@ -1,13 +1,13 @@
 import { askClaude, parseJson } from "@/lib/ai";
 import type { ParsedStatement } from "@/lib/faturas";
 
-/** Lê a fatura em PDF de qualquer banco com IA. */
-export async function aiReadStatement(apiKey: string, pdf: Uint8Array, fileName: string): Promise<ParsedStatement> {
+/** Lê a fatura em PDF de qualquer banco com IA. Com `text`, envia o texto já extraído (PDFs com senha). */
+export async function aiReadStatement(apiKey: string, pdf: Uint8Array, fileName: string, text?: string): Promise<ParsedStatement> {
   const out = await askClaude(apiKey, {
     system: "Você extrai lançamentos de faturas de cartão de crédito brasileiras com precisão. Responda só com JSON válido.",
     content: [
-      { type: "document", source: { type: "base64", media_type: "application/pdf", data: Buffer.from(pdf).toString("base64") } },
-      { type: "text", text: `Arquivo: ${fileName}. Extraia a fatura no formato:
+      ...(text ? [] : [{ type: "document" as const, source: { type: "base64" as const, media_type: "application/pdf" as const, data: Buffer.from(pdf).toString("base64") } }]),
+      { type: "text", text: `${text ? `Texto extraído da fatura (linhas na ordem da página):\n${text.slice(0, 180000)}\n\n` : ""}Arquivo: ${fileName}. Extraia a fatura no formato:
 {"bank":"Nome do banco","holder":"titular ou null","dueDate":"AAAA-MM-DD ou null","closingDate":"AAAA-MM-DD ou null","statementTotal":1234.56,
  "transactions":[{"date":"AAAA-MM-DD","description":"texto do lançamento","amount":12.34,"cardLast4":"1234 ou null","installmentNo":2,"installmentTotal":10,"bankCategory":"categoria do banco ou null","city":"cidade ou null","international":false}],
  "futureInstallments":[{"date":"AAAA-MM-DD","description":"...","amount":12.34}]}
