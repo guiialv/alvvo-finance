@@ -53,6 +53,7 @@ export function LoginForm({ next, googleError }: { next: string; googleError: bo
             </button>
           </form>
           <p className="mt-6 text-center text-xs text-ink/45">Recebeu um convite? Entre ou crie a conta e informe o código na próxima tela.</p>
+          <p className="mt-3 text-center text-[11px] text-ink/40"><a href="/termos" className="hover:underline">Termos de Uso</a> · <a href="/privacidade" className="hover:underline">Política de Privacidade</a></p>
         </div>
       </div>
     </main>

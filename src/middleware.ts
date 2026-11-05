@@ -1,7 +1,7 @@
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
-const PUBLIC_PATHS = ["/login", "/auth", "/convite", "/api/cron"];
+const PUBLIC_PATHS = ["/login", "/auth", "/convite", "/api/cron", "/privacidade", "/termos"];
 const VIEW_AS_COOKIE = "alvvo_view_as";
 
 export async function middleware(request: NextRequest) {
