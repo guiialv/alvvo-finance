@@ -5,7 +5,7 @@ import "./globals.css";
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
 
 export const metadata: Metadata = {
-  title: "Financeiro — Guilherme & Maína",
+  title: "ALVVO Finance",
   description: "Gestão financeira, orçamento, investimentos e objetivos em um só lugar.",
 };
 
