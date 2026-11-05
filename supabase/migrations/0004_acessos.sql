@@ -234,7 +234,7 @@ begin
 end $$;
 
 create or replace function public.regenerate_invite(hh uuid)
-returns text language plpgsql security definer set search_path = public as $$
+returns text language plpgsql security definer set search_path = public, extensions as $$
 declare c text;
 begin
   if not public.is_admin(hh) then raise exception 'Apenas o dono ou administradores'; end if;
