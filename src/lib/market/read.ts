@@ -7,7 +7,7 @@ export interface Macro { selic: number; cdi: number; focus: { ipca: Record<strin
 export async function getMacro(ctx: Ctx, refresh = true): Promise<Macro> {
   if (refresh) { try { await ensureMacroFresh(60); } catch (e) { console.error("[macro]", (e as Error).message); } }
   const { data } = await ctx.supabase.from("market_macro").select("key, value, ref_date, updated_at");
-  const by = Object.fromEntries((data ?? []).map((r: { key: string }) => [r.key, r])) as Record<string, { value: Record<string, unknown>; ref_date: string | null; updated_at: string }>;
+  const by = Object.fromEntries((data ?? []).map((r: { key: string }) => [r.key, r])) as unknown as Record<string, { value: Record<string, unknown>; ref_date: string | null; updated_at: string }>;
   const y = String(new Date().getFullYear());
   const focus = (by.focus?.value ?? { ipca: { [y]: 4.5 }, selic: { [y]: 13.5 } }) as Macro["focus"];
   return {
@@ -22,5 +22,5 @@ export async function getQuotes(ctx: Ctx, symbols: string[], refresh = true) {
   if (refresh) { try { await ensureQuotesFresh(symbols); } catch (e) { console.error("[cotações]", (e as Error).message); } }
   if (!symbols.length) return {} as Record<string, { price: number | null; prev_close: number | null; name: string | null; updated_at: string }>;
   const { data } = await ctx.supabase.from("market_quotes").select("symbol, price, prev_close, name, updated_at").in("symbol", symbols);
-  return Object.fromEntries((data ?? []).map((q: { symbol: string }) => [q.symbol, q])) as Record<string, { price: number | null; prev_close: number | null; name: string | null; updated_at: string }>;
+  return Object.fromEntries((data ?? []).map((q: { symbol: string }) => [q.symbol, q])) as unknown as Record<string, { price: number | null; prev_close: number | null; name: string | null; updated_at: string }>;
 }
