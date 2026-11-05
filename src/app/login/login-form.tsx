@@ -11,27 +11,27 @@ export function LoginForm({ next, googleError }: { next: string; googleError: bo
 
   return (
     <main className="grid min-h-screen lg:grid-cols-2">
-      <div className="relative hidden overflow-hidden bg-ink p-12 text-white lg:flex lg:flex-col lg:justify-between">
-        <div className="absolute -right-24 -top-24 h-96 w-96 rounded-full bg-brand/40 blur-3xl" />
-        <div className="absolute -bottom-32 left-10 h-80 w-80 rounded-full bg-fuchsia-600/20 blur-3xl" />
-        <div className="relative flex items-center gap-3"><div className="grid h-10 w-10 place-items-center rounded-xl bg-brand text-lg font-bold">A</div><span className="font-semibold tracking-wide">ALVVO Finance</span></div>
+      <div className="relative hidden overflow-hidden bg-espresso p-14 text-[#efe7da] lg:flex lg:flex-col lg:justify-between">
+        <div className="absolute -right-32 -top-32 h-[28rem] w-[28rem] rounded-full bg-gold/15 blur-3xl" />
+        <div className="absolute -bottom-40 left-0 h-96 w-96 rounded-full bg-sage/15 blur-3xl" />
+        <div className="relative flex items-center gap-3"><div className="grid h-11 w-11 place-items-center rounded-full border border-gold/50 font-serif text-[24px] text-gold">A</div><span className="text-[11px] uppercase tracking-[0.28em] text-gold/90">ALVVO Finance</span></div>
         <div className="relative">
-          <h1 className="max-w-md text-4xl font-semibold leading-tight tracking-tight">Toda a vida financeira em um só lugar.</h1>
-          <p className="mt-4 max-w-md text-white/60">Orçamento por ciclo, faturas lidas automaticamente, investimentos, objetivos e análises, com cada pessoa vendo só o que você liberar.</p>
+          <h1 className="max-w-md font-serif text-[52px] font-normal leading-[1.05]">Toda a vida financeira em um só lugar.</h1>
+          <p className="mt-5 max-w-md leading-relaxed text-[#efe7da]/60">Orçamento por ciclo, faturas lidas automaticamente, investimentos, objetivos e análises, com cada pessoa vendo só o que você liberar.</p>
         </div>
-        <div className="relative text-xs text-white/40">Beta fechado · acesso por convite</div>
+        <div className="relative text-[11px] uppercase tracking-[0.2em] text-gold/60">Beta fechado · acesso por convite</div>
       </div>
       <div className="flex items-center justify-center p-6">
         <div className="w-full max-w-sm">
           <div className="mb-6 lg:hidden"><span className="font-semibold">ALVVO Finance</span></div>
-          <div className="mb-5 inline-flex rounded-xl bg-ink/[0.05] p-1 text-sm">
+          <div className="mb-5 inline-flex rounded-full bg-ink/[0.05] p-1 text-sm">
             {([["entrar", "Entrar"], ["criar", "Criar conta"]] as const).map(([m, l]) => (
-              <button key={m} type="button" onClick={() => setMode(m)} className={`rounded-lg px-3 py-1.5 font-medium ${mode === m ? "bg-white shadow-sm" : "text-ink/55"}`}>{l}</button>
+              <button key={m} type="button" onClick={() => setMode(m)} className={`rounded-full px-4 py-1.5 font-medium ${mode === m ? "bg-ink text-[#f6efe2]" : "text-ink/55"}`}>{l}</button>
             ))}
           </div>
           <form action={signInWithGoogle} className="mb-4">
             <input type="hidden" name="next" value={next} />
-            <button className="flex w-full items-center justify-center gap-2 rounded-xl border border-ink/10 bg-white px-3 py-2.5 text-sm font-medium shadow-sm hover:bg-ink/[0.03]">
+            <button className="flex w-full items-center justify-center gap-2 rounded-full border border-ink/12 bg-surface px-3 py-2.5 text-sm font-medium hover:border-ink/25">
               <span className="grid h-5 w-5 place-items-center rounded bg-[#ea4335] text-[11px] font-bold text-white">G</span>Continuar com Google
             </button>
             {googleError && <p className="mt-2 text-xs text-loss">Não foi possível entrar com o Google. Tente de novo ou use o e-mail.</p>}
