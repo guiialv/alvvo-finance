@@ -3,6 +3,7 @@ import { AREAS } from "@/lib/access";
 import { ROLE_LABEL } from "@/lib/access";
 import { Nav } from "@/components/nav";
 import { Avatar } from "@/components/ui";
+import { Wordmark } from "@/components/brand";
 import { signOut } from "@/app/login/actions";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
@@ -29,10 +30,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       <div className="min-h-screen md:flex">
         <aside className="bg-espresso text-[#efe7da] md:sticky md:top-0 md:flex md:h-screen md:w-64 md:shrink-0 md:flex-col">
           <div className="flex items-center gap-3 p-4 md:p-5">
-            <div className="grid h-10 w-10 place-items-center rounded-full border border-gold/50 font-serif text-[22px] leading-none text-gold">A</div>
             <div className="min-w-0">
-              <div className="truncate text-sm font-semibold leading-tight">{household.name}</div>
-              <div className="text-[10px] uppercase tracking-[0.22em] text-gold/80">ALVVO Finance</div>
+              <a href="/"><Wordmark markClass="h-8 w-8" /></a>
+              <div className="mt-2 truncate text-[11px] uppercase tracking-[0.18em] text-[#efe7da]/45">{household.name}</div>
             </div>
           </div>
           <Nav allowed={allowed} badges={{ "/acessos": pending }} />

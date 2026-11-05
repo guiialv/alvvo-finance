@@ -1,5 +1,7 @@
 "use client";
 
+import { BrandMark, Wordmark } from "@/components/brand";
+
 import { useActionState, useState } from "react";
 import { authenticate, signInWithGoogle, type AuthState } from "./actions";
 
@@ -14,7 +16,7 @@ export function LoginForm({ next, googleError }: { next: string; googleError: bo
       <div className="relative hidden overflow-hidden bg-espresso p-14 text-[#efe7da] lg:flex lg:flex-col lg:justify-between">
         <div className="absolute -right-32 -top-32 h-[28rem] w-[28rem] rounded-full bg-gold/15 blur-3xl" />
         <div className="absolute -bottom-40 left-0 h-96 w-96 rounded-full bg-sage/15 blur-3xl" />
-        <div className="relative flex items-center gap-3"><div className="grid h-11 w-11 place-items-center rounded-full border border-gold/50 font-serif text-[24px] text-gold">A</div><span className="text-[11px] uppercase tracking-[0.28em] text-gold/90">ALVVO Finance</span></div>
+        <div className="relative flex items-center gap-3"><BrandMark className="h-11 w-11" color="#d8bf8f" /><span className="font-serif text-[26px] tracking-[0.14em] text-[#f3eadb]">ALVVO</span><span className="mt-1 text-[10px] uppercase tracking-[0.28em] text-gold/80">Finance</span></div>
         <div className="relative">
           <h1 className="max-w-md font-serif text-[52px] font-normal leading-[1.05]">Toda a vida financeira em um só lugar.</h1>
           <p className="mt-5 max-w-md leading-relaxed text-[#efe7da]/60">Orçamento por ciclo, faturas lidas automaticamente, investimentos, objetivos e análises, com cada pessoa vendo só o que você liberar.</p>
@@ -23,7 +25,7 @@ export function LoginForm({ next, googleError }: { next: string; googleError: bo
       </div>
       <div className="flex items-center justify-center p-6">
         <div className="w-full max-w-sm">
-          <div className="mb-6 lg:hidden"><span className="font-semibold">ALVVO Finance</span></div>
+          <div className="mb-8 lg:hidden"><Wordmark tone="dark" /></div>
           <div className="mb-5 inline-flex rounded-full bg-ink/[0.05] p-1 text-sm">
             {([["entrar", "Entrar"], ["criar", "Criar conta"]] as const).map(([m, l]) => (
               <button key={m} type="button" onClick={() => setMode(m)} className={`rounded-full px-4 py-1.5 font-medium ${mode === m ? "bg-ink text-[#f6efe2]" : "text-ink/55"}`}>{l}</button>

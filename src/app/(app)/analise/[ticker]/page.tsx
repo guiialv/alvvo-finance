@@ -9,6 +9,12 @@ import { formatCompact, formatMoney } from "@/lib/format";
 import type { UniverseRow } from "@/lib/market/universe";
 import { type EvalItem, RATING } from "@/lib/eval";
 import { AddToPortfolio } from "../../mercado/add-to-portfolio";
+import { attentionPoints, BENCHMARKS, cdiIndex, normalize, type Period, periodStart, PERIODS, riskLabel, riskStats } from "@/lib/performance";
+import { PerfChart, type Series } from "@/components/analise/perf-chart";
+import { AskAI } from "@/components/analise/ask-ai";
+import { Seal } from "@/components/brand";
+import { aiAvailable } from "@/lib/ai";
+import { KIND_LABEL } from "@/lib/market/universe";
 import { Empty } from "@/components/ui";
 import { AnalysisChart } from "@/components/analise/chart";
 import { addWatch, saveFund, setTargets } from "../actions";
@@ -22,8 +28,12 @@ function Gauge({ verdict, label }: { verdict: string; label: string }) {
   return <div><div className="mb-1 text-[11px] font-semibold uppercase tracking-wider text-ink/40">{label}</div><div className="flex gap-0.5">{STEPS.map((s, k) => <div key={s} className="h-2 flex-1 rounded-sm" style={{ background: k === i ? VERD_C[s] : "#1f1b1712" }} />)}</div><div className="mt-1 text-sm font-semibold" style={{ color: VERD_C[verdict] }}>{verdict}</div></div>;
 }
 
-export default async function TickerPage({ params }: { params: Promise<{ ticker: string }> }) {
+const SERIES_COLORS = ["#4a5a73", "#5f7f5c", "#b8955a"];
+const CLASSE: Record<string, string> = { BR: "Renda variável", US: "Renda variável (EUA)", FX: "Câmbio", CMD: "Commodity", IDX: "Índice" };
+
+export default async function TickerPage({ params, searchParams }: { params: Promise<{ ticker: string }>; searchParams: Promise<{ periodo?: string; vs?: string; add?: string }> }) {
   const ctx = await requireArea("analise");
+  const sp = await searchParams;
   const ticker = decodeURIComponent((await params).ticker).toUpperCase(), sym = yahooSymbol(ticker), edit = canEdit(ctx, "analise");
   const [{ data: wl }, { data: dr }, quotes, candles, { data: uniRow }, { data: pfs }, { data: evalItems }] = await Promise.all([
     ctx.supabase.from("watchlist").select("ticker, buy, sell, note, fund").eq("household_id", ctx.household.id).eq("ticker", ticker).maybeSingle(),
@@ -52,6 +62,38 @@ export default async function TickerPage({ params }: { params: Promise<{ ticker:
   const q = quotes[sym], r = analyzeTicker(w, candles, q?.price ?? null), f = w.fund;
   const cur = u?.currency ?? (sym.endsWith(".SA") || sym.endsWith("-BRL") ? "BRL" : null);
   const formatBRL = (v: number | null | undefined) => formatMoney(v, cur);
+
+  // ---------- Desempenho × referências ----------
+  const periodo = (PERIODS.some(([k]) => k === sp.periodo) ? sp.periodo : "1A") as Period;
+  const defVs = u?.market === "US" ? "SPX" : u?.kind === "fii" || u?.market === "FX" || u?.market === "CMD" ? "CDI" : sym === "^BVSP" ? "CDI" : "IBOV";
+  const addSym = sp.add?.trim().toUpperCase().replace(/[^A-Z0-9.^=\-]/g, "");
+  const vsList = [...new Set([...(sp.vs !== undefined ? sp.vs.split(",").filter(Boolean) : [defVs]), ...(addSym ? [addSym] : [])])].slice(0, 3);
+  const lastDate = candles.length ? candles[candles.length - 1].date : new Date().toISOString().slice(0, 10);
+  const start = periodStart(periodo, lastDate);
+  const benchSeries = await Promise.all(vsList.map(async (id, i) => {
+    const b = BENCHMARKS.find((x) => x.id === id);
+    const label = b?.label ?? id;
+    const hist = id === "CDI" ? await cdiIndex(start, lastDate) : await loadHistory(ctx, b?.yahoo ?? yahooSymbol(id), true, start).catch(() => []);
+    return { id, label, color: SERIES_COLORS[i % SERIES_COLORS.length], points: normalize(hist, start) };
+  }));
+  const assetPts = normalize(candles, start);
+  const assetRet = assetPts.length ? assetPts[assetPts.length - 1].v : null;
+  const firstPrice = candles.find((c) => c.date >= start)?.close ?? null;
+  const b0 = benchSeries.find((b) => b.points.length);
+  const b0Ret = b0 ? b0.points[b0.points.length - 1].v : null;
+  const series: Series[] = [{ label: ticker, color: "#1f1b17", points: assetPts, strong: true }, ...benchSeries.map((b) => ({ label: b.label, color: b.color, points: b.points }))];
+  const perfHref = (p: { periodo?: string; vs?: string[] }) => `?periodo=${p.periodo ?? periodo}&vs=${encodeURIComponent((p.vs ?? vsList).join(","))}`;
+
+  // ---------- Risco, pontos de atenção e pares ----------
+  const risk = riskStats(candles);
+  const ibovLike = u?.market === "US" ? "S&P 500" : "Ibovespa";
+  const refHist = (u?.market === "BR" || u?.market === "US") ? await loadHistory(ctx, u.market === "US" ? "^GSPC" : "^BVSP", true, new Date(Date.now() - 400 * 86400000).toISOString().slice(0, 10)).catch(() => []) : [];
+  const refRisk = refHist.length ? riskStats(refHist) : null;
+  const flags = attentionPoints(u, risk, refRisk?.ret12 ?? null, ibovLike);
+  const { data: peerRows } = u?.sector && (u.market === "BR" || u.market === "US")
+    ? await ctx.supabase.from("market_universe").select("*").eq("market", u.market).eq("sector", u.sector).eq("kind", u.kind ?? "acao").neq("symbol", u.symbol).order("market_cap", { ascending: false, nullsFirst: false }).limit(5)
+    : { data: [] };
+  const peers = (peerRows ?? []) as UniverseRow[];
   const back = <div className="mb-4 flex gap-4 text-sm text-ink/55"><Link className="hover:text-ink" href="/mercado">← Mercado</Link><Link className="hover:text-ink" href="/analise">Monitor</Link></div>;
   if (!candles.length) return <div>{back}<h1>{ticker}</h1><div className="card mt-4"><Empty icon="candle">Não encontramos histórico para {ticker}. Confira o código (ex.: PETR4, IVVB11, AAPL, BTC).</Empty></div></div>;
   const chg = q?.price && q.prev_close ? q.price / q.prev_close - 1 : candles.length > 1 ? candles[candles.length - 1].close / candles[candles.length - 2].close - 1 : 0;
@@ -75,6 +117,37 @@ export default async function TickerPage({ params }: { params: Promise<{ ticker:
 
       <div className="grid gap-4 xl:grid-cols-[1fr_340px]">
         <div className="min-w-0 space-y-4">
+          <section className="card">
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+              <div className="flex gap-1 text-[13px]">{PERIODS.map(([k, l]) => <Link key={k} href={perfHref({ periodo: k })} scroll={false} className={`rounded-full px-3 py-1 transition ${periodo === k ? "bg-ink text-[#f6efe2]" : "text-ink/55 hover:text-ink"}`}>{l}</Link>)}</div>
+              <div className="flex flex-wrap items-center gap-1.5 text-xs">
+                <span className="text-ink/45">Comparar com</span>
+                {benchSeries.map((b) => <Link key={b.id} href={perfHref({ vs: vsList.filter((x) => x !== b.id) })} scroll={false} className="inline-flex items-center gap-1.5 rounded-full border border-ink/12 px-2.5 py-1 hover:border-loss/50" title="Remover"><span className="h-2 w-2 rounded-full" style={{ background: b.color }} />{b.label}<span className="text-ink/35">×</span></Link>)}
+                {vsList.length < 3 && (
+                  <details className="relative">
+                    <summary className="cursor-pointer list-none rounded-full border border-dashed border-ink/20 px-2.5 py-1 text-ink/60 hover:border-gold">+ adicionar</summary>
+                    <div className="absolute right-0 z-20 mt-1 w-60 rounded-2xl border border-ink/10 bg-surface p-2 shadow-[0_18px_40px_-12px_rgba(40,30,20,.35)]">
+                      <div className="px-2 pb-1 text-[10.5px] uppercase tracking-[0.14em] text-ink/45">Referências</div>
+                      {BENCHMARKS.filter((b) => !vsList.includes(b.id)).map((b) => <Link key={b.id} href={perfHref({ vs: [...vsList, b.id] })} scroll={false} className="block rounded-lg px-2 py-1.5 text-sm hover:bg-ink/[0.04]">{b.label}</Link>)}
+                      <form className="mt-1 border-t border-ink/5 px-1 pt-2" action="">
+                        <input type="hidden" name="periodo" value={periodo} /><input type="hidden" name="vs" value={vsList.join(",")} />
+                        <input className="input !rounded-lg !py-1 text-xs" name="add" placeholder="Outro ativo (ex.: VALE3, AAPL)" />
+                      </form>
+                    </div>
+                  </details>)}
+              </div>
+            </div>
+            <div className="mb-2 flex flex-wrap items-baseline gap-x-4 gap-y-1">
+              <span className="display text-[28px] leading-none">{formatBRL(r.price)}</span>
+              {assetRet != null && firstPrice != null && <span className={`text-sm font-medium tabular-nums ${assetRet >= 0 ? "text-gain" : "text-loss"}`}>{assetRet >= 0 ? "↑" : "↓"} {formatBRL(Math.abs((r.price ?? 0) - firstPrice))} ({pct(assetRet)}) no período</span>}
+              {assetRet != null && b0Ret != null && b0 && <span className="text-sm text-ink/55">{b0Ret > 0 && assetRet > 0 ? `${Math.round((assetRet / b0Ret) * 100)}% do ${b0.label} · ` : `vs. ${b0.label}: `}{assetRet - b0Ret >= 0 ? "+" : ""}{((assetRet - b0Ret) * 100).toFixed(1).replace(".", ",")} p.p.</span>}
+            </div>
+            <PerfChart series={series} />
+            <div className="mt-2 flex flex-wrap items-center justify-between gap-2 text-[11px] text-ink/45">
+              <div className="flex flex-wrap gap-3">{series.map((s2) => <span key={s2.label} className="flex items-center gap-1.5"><span className="h-0.5 w-4 rounded" style={{ background: s2.color }} />{s2.label}{s2.points.length ? ` ${pct(s2.points[s2.points.length - 1].v)}` : " (sem dados)"}</span>)}</div>
+              <span>Preço ajustado por proventos e desdobramentos · CDI: Banco Central</span>
+            </div>
+          </section>
           <AnalysisChart ticker={ticker} candles={candles} drawings={(dr?.drawings as unknown[]) ?? []} buy={w.buy} sell={w.sell} readOnly={!edit} />
           <section className="card"><div className="mb-3 flex items-center justify-between"><h2>Notícias</h2><span className="text-xs text-ink/45">Yahoo Finance</span></div>
             {(news ?? []).length ? <div className="divide-y divide-ink/5">{(news as { id: string; title: string; url: string; source: string | null; published_at: string | null }[]).map((n) => (
@@ -99,23 +172,62 @@ export default async function TickerPage({ params }: { params: Promise<{ ticker:
               <div className="mt-4 grid grid-cols-2 gap-x-4 text-xs">{[...r.tech.ma, ...r.tech.ind].map((i) => <div key={i.label} className="flex justify-between border-b border-ink/5 py-1"><span className="text-ink/55">{i.label}</span><span className={`font-medium ${i.signal === "compra" ? "text-gain" : i.signal === "venda" ? "text-loss" : "text-ink/50"}`}>{i.signal}</span></div>)}</div>
               <div className="mt-3 flex justify-between text-xs text-ink/55"><span>Suporte (60d): <b>{formatBRL(r.tech.support)}</b></span><span>Resistência: <b>{formatBRL(r.tech.resistance)}</b></span></div></section>)}
           {r.sug && (
-            <section className="card"><h2 className="mb-2">Por que “{r.sug.action}”?</h2>
+            <section className="card overflow-hidden !p-0">
+              <div className="flex items-center gap-3 bg-gradient-to-br from-[#2a241e] to-[#191613] px-5 py-4 text-[#f3eadb]">
+                <Seal size={44} id={`seal-${ticker}`} />
+                <div><div className="font-serif text-[20px] leading-tight">Leitura ALVVO</div><div className="text-xs text-[#efe7da]/60">Sinal: <b className={r.sug.action === "Compra" ? "text-[#a9c39f]" : r.sug.action === "Venda" ? "text-[#e3a597]" : "text-[#efe7da]"}>{r.sug.action}</b> · técnico + fundamentos</div></div>
+              </div>
+              <div className="p-5"><h2 className="mb-2">Por que “{r.sug.action}”?</h2>
               <ul className="space-y-1.5 text-sm text-ink/70">{r.sug.reasons.map((x, i) => <li key={i} className="flex gap-2"><span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-ink/30" />{x}</li>)}</ul>
               <div className="mt-4 rounded-xl bg-ink/[0.03] p-3"><div className="label">Alvos sugeridos pela plataforma</div>
                 <div className="mt-1 flex justify-between text-sm"><span>Compra</span><b className="tabular-nums text-gain">{r.sug.buyTarget ? formatBRL(r.sug.buyTarget) : "—"}</b></div>
                 <div className="flex justify-between text-sm"><span>Venda</span><b className="tabular-nums text-loss">{r.sug.sellTarget ? formatBRL(r.sug.sellTarget) : "—"}</b></div>
                 {edit && wl && <form action={setTargets} className="mt-2"><input type="hidden" name="ticker" value={ticker} /><input type="hidden" name="buy" value={r.sug.buyTarget ? r.sug.buyTarget.toFixed(2).replace(".", ",") : ""} /><input type="hidden" name="sell" value={r.sug.sellTarget ? r.sug.sellTarget.toFixed(2).replace(".", ",") : ""} /><button className="btn-ghost w-full !py-1.5 text-xs">Usar como meus alvos</button></form>}
                 <p className="mt-2 text-[11px] text-ink/45">Compra: suporte técnico ou preço justo com margem de 15%. Venda: o alvo mais próximo entre resistência, preço justo e analistas que dê ao menos 8% de alta.</p></div>
+              <details className="mt-3 text-xs text-ink/55"><summary className="cursor-pointer text-brand">Como chegamos a esta leitura</summary>
+                <div className="mt-2 space-y-2"><p><b className="text-ink">Sem conflito.</b> A ALVVO não recebe comissão de nenhum ativo; a leitura sai só de regras públicas aplicadas aos dados.</p>
+                  <p><b className="text-ink">Critérios.</b> Médias móveis, IFR, MACD, suportes e resistências; quando há fundamentos, preço justo de Graham e preço teto de Bazin.</p>
+                  <p><b className="text-ink">Revisão contínua.</b> Recalculada a cada atualização de preço. Não é recomendação individual de investimento.</p></div></details>
+              </div>
             </section>)}
-          {u && (u.market === "BR" || u.market === "US") && (
-            <section className="card"><h2 className="mb-2">Mercado</h2>
-              {fundRow("Valor de mercado", u.market_cap ? formatCompact(Number(u.market_cap), u.currency) : null)}
-              {fundRow("12 meses", u.perf_1y != null ? `${u.perf_1y >= 0 ? "+" : ""}${Number(u.perf_1y).toFixed(1).replace(".", ",")}%` : null)}
-              {fundRow("No ano", u.perf_ytd != null ? `${u.perf_ytd >= 0 ? "+" : ""}${Number(u.perf_ytd).toFixed(1).replace(".", ",")}%` : null)}
-              {fundRow("Margem líquida", u.net_margin != null ? `${Number(u.net_margin).toFixed(1).replace(".", ",")}%` : null)}
-              {fundRow("Dívida / patrimônio", u.debt_equity != null ? Number(u.debt_equity).toFixed(2).replace(".", ",") : null)}
-              {fundRow("EV/EBITDA", u.ev_ebitda != null ? Number(u.ev_ebitda).toFixed(1).replace(".", ",") : null)}
+          <section className="card"><h2 className="mb-2">Detalhes do ativo</h2>
+            {fundRow("Classe", u ? CLASSE[u.market] : sym.endsWith(".SA") ? "Renda variável" : null)}
+            {fundRow("Instrumento", u?.kind ? KIND_LABEL[u.kind] ?? u.kind : null)}
+            {fundRow("Emissor", u?.name ? <span className="block max-w-[180px] truncate text-right" title={u.name}>{u.name}</span> : null)}
+            {u?.market === "BR" || u?.market === "US" ? fundRow("Setor", u.sector) : null}
+            {fundRow("Risco", risk.vol != null ? <span title={`Volatilidade anualizada de ${(risk.vol * 100).toFixed(0)}% (252 pregões)`}>{riskLabel(risk.vol)} <span className="text-xs font-normal text-ink/45">{(risk.vol * 100).toFixed(0)}% a.a.</span></span> : null)}
+            {u && (u.market === "BR" || u.market === "US") && (
+              <details className="mt-1"><summary className="cursor-pointer py-1 text-sm text-ink/55">⋯ Mais detalhes</summary>
+                {fundRow("Valor de mercado", u.market_cap ? formatCompact(Number(u.market_cap), u.currency) : null)}
+                {fundRow("No ano", u.perf_ytd != null ? `${u.perf_ytd >= 0 ? "+" : ""}${Number(u.perf_ytd).toFixed(1).replace(".", ",")}%` : null)}
+                {fundRow("12 meses", u.perf_1y != null ? `${u.perf_1y >= 0 ? "+" : ""}${Number(u.perf_1y).toFixed(1).replace(".", ",")}%` : null)}
+                {fundRow("Máxima de 12 meses", risk.high ? <>{formatBRL(risk.high)} <span className="text-xs font-normal text-ink/45">{risk.fromHigh != null ? pct(risk.fromHigh) : ""}</span></> : null)}
+                {fundRow("Margem líquida", u.net_margin != null ? `${Number(u.net_margin).toFixed(1).replace(".", ",")}%` : null)}
+                {fundRow("Dívida / patrimônio", u.debt_equity != null ? Number(u.debt_equity).toFixed(2).replace(".", ",") : null)}
+                {fundRow("EV/EBITDA", u.ev_ebitda != null ? Number(u.ev_ebitda).toFixed(1).replace(".", ",") : null)}
+                {fundRow("Indústria", u.industry)}
+              </details>)}
+          </section>
+
+          <section className="card"><div className="mb-2 flex items-center justify-between"><h2>Pontos de atenção</h2><span className="text-[11px] text-ink/40">critérios automáticos</span></div>
+            {flags.length ? <ul className="space-y-2.5">{flags.map((fl) => (
+              <li key={fl.title} className="flex gap-2.5"><span className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${fl.level === "alto" ? "bg-loss" : fl.level === "medio" ? "bg-gold" : "bg-ink/25"}`} />
+                <div><div className="text-sm font-medium">{fl.title}</div><div className="text-xs leading-relaxed text-ink/55">{fl.text}</div></div></li>))}</ul>
+              : <p className="flex items-center gap-2 text-sm text-ink/55"><span className="h-2 w-2 rounded-full bg-gain" />Nenhum ponto de atenção nos critérios automáticos.</p>}
+          </section>
+
+          <AskAI yahoo={sym} enabled={aiAvailable(ctx)} items={myItems.map((it) => ({ id: it.id, portfolio: portfolios.find((p) => p.id === it.portfolio_id)?.name ?? "Carteira" }))} />
+
+          {peers.length > 0 && (
+            <section className="card"><div className="mb-2 flex items-center justify-between"><h2>Outros do setor</h2><span className="text-[11px] text-ink/40">{u?.sector}</span></div>
+              <div className="divide-y divide-ink/[0.05]">{peers.map((p) => (
+                <Link key={p.symbol} href={`/analise/${encodeURIComponent(p.market === "BR" ? p.symbol : p.yahoo)}`} className="flex items-center gap-3 py-2 text-sm hover:bg-ink/[0.02]">
+                  <span className="min-w-0 flex-1"><b>{p.symbol}</b><span className="block truncate text-xs text-ink/45">{p.name}</span></span>
+                  <span className="text-right text-xs tabular-nums text-ink/55">P/L {p.pe != null && p.pe > 0 ? Number(p.pe).toFixed(1).replace(".", ",") : "—"}<br />DY {p.dy ? `${Number(p.dy).toFixed(1).replace(".", ",")}%` : "—"}</span>
+                  <span className={`w-14 text-right text-xs tabular-nums ${p.perf_1y == null ? "text-ink/30" : p.perf_1y >= 0 ? "text-gain" : "text-loss"}`}>{p.perf_1y == null ? "—" : `${p.perf_1y >= 0 ? "+" : ""}${Number(p.perf_1y).toFixed(0)}%`}<br /><span className="text-ink/35">12m</span></span>
+                </Link>))}</div>
             </section>)}
+
           <section className="card"><h2 className="mb-2">Fundamentos</h2>
             {fundRow("P/L", f.pl?.toLocaleString("pt-BR"))}{fundRow("P/VP", f.pvp?.toLocaleString("pt-BR"))}{fundRow("Dividend yield", f.dy ? `${f.dy.toLocaleString("pt-BR")}%` : null)}{fundRow("ROE", f.roe ? `${f.roe.toLocaleString("pt-BR")}%` : null)}{fundRow("Dív. líq./EBITDA", f.divEbitda?.toLocaleString("pt-BR"))}
             <div className="mt-2 border-t border-ink/5 pt-2">

@@ -61,3 +61,18 @@
   .display { @apply font-serif font-normal tracking-[-0.01em] tabular-nums; }
   .eyebrow { @apply text-[10.5px] font-medium uppercase tracking-[0.18em] text-gold; }
 }
+
+/* ---------- Fluidez ---------- */
+@keyframes alvvo-rise { from { transform: scaleY(.35); opacity: .45; } to { transform: scaleY(1); opacity: 1; } }
+@keyframes alvvo-enter { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+@keyframes alvvo-shimmer { from { background-position: -400px 0; } to { background-position: 400px 0; } }
+@layer components {
+  .page-enter { animation: alvvo-enter .32s cubic-bezier(.2,.7,.2,1) both; }
+  .page-enter > * { animation: alvvo-enter .42s cubic-bezier(.2,.7,.2,1) both; }
+  .page-enter > *:nth-child(2) { animation-delay: 40ms; } .page-enter > *:nth-child(3) { animation-delay: 80ms; } .page-enter > *:nth-child(n+4) { animation-delay: 120ms; }
+  .skeleton { @apply rounded-xl; background: linear-gradient(90deg, #ece6db 0%, #f6f1e8 50%, #ece6db 100%); background-size: 800px 100%; animation: alvvo-shimmer 1.3s linear infinite; }
+  a.card, .card-hover { @apply transition duration-200; }
+  a.card:hover, .card-hover:hover { @apply -translate-y-px shadow-[0_1px_0_rgba(31,27,23,.02),0_18px_40px_-20px_rgba(60,45,30,.28)]; }
+}
+@media (prefers-reduced-motion: reduce) { .page-enter, .page-enter > *, .skeleton { animation: none !important; } }
+html { scroll-behavior: smooth; }
