@@ -68,7 +68,7 @@ export function Sankey({ data, width = 960, compact = false, caption }: { data: 
             <text x={tx} textAnchor={anchor} style={{ paintOrder: "stroke", stroke: "#fffdf9", strokeWidth: 4, strokeLinejoin: "round" }}>
               {two ? (<>
                 <tspan x={tx} y={cy - 2} className="fill-ink" style={{ fontSize: 13 }}>{n.label}</tspan>
-                <tspan x={tx} y={cy + 14} className="fill-ink/55" style={{ fontSize: 11.5 }}>{brl0(n.value)} · {pctFmt(n.value / total)}</tspan>
+                <tspan x={tx} y={cy + 14} className="fill-ink/55 money-t" style={{ fontSize: 11.5 }}>{brl0(n.value)} · {pctFmt(n.value / total)}</tspan>
               </>) : <tspan y={cy + 4} className="fill-ink" style={{ fontSize: 12 }}>{n.label} <tspan className="fill-ink/55">· {pctFmt(n.value / total)}</tspan></tspan>}
             </text>
           );

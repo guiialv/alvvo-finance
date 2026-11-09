@@ -1,4 +1,7 @@
 const P: Record<string, React.ReactNode> = {
+  menu: <path d="M4 7h16M4 12h16M4 17h10" />,
+  user: <><circle cx="12" cy="8" r="3.5" /><path d="M5 20c1.2-3.5 4-5 7-5s5.8 1.5 7 5" /></>,
+  eyeoff: <><path d="M3 3l18 18M10.6 6.1A9.8 9.8 0 0 1 12 6c5 0 9 6 9 6a17 17 0 0 1-3 3.6M6.6 6.7C4.3 8.2 3 12 3 12s4 6 9 6a9 9 0 0 0 4.3-1.1" /><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2" /></>,
   flow: <path d="M3 5h4c5 0 5 7 10 7h4M3 5v4M7 19H3m4 0c5 0 5-7 10-7M3 19v-4" />,
   globe2: <><circle cx="12" cy="12" r="9" /><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18" /></>,
   briefcase: <><rect x="3" y="7" width="18" height="13" rx="2" /><path d="M9 7V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2M3 13h18" /></>,

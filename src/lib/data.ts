@@ -28,6 +28,7 @@ export interface Transaction {
   kind: Kind;
   category_id: string | null;
   account_id: string | null;
+  import_batch_id?: string | null;
   member_user_id: string | null;
   installment_no: number | null;
   installment_total: number | null;

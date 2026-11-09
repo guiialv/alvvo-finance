@@ -76,7 +76,7 @@ export function Kpi({ label, value, sub, accent = "#7d5f36", tone }: { label: st
   return (
     <div className="card relative overflow-hidden">
       <div className="flex items-center gap-2"><span className="h-1.5 w-1.5 rounded-full" style={{ background: accent }} /><div className="label !mb-0">{label}</div></div>
-      <div className={`display mt-2 text-[32px] leading-none ${tone === "auto" ? (value >= 0 ? "text-gain" : "text-loss") : ""}`}>{formatBRL(value)}</div>
+      <div className={`display mt-2 text-[22px] leading-none sm:text-[32px] ${tone === "auto" ? (value >= 0 ? "text-gain" : "text-loss") : ""}`}>{formatBRL(value)}</div>
       {sub && <div className="mt-1 text-xs text-ink/45">{sub}</div>}
     </div>
   );

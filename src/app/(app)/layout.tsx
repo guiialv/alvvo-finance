@@ -1,13 +1,13 @@
 import { getContext, isAdminRole, visibleAreas } from "@/lib/context";
 import { AREAS } from "@/lib/access";
 import { ROLE_LABEL } from "@/lib/access";
-import { Nav } from "@/components/nav";
-import { Avatar } from "@/components/ui";
-import { Wordmark } from "@/components/brand";
+import { cookies } from "next/headers";
+import { Shell } from "@/components/shell";
 import { signOut } from "@/app/login/actions";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const ctx = await getContext();
+  const jar = await cookies();
   const { household, member, viewer } = ctx;
   const admin = isAdminRole(member.role) && !viewer.simulated;
   const areas = visibleAreas(ctx);
@@ -27,27 +27,11 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           <a href="/ver-como/sair" className="ml-auto rounded-lg bg-white/15 px-3 py-1 text-xs font-medium hover:bg-white/25">Voltar a ser {member.display_name}</a>
         </div>
       )}
-      <div className="min-h-screen md:flex">
-        <aside className="bg-espresso text-[#efe7da] md:sticky md:top-0 md:flex md:h-screen md:w-64 md:shrink-0 md:flex-col">
-          <div className="flex items-center gap-3 p-4 md:p-5">
-            <div className="min-w-0">
-              <a href="/"><Wordmark markClass="h-8 w-8" /></a>
-              <div className="mt-2 truncate text-[11px] uppercase tracking-[0.18em] text-[#efe7da]/45">{household.name}</div>
-            </div>
-          </div>
-          <Nav allowed={allowed} badges={{ "/acessos": pending }} />
-          <div className="hidden border-t border-white/[0.06] p-4 md:block">
-            <div className="flex items-center gap-3">
-              <Avatar name={viewer.name} index={viewer.role === "dono" ? 0 : 1} size="h-8 w-8 text-xs" />
-              <div className="flex-1 text-sm">
-                <div className="font-medium">{viewer.name}</div>
-                <form action={signOut}><button className="text-xs text-white/40 hover:text-white">Sair</button></form>
-              </div>
-            </div>
-          </div>
-        </aside>
-        <main className="min-w-0 flex-1 px-4 py-6 md:px-12 md:py-10"><div className="mx-auto max-w-[1280px]">{children}</div></main>
-      </div>
+      <Shell allowed={allowed} badges={{ "/acessos": pending }} household={household.name} signOut={signOut}
+        viewer={{ name: viewer.name, initials: viewer.name.split(/\s+/).map((w) => w[0]).slice(0, 2).join("").toUpperCase() }}
+        initialCollapsed={jar.get("alvvo_nav")?.value === "min"} initialPrivacy={jar.get("alvvo_priv")?.value === "1"}>
+        {children}
+      </Shell>
     </>
   );
 }

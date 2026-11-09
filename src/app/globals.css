@@ -41,13 +41,13 @@
 
 @layer base {
   body { @apply bg-paper text-ink antialiased; font-feature-settings: "cv11", "ss01"; }
-  h1 { @apply font-serif text-[34px] font-normal leading-[1.1] tracking-[-0.01em]; }
+  h1 { @apply font-serif text-[28px] sm:text-[34px] font-normal leading-[1.1] tracking-[-0.01em]; }
   h2 { @apply text-[15px] font-semibold tracking-tight; }
   ::selection { background: #e8d9bd; }
 }
 
 @layer components {
-  .card { @apply rounded-[20px] border border-ink/[0.07] bg-surface p-5 shadow-[0_1px_0_rgba(31,27,23,.02),0_10px_30px_-18px_rgba(60,45,30,.18)]; }
+  .card { @apply rounded-[20px] border border-ink/[0.07] bg-surface p-4 sm:p-5 shadow-[0_1px_0_rgba(31,27,23,.02),0_10px_30px_-18px_rgba(60,45,30,.18)]; }
   .btn { @apply inline-flex items-center justify-center gap-2 rounded-full bg-ink px-5 py-2 text-sm font-medium text-[#f6efe2] transition hover:bg-[#3a322b] disabled:opacity-50; }
   .btn-ghost { @apply inline-flex items-center justify-center gap-2 rounded-full border border-ink/12 bg-surface px-4 py-2 text-sm font-medium text-ink transition hover:border-ink/25 hover:bg-white; }
   .input { @apply w-full rounded-xl border border-ink/10 bg-surface px-3 py-2 text-sm outline-none transition focus:border-gold focus:ring-4 focus:ring-gold/15 disabled:bg-ink/[0.03] disabled:text-ink/40; }
@@ -76,3 +76,8 @@
 }
 @media (prefers-reduced-motion: reduce) { .page-enter, .page-enter > *, .skeleton { animation: none !important; } }
 html { scroll-behavior: smooth; }
+
+/* ---------- Ocultar valores ---------- */
+.privacy-on main .display, .privacy-on main .num, .privacy-on main .tabular-nums, .privacy-on main [data-money] { filter: blur(9px); transition: filter .2s; }
+.privacy-on main .display:hover, .privacy-on main .num:hover, .privacy-on main .tabular-nums:hover, .privacy-on main [data-money]:hover { filter: none; }
+.privacy-on main .money-t { visibility: hidden; }

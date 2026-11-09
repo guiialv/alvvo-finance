@@ -10,7 +10,7 @@ import { Icon } from "@/components/icons";
 import { TxTable } from "@/components/tx-table";
 import { createTransaction } from "./actions";
 
-type SP = { ciclo?: string; escopo?: string; categoria?: string; q?: string };
+type SP = { ciclo?: string; escopo?: string; categoria?: string; q?: string; novo?: string };
 
 export default async function LancamentosPage({ searchParams }: { searchParams: Promise<SP> }) {
   const ctx = await requireArea("lancamentos");
@@ -59,7 +59,7 @@ export default async function LancamentosPage({ searchParams }: { searchParams: 
         </div>
       </div>
 
-      <details className="card mb-4">
+      <details className="card mb-4" open={sp.novo === "1"} id="novo">
         <summary className="cursor-pointer text-sm font-medium text-brand">+ Novo lançamento</summary>
         <form action={createTransaction} className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
           <input type="hidden" name="scope" value={scope} />
