@@ -7,7 +7,7 @@ import { requireEdit } from "@/lib/context";
 import { cycleOf } from "@/lib/cycle";
 import { normalizeMerchant, suggestCategory, UNCATEGORIZED_KEY, type LearnedRule } from "@/lib/categorize";
 import { categoryIndex, loadAccounts, loadCategories, loadMembers } from "@/lib/data";
-import { PdfPasswordError, pagesToText, parseStatementFile } from "@/lib/faturas";
+import { faturaIssues, PdfPasswordError, pagesToText, parseStatementFile } from "@/lib/faturas";
 import { aiAvailable, aiKeyFor } from "@/lib/ai";
 import { aiCategorize, aiReadStatement } from "@/lib/ai-tasks";
 import { brandOf, statementKey } from "@/lib/cards";
@@ -68,6 +68,8 @@ export interface Preview {
   cardTotals?: Record<string, number>;
   /** "Total dos lançamentos atuais" */
   currentTotal?: number | null;
+  /** Importações anteriores desta mesma fatura, que serão substituídas */
+  replacesBatchIds?: string[];
 }
 
 export type FutureItem = { date: string; description: string; amount: number; installmentNo?: number | null; installmentTotal?: number | null };
@@ -92,6 +94,25 @@ export async function analyzeStatement(_: Preview | undefined, formData: FormDat
       // PDF com senha: a IA recebe o texto já aberto aqui no servidor
       st = await aiReadStatement(key, bytes, file.name, password && st.pages ? pagesToText(st.pages) : undefined);
       readWith = "ia";
+    } else if (file.name.toLowerCase().endsWith(".pdf") && (st.docType ?? "fatura") === "fatura") {
+      // Conferência: se a leitura não bate com a fatura (cartões, subtotais, total), relê com IA
+      const issues = faturaIssues(st);
+      if (issues.length && aiAvailable(ctx)) {
+        const key = await aiKeyFor(ctx);
+        if (key) {
+          try {
+            const ai = await aiReadStatement(key, bytes, file.name, password && st.pages ? pagesToText(st.pages) : undefined);
+            const aiIssues = faturaIssues({ ...ai, cardTotals: st.cardTotals, currentTotal: st.currentTotal ?? ai.currentTotal ?? null });
+            if (ai.transactions.length && aiIssues.length < issues.length) {
+              st = { ...ai, dueDate: st.dueDate ?? ai.dueDate, statementTotal: st.statementTotal ?? ai.statementTotal, currentTotal: st.currentTotal ?? ai.currentTotal ?? null,
+                cardTotals: Object.keys(st.cardTotals).length ? st.cardTotals : ai.cardTotals,
+                futureInstallments: st.futureInstallments.length ? st.futureInstallments : ai.futureInstallments,
+                warnings: [`O leitor automático não fechou com a fatura (${issues.join("; ")}). Relida com IA${aiIssues.length ? ` — ainda confira: ${aiIssues.join("; ")}` : " e conferida"}.`] };
+              readWith = "ia";
+            } else st.warnings.unshift(`Conferência: ${issues.join("; ")}.`);
+          } catch { st.warnings.unshift(`Conferência: ${issues.join("; ")}.`); }
+        }
+      } else if (issues.length) st.warnings.unshift(`Conferência: ${issues.join("; ")}. Ative a IA para uma segunda leitura automática.`);
     }
   } catch (e) {
     if (e instanceof PdfPasswordError) return { fileName: file.name, needsPassword: e.code, error: e.message };
@@ -180,11 +201,19 @@ export async function analyzeStatement(_: Preview | undefined, formData: FormDat
     } catch { /* segue sem IA */ }
   }
 
+  // Reimportar a mesma fatura (mesmo banco e vencimento) substitui a anterior, mantendo as classificações
+  let replacesBatchIds: string[] = [];
+  if (docType === "fatura" && st.dueDate) {
+    const { data: prev } = await ctx.supabase.from("import_batches").select("id").eq("household_id", ctx.household.id)
+      .eq("doc_type", "fatura").eq("institution", st.bank).eq("due_date", st.dueDate);
+    replacesBatchIds = ((prev ?? []) as { id: string }[]).map((b) => b.id);
+    if (replacesBatchIds.length) st.warnings.unshift(`Esta fatura já tinha sido importada${replacesBatchIds.length > 1 ? ` (${replacesBatchIds.length} vezes)` : ""}. Ao importar, a versão anterior é substituída por esta leitura — as classificações que você já fez são mantidas.`);
+  }
   const hashes = rows.map((r) => r.hash);
   const existing = new Set<string>();
   for (let i = 0; i < hashes.length; i += 200) {
-    const { data } = await ctx.supabase.from("transactions").select("external_hash").eq("household_id", ctx.household.id).in("external_hash", hashes.slice(i, i + 200));
-    (data ?? []).forEach((d) => existing.add(d.external_hash as string));
+    const { data } = await ctx.supabase.from("transactions").select("external_hash, import_batch_id").eq("household_id", ctx.household.id).in("external_hash", hashes.slice(i, i + 200));
+    (data ?? []).forEach((d) => { if (!replacesBatchIds.includes(d.import_batch_id as string)) existing.add(d.external_hash as string); });
   }
   rows.forEach((r) => (r.duplicate = existing.has(r.hash)));
 
@@ -215,7 +244,7 @@ export async function analyzeStatement(_: Preview | undefined, formData: FormDat
     fileName: file.name, readWith, source, docType, accountRef: st.accountRef ?? null, bank: st.bank, dueDate: st.dueDate, statementTotal: st.statementTotal, cycle,
     warnings: st.warnings, rows, cards, members: members.map((m) => ({ user_id: m.user_id, display_name: m.display_name })),
     futureTotal: Math.round(st.futureInstallments.reduce((a, f) => a + f.amount, 0) * 100) / 100,
-    futureItems: st.futureInstallments, cardTotals: st.cardTotals, currentTotal: st.currentTotal ?? null,
+    futureItems: st.futureInstallments, cardTotals: st.cardTotals, currentTotal: st.currentTotal ?? null, replacesBatchIds,
   };
 }
 
@@ -269,6 +298,7 @@ export interface ConfirmPayload {
   futureItems?: FutureItem[];
   cardTotals?: Record<string, number>;
   currentTotal?: number | null;
+  replacesBatchIds?: string[];
   cycle: string;
   cards: { last4: string; ownerUserId: string | null }[];
   rows: (PreviewRow & { categoryId: string | null })[];
@@ -334,6 +364,31 @@ export async function confirmImport(payload: ConfirmPayload): Promise<{ error?: 
     bankAccountId = acc?.id ?? null;
   }
 
+  // Substituição: guarda as classificações da versão anterior e libera os identificadores
+  type OldTx = { date: string; amount: number; merchant_key: string | null; category_id: string | null; notes: string | null };
+  const oldByKey = new Map<string, OldTx[]>();
+  let replaceIds: string[] = [];
+  if (!isExtrato && payload.replacesBatchIds?.length) {
+    const { data: ok } = await ctx.supabase.from("import_batches").select("id").eq("household_id", hh).eq("doc_type", "fatura").in("id", payload.replacesBatchIds);
+    replaceIds = ((ok ?? []) as { id: string }[]).map((b) => b.id);
+    if (replaceIds.length) {
+      const { data: olds } = await ctx.supabase.from("transactions").select("date, amount, merchant_key, category_id, notes").eq("household_id", hh).in("import_batch_id", replaceIds).limit(5000);
+      for (const o of (olds ?? []) as OldTx[]) {
+        const k = `${o.date}|${Number(o.amount).toFixed(2)}|${o.merchant_key ?? ""}`;
+        oldByKey.set(k, [...(oldByKey.get(k) ?? []), o]);
+      }
+      await ctx.supabase.from("transactions").update({ external_hash: null }).eq("household_id", hh).in("import_batch_id", replaceIds);
+    }
+  }
+  if (oldByKey.size) {
+    for (const r of payload.rows) {
+      if (r.categoryId && r.categoryId !== r.suggestedCategoryId) continue; // mudou na prévia: vale a escolha nova
+      const k = `${r.date}|${r.amount.toFixed(2)}|${normalizeMerchant(r.description)}`;
+      const o = oldByKey.get(k)?.shift();
+      if (o?.category_id && byId.has(o.category_id)) { r.categoryId = o.category_id; if (o.notes && !r.note) r.note = o.notes; }
+    }
+  }
+
   const { data: batch, error: bErr } = await ctx.supabase.from("import_batches").insert({
     household_id: hh, source: payload.source, doc_type: isExtrato ? "extrato" : "fatura", account_id: isExtrato ? bankAccountId : cardAccountId, institution: payload.bank, file_name: payload.fileName,
     due_date: payload.dueDate, statement_total: payload.statementTotal, future_total: payload.futureTotal,
@@ -366,6 +421,9 @@ export async function confirmImport(payload: ConfirmPayload): Promise<{ error?: 
       return { error: error.message.includes("duplicate") ? "Alguns lançamentos já tinham sido importados. Recarregue a prévia." : error.message };
     }
   }
+
+  // Versão anterior desta fatura sai (os pagamentos conciliados voltam a ser conferidos abaixo)
+  if (replaceIds.length) await ctx.supabase.from("import_batches").delete().eq("household_id", hh).in("id", replaceIds);
 
   // Fatura importada depois do extrato: converte o pagamento já lançado em transferência
   let reconciled = 0;

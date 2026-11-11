@@ -1,10 +1,10 @@
-import { COLUMN_BREAK, pageToLines, parseBRL } from "./pdf-lines";
+import { COLUMN_BREAK, pageToLines, parseBRL, squash } from "./pdf-lines";
 import type { ParsedCardTransaction, ParsedStatement, PdfPage } from "./types";
 
 const MONEY = String.raw`(\d{1,3}(?:\.\d{3})*,\d{2})`;
 const TX_RE = new RegExp(String.raw`^(\d{2})\/(\d{2})\s+(.+?)\s+(-\s*)?${MONEY}$`);
-const HOLDER_RE = /^(.+?)\s*\(final (\d{4})\)$/;
-const CARD_TOTAL_RE = new RegExp(String.raw`^Lançamentos no cartão \(final (\d{4})\)\s+(-\s*)?${MONEY}`);
+const HOLDER_RE = /^(.+?)\(final(\d{4})\)$/;
+const CARD_TOTAL_RE = new RegExp(String.raw`^Lançamentosnocartão\(final(\d{4})\)(-)?${MONEY}`);
 const INSTALLMENT_RE = /\s*(\d{2})\/(\d{2})$/;
 const CATEGORY_RE = /^([A-ZÀ-Ü][A-ZÀ-Ü ]*?)\s*\.\s*(.*)$/;
 const INTL_DETAIL_RE = new RegExp(String.raw`^(.*?)\s*${MONEY}\s+([A-Z]{3})\s+${MONEY}$`);
@@ -12,7 +12,8 @@ const INTL_DETAIL_RE = new RegExp(String.raw`^(.*?)\s*${MONEY}\s+([A-Z]{3})\s+${
 /** Identifica se o texto da primeira página parece uma fatura Itaú. */
 export function isItauStatement(pages: PdfPage[]): boolean {
   const text = pages.slice(0, 3).flatMap((p) => p.items.map((i) => i.str)).join(" ");
-  return /Itaú|Itau|itau\.com|4004 4828/i.test(text) && /Lançamentos: compras e saques/.test(text);
+  const sq = squash(text);
+  return /Itaú|Itau|itau\.com|40044828/i.test(sq) && /Lançamentos:comprasesaques/i.test(sq);
 }
 
 export function parseItauStatement(pages: PdfPage[]): ParsedStatement {
@@ -21,7 +22,7 @@ export function parseItauStatement(pages: PdfPage[]): ParsedStatement {
 
   const dueDate = matchDate(fullText, /Vencimento:\s*(\d{2}\/\d{2}\/\d{4})/);
   const closingDate = matchDate(fullText, /Emissão:\s*(\d{2}\/\d{2}\/\d{4})/);
-  const totalMatch = fullText.match(new RegExp(String.raw`Total desta fatura\s+${MONEY}`));
+  const totalMatch = squash(fullText).match(new RegExp(String.raw`Totaldestafatura${MONEY}`));
   let statementTotal = totalMatch ? parseBRL(totalMatch[1]) : null;
   const holderMatch = fullText.match(/Titular\s+(.+)/);
   const holder = holderMatch ? holderMatch[1].trim() : null;
@@ -53,31 +54,33 @@ export function parseItauStatement(pages: PdfPage[]): ParsedStatement {
     // Ícones (aproximação, carteira digital) viram caracteres soltos antes da data
     const line = raw.replace(/^[^0-9A-Za-zÀ-ÿ(]+/, "").trim();
     if (!line) continue;
-    if (/^Lançamentos: compras e saques/.test(line)) { if (mode !== "intl") mode = "tx"; last = null; continue; }
-    const tl = line.match(new RegExp(String.raw`^Total dos lançamentos atuais\s+${MONEY}`));
+    // Títulos comparados sem espaços (em negrito podem vir letra a letra)
+    const sq = squash(line).replace(/^L(?=Total)/, "");
+    if (/^Lançamentos:comprasesaques/i.test(sq)) { if (mode !== "intl") mode = "tx"; last = null; continue; }
+    const tl = sq.match(new RegExp(String.raw`^Totaldoslançamentosatuais${MONEY}`, "i"));
     if (tl) { currentTotal = parseBRL(tl[1]); last = null; continue; }
-    if (/^Compras parceladas - próximas faturas/.test(line)) { mode = "future"; last = null; continue; }
-    if (/^(Limites de crédito|Encargos cobrados|Próxima fatura|Demais faturas|Total para próximas)/.test(line)) {
-      if (mode === "future" && /^Total para próximas/.test(line)) mode = "none";
-      if (/^(Limites de crédito|Encargos cobrados)/.test(line)) mode = "none";
+    if (/^Comprasparceladas-?próximasfaturas/i.test(sq)) { mode = "future"; last = null; continue; }
+    if (/^(Limitesdecrédito|Encargoscobrados|Próximafatura|Demaisfaturas|Totalparapróximas)/i.test(sq)) {
+      if (mode === "future" && /^Totalparapróximas/i.test(sq)) mode = "none";
+      if (/^(Limitesdecrédito|Encargoscobrados)/i.test(sq)) mode = "none";
       last = null;
       continue;
     }
     if (mode === "none") continue;
-    if (/^(DATA|Continua\.\.\.|L Total dos lançamentos)/.test(line)) { last = null; continue; }
+    if (/^(DATA|Continua\.\.\.|Totaldoslançamentos)/i.test(sq)) { last = null; continue; }
 
-    if (/^Lançamentos internacionais/.test(line)) { mode = "intl"; last = null; continue; }
+    if (/^Lançamentosinternacionais/i.test(sq)) { mode = "intl"; last = null; continue; }
 
-    const ct = line.match(CARD_TOTAL_RE);
+    const ct = sq.match(CARD_TOTAL_RE);
     if (ct) {
       cardTotals[ct[1]] = (ct[2] ? -1 : 1) * parseBRL(ct[3]);
       last = null;
       continue;
     }
 
-    const hm = line.match(HOLDER_RE);
+    const hm = /\d,\d{2}$/.test(sq) ? null : sq.match(HOLDER_RE);
     if (hm && mode !== "future") {
-      currentHolder = hm[1].trim();
+      currentHolder = (line.match(/^(.+?)\s*\(\s*final/)?.[1] ?? hm[1]).trim();
       currentCard = hm[2];
       last = null;
       continue;

@@ -56,3 +56,26 @@ export async function parseStatementFile(fileName: string, bytes: Uint8Array, pa
   }
   throw new Error("Formato não suportado. Envie PDF, CSV ou OFX.");
 }
+
+/**
+ * Confere a leitura de uma fatura como no PDF: cada lançamento num cartão (final xxxx),
+ * subtotais por cartão e total dos lançamentos batendo. Devolve os problemas encontrados.
+ */
+export function faturaIssues(st: ParsedStatement): string[] {
+  if ((st.docType ?? "fatura") !== "fatura" || !st.transactions.length) return [];
+  const out: string[] = [];
+  const r2 = (n: number) => Math.round(n * 100) / 100;
+  const withCard = st.transactions.filter((t) => t.cardLast4).length;
+  const hasCards = withCard > 0 || Object.keys(st.cardTotals).some((k) => !k.startsWith("intl-"));
+  if (hasCards && withCard < st.transactions.length) out.push(`${st.transactions.length - withCard} lançamento(s) sem o final do cartão`);
+  const sum = r2(st.transactions.reduce((a, t) => a + t.amount, 0));
+  const ref = st.currentTotal ?? st.statementTotal;
+  if (ref != null && Math.abs(sum - ref) > 0.05) out.push(`itens somam ${sum.toFixed(2)}, fatura informa ${Number(ref).toFixed(2)}`);
+  for (const [k, v] of Object.entries(st.cardTotals)) {
+    const intl = k.startsWith("intl-");
+    const card = intl ? k.slice(5) : k;
+    const s = r2(st.transactions.filter((t) => t.cardLast4 === card && !!t.international === intl).reduce((a, t) => a + t.amount, 0));
+    if (Math.abs(s - v) > 0.05) out.push(`final ${card}${intl ? " (internacional)" : ""}: lido ${s.toFixed(2)}, fatura ${Number(v).toFixed(2)}`);
+  }
+  return out;
+}

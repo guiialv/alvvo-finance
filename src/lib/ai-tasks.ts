@@ -17,14 +17,18 @@ Responda neste formato:
 {"docType":"fatura|extrato","bank":"Nome do banco","holder":"titular ou null","accountRef":"agência/conta (extrato) ou null",
  "dueDate":"AAAA-MM-DD ou null","closingDate":"AAAA-MM-DD ou null","statementTotal":1234.56,
  "transactions":[{"date":"AAAA-MM-DD","description":"texto do lançamento","amount":12.34,"flow":"entrada|saida|null","nature":"...","cardLast4":"1234 ou null","installmentNo":2,"installmentTotal":10,"bankCategory":"categoria do banco ou null","city":"cidade ou null","international":false}],
- "futureInstallments":[{"date":"AAAA-MM-DD","description":"...","amount":12.34}]}
+ "currentTotal":1234.56,"cardTotals":{"1234":567.89},
+ "futureInstallments":[{"date":"AAAA-MM-DD","description":"...","amount":12.34,"installmentNo":3,"installmentTotal":10}]}
 
 Se for FATURA:
 - amount positivo para gastos e negativo para estornos/créditos; flow = null.
 - NÃO inclua o pagamento da fatura anterior, saldo anterior, juros/encargos de resumo nem totais; inclua tarifas, IOF, anuidade e juros lançados como itens.
 - dueDate é o vencimento desta fatura (obrigatório se aparecer). statementTotal é o "total desta fatura"/"valor a pagar" (não o pagamento mínimo).
 - Parcelas "02/10" viram installmentNo 2 e installmentTotal 10. Datas sem ano usam o ano da fatura (dezembro em fatura de janeiro é do ano anterior).
-- futureInstallments: parcelas de próximas faturas, se a fatura listar.
+- CARTÕES: a fatura separa os lançamentos em blocos "NOME (final XXXX)". Todo lançamento recebe o cardLast4 do bloco em que está — inclusive quando o bloco continua em outra coluna ou página. Nunca deixe cardLast4 vazio se houver blocos.
+- cardTotals: o valor de cada "Lançamentos no cartão (final XXXX)" (chave = os 4 dígitos). currentTotal: "Total dos lançamentos atuais".
+- A fatura costuma ter duas colunas: leia cada coluna inteira de cima a baixo. Não misture a coluna de lançamentos com o painel da direita (total, compras parceladas, limites).
+- futureInstallments: a lista "Compras parceladas - próximas faturas" (são parcelas futuras — NÃO inclua em transactions).
 
 Se for EXTRATO:
 - Uma linha por movimentação. amount SEMPRE positivo (valor absoluto) e flow = "entrada" (crédito, dinheiro que entrou) ou "saida" (débito, dinheiro que saiu). Use o sinal ou a coluna do banco (C/D, "-") para decidir — não deduza pelo texto.
@@ -58,7 +62,8 @@ Se for EXTRATO:
     docType, accountRef: j.accountRef ?? null,
     bank: j.bank ?? "Outro banco", holder: j.holder ?? null, dueDate: docType === "fatura" ? j.dueDate ?? null : null, closingDate: j.closingDate ?? null,
     statementTotal: docType === "fatura" ? j.statementTotal ?? null : null,
-    transactions: tx, cardTotals: {}, futureInstallments: docType === "fatura" ? j.futureInstallments ?? [] : [], warnings,
+    transactions: tx, cardTotals: docType === "fatura" && j.cardTotals && typeof j.cardTotals === "object" ? Object.fromEntries(Object.entries(j.cardTotals).map(([k, v]) => [String(k).slice(-4), Number(v)])) : {},
+    currentTotal: docType === "fatura" && j.currentTotal != null ? Number(j.currentTotal) : null, futureInstallments: docType === "fatura" ? j.futureInstallments ?? [] : [], warnings,
   };
 }
 

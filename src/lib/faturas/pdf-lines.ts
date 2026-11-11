@@ -3,8 +3,11 @@ import type { PdfPage, PdfTextItem } from "./types";
 /** Linha-sentinela entre colunas (só quando lemos por colunas). */
 export const COLUMN_BREAK = "\u0000col";
 
-/** Cabeçalhos que abrem um bloco/coluna nas faturas (Itaú e similares). */
-const COLUMN_HEADERS = /^(Lançamentos: compras e saques|Lançamentos internacionais|Lançamentos no cartão|Compras parceladas - próximas faturas|Total dos lançamentos atuais|Limites de crédito|Encargos cobrados|Simulação de Compras|DATA$|.+\(final \d{4}\)$)/;
+/** Cabeçalhos que abrem um bloco/coluna nas faturas (Itaú e similares), comparados sem espaços. */
+const COLUMN_HEADERS = /^(Lançamentos:comprasesaques|Lançamentosinternacionais|Lançamentosnocartão|Comprasparceladas-próximasfaturas|Totaldoslançamentosatuais|Limitesdecrédito|Encargoscobrados|SimulaçãodeCompras|DATA$|DATAESTABELECIMENTO|.+\(final\d{4}\)$)/i;
+
+/** Remove espaços: títulos em negrito às vezes vêm letra a letra, sem espaço entre palavras. */
+export const squash = (s: string) => s.replace(/\s+/g, "");
 
 /**
  * Agrupa itens de texto em linhas, coluna por coluna.
@@ -38,9 +41,10 @@ export function pageToLines(page: PdfPage, columnMarker?: RegExp): string[] {
 
 /** Posições X onde começam as colunas da página, da esquerda para a direita. */
 function columnStarts(items: PdfTextItem[], width: number, marker: RegExp): number[] {
-  const xs = items
-    .filter((i) => marker.test(i.str.trim()) || COLUMN_HEADERS.test(i.str.trim()))
-    .map((i) => i.x)
+  // Junta pedaços vizinhos na mesma altura (títulos letra a letra) antes de reconhecer
+  const xs = runs(items)
+    .filter((r) => marker.test(r.str.trim()) || marker.test(squash(r.str)) || COLUMN_HEADERS.test(squash(r.str)))
+    .map((r) => r.x)
     .sort((a, b) => a - b);
   if (!xs.length) return [];
   // Agrupa posições próximas (mesma coluna); colunas reais ficam a ≥ 15% da largura.
@@ -51,6 +55,21 @@ function columnStarts(items: PdfTextItem[], width: number, marker: RegExp): numb
     else clusters.push([x]);
   }
   return clusters.map((c) => Math.min(...c));
+}
+
+/** Sequências de itens na mesma linha separados por menos de 6pt (uma “palavra/frase” visual). */
+function runs(items: PdfTextItem[]): { str: string; x: number }[] {
+  const sorted = [...items].sort((a, b) => b.y - a.y || a.x - b.x);
+  const out: { str: string; x: number; y: number; end: number }[] = [];
+  for (const it of sorted) {
+    const last = out[out.length - 1];
+    const gap = last ? it.x - last.end : 0;
+    if (last && Math.abs(last.y - it.y) <= 2.5 && gap > -2 && gap < 6) {
+      last.str += (it.x - last.end > 1 ? " " : "") + it.str;
+      last.end = it.x + it.w;
+    } else out.push({ str: it.str, x: it.x, y: it.y, end: it.x + it.w });
+  }
+  return out;
 }
 
 function groupLines(items: PdfTextItem[]): string[] {
