@@ -1,4 +1,4 @@
-import { pageToLines, parseBRL } from "./pdf-lines";
+import { COLUMN_BREAK, pageToLines, parseBRL } from "./pdf-lines";
 import type { ParsedCardTransaction, ParsedStatement, PdfPage } from "./types";
 
 const MONEY = String.raw`(\d{1,3}(?:\.\d{3})*,\d{2})`;
@@ -22,7 +22,7 @@ export function parseItauStatement(pages: PdfPage[]): ParsedStatement {
   const dueDate = matchDate(fullText, /Vencimento:\s*(\d{2}\/\d{2}\/\d{4})/);
   const closingDate = matchDate(fullText, /Emissão:\s*(\d{2}\/\d{2}\/\d{4})/);
   const totalMatch = fullText.match(new RegExp(String.raw`Total desta fatura\s+${MONEY}`));
-  const statementTotal = totalMatch ? parseBRL(totalMatch[1]) : null;
+  let statementTotal = totalMatch ? parseBRL(totalMatch[1]) : null;
   const holderMatch = fullText.match(/Titular\s+(.+)/);
   const holder = holderMatch ? holderMatch[1].trim() : null;
 
@@ -45,10 +45,17 @@ export function parseItauStatement(pages: PdfPage[]): ParsedStatement {
   let currentHolder: string | null = holder;
   let last: ParsedCardTransaction | null = null;
 
+  let currentTotal: number | null = null;
   const lines = pages.flatMap((p) => pageToLines(p, /^Lançamentos: compras e saques/));
 
-  for (const line of lines) {
-    if (/^Lançamentos: compras e saques/.test(line)) { if (mode === "none") mode = "tx"; last = null; continue; }
+  for (const raw of lines) {
+    if (raw === COLUMN_BREAK) { last = null; continue; }
+    // Ícones (aproximação, carteira digital) viram caracteres soltos antes da data
+    const line = raw.replace(/^[^0-9A-Za-zÀ-ÿ(]+/, "").trim();
+    if (!line) continue;
+    if (/^Lançamentos: compras e saques/.test(line)) { if (mode !== "intl") mode = "tx"; last = null; continue; }
+    const tl = line.match(new RegExp(String.raw`^Total dos lançamentos atuais\s+${MONEY}`));
+    if (tl) { currentTotal = parseBRL(tl[1]); last = null; continue; }
     if (/^Compras parceladas - próximas faturas/.test(line)) { mode = "future"; last = null; continue; }
     if (/^(Limites de crédito|Encargos cobrados|Próxima fatura|Demais faturas|Total para próximas)/.test(line)) {
       if (mode === "future" && /^Total para próximas/.test(line)) mode = "none";
@@ -122,7 +129,7 @@ export function parseItauStatement(pages: PdfPage[]): ParsedStatement {
         }
       }
       if (mode === "future") {
-        futureInstallments.push({ date: toIso(dd, mm), description: rawDesc.trim(), amount });
+        futureInstallments.push({ date: toIso(dd, mm), description: description.replace(/\s+/g, " "), amount, installmentNo, installmentTotal });
         continue;
       }
       last = {
@@ -154,10 +161,15 @@ export function parseItauStatement(pages: PdfPage[]): ParsedStatement {
     }
   }
 
+  if (statementTotal === null && currentTotal !== null) statementTotal = currentTotal;
   // Conferência dos totais
+  if (currentTotal !== null && statementTotal !== null && Math.abs(currentTotal - statementTotal) > 0.05) {
+    warnings.push(`Lançamentos atuais somam R$ ${fmt(currentTotal)}; o total a pagar (R$ ${fmt(statementTotal)}) inclui saldo anterior ou créditos.`);
+  }
   const sum = round2(transactions.reduce((s, t) => s + t.amount, 0));
-  if (statementTotal !== null && Math.abs(sum - statementTotal) > 0.05) {
-    warnings.push(`A soma dos lançamentos lidos (R$ ${fmt(sum)}) difere do total da fatura (R$ ${fmt(statementTotal)}). Confira se faltou algum item.`);
+  const ref2 = currentTotal ?? statementTotal;
+  if (ref2 !== null && Math.abs(sum - ref2) > 0.05) {
+    warnings.push(`A soma dos lançamentos lidos (R$ ${fmt(sum)}) difere do total dos lançamentos da fatura (R$ ${fmt(ref2)}). Confira se faltou algum item.`);
   }
   for (const [card, total] of Object.entries(cardTotals)) {
     if (card.startsWith("intl-")) continue;
@@ -165,7 +177,7 @@ export function parseItauStatement(pages: PdfPage[]): ParsedStatement {
     if (Math.abs(s - total) > 0.05) warnings.push(`Cartão final ${card}: lido R$ ${fmt(s)}, fatura informa R$ ${fmt(total)}.`);
   }
 
-  return { bank: "Itaú", holder, dueDate, closingDate, statementTotal, transactions, cardTotals, futureInstallments, warnings };
+  return { bank: "Itaú", holder, dueDate, closingDate, statementTotal, currentTotal, transactions, cardTotals, futureInstallments, warnings };
 }
 
 function matchDate(text: string, re: RegExp): string | null {

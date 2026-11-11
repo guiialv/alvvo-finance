@@ -51,6 +51,8 @@ export interface ParsedStatement {
   /** Totais por cartão informados pelo banco, para conferência */
   cardTotals: Record<string, number>;
   /** Parcelas futuras já comprometidas (próximas faturas) */
-  futureInstallments: { date: string; description: string; amount: number }[];
+  futureInstallments: { date: string; description: string; amount: number; installmentNo?: number | null; installmentTotal?: number | null }[];
+  /** "Total dos lançamentos atuais" (sem saldo anterior/pagamentos), quando a fatura informa */
+  currentTotal?: number | null;
   warnings: string[];
 }

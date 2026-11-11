@@ -1,26 +1,56 @@
 import type { PdfPage, PdfTextItem } from "./types";
 
+/** Linha-sentinela entre colunas (só quando lemos por colunas). */
+export const COLUMN_BREAK = "\u0000col";
+
+/** Cabeçalhos que abrem um bloco/coluna nas faturas (Itaú e similares). */
+const COLUMN_HEADERS = /^(Lançamentos: compras e saques|Lançamentos internacionais|Lançamentos no cartão|Compras parceladas - próximas faturas|Total dos lançamentos atuais|Limites de crédito|Encargos cobrados|Simulação de Compras|DATA$|.+\(final \d{4}\)$)/;
+
 /**
- * Agrupa itens de texto em linhas. Faturas costumam ter duas colunas;
- * quando detectamos colunas, devolvemos a coluna esquerda inteira e depois a direita,
- * para que a leitura siga a ordem natural do documento.
+ * Agrupa itens de texto em linhas, coluna por coluna.
+ *
+ * As faturas têm até três faixas verticais: uma barra lateral de avisos, a coluna de
+ * lançamentos e o painel da direita (total, compras parceladas, limites). Uma linha
+ * nunca pode juntar textos de faixas diferentes, senão o lançamento da esquerda “cola”
+ * no parcelamento da direita. Detectamos as faixas pela posição dos cabeçalhos; quando
+ * passamos `columnMarker`, também aceitamos esse marcador como cabeçalho.
  */
 export function pageToLines(page: PdfPage, columnMarker?: RegExp): string[] {
   const items = page.items.filter((i) => i.str.trim() !== "");
-  let splitX: number | null = null;
+  if (!columnMarker) return groupLines(items);
 
-  if (columnMarker) {
-    const markers = items.filter((i) => columnMarker.test(i.str)).sort((a, b) => a.x - b.x);
-    if (markers.length >= 2 && markers[markers.length - 1].x - markers[0].x > page.width * 0.2) {
-      splitX = markers[markers.length - 1].x - 8;
-    }
+  const cols = columnStarts(items, page.width, columnMarker);
+  if (cols.length === 0) return groupLines(items);
+
+  // Faixa de cada item: a última coluna que começa antes dele (com folga de 8pt).
+  const bands: PdfTextItem[][] = cols.map(() => []);
+  const sidebar: PdfTextItem[] = [];
+  for (const it of items) {
+    let idx = -1;
+    for (let c = 0; c < cols.length; c++) if (it.x >= cols[c] - 8) idx = c;
+    if (idx === -1) sidebar.push(it);
+    else bands[idx].push(it);
   }
+  // A barra lateral (avisos) vem por último, para não interromper os lançamentos.
+  // COLUMN_BREAK separa as faixas: quem lê sabe que a linha anterior não continua.
+  return [...bands, sidebar].flatMap((b) => [COLUMN_BREAK, ...groupLines(b)]);
+}
 
-  if (splitX === null) return groupLines(items);
-  return [
-    ...groupLines(items.filter((i) => i.x < splitX!)),
-    ...groupLines(items.filter((i) => i.x >= splitX!)),
-  ];
+/** Posições X onde começam as colunas da página, da esquerda para a direita. */
+function columnStarts(items: PdfTextItem[], width: number, marker: RegExp): number[] {
+  const xs = items
+    .filter((i) => marker.test(i.str.trim()) || COLUMN_HEADERS.test(i.str.trim()))
+    .map((i) => i.x)
+    .sort((a, b) => a - b);
+  if (!xs.length) return [];
+  // Agrupa posições próximas (mesma coluna); colunas reais ficam a ≥ 15% da largura.
+  const clusters: number[][] = [];
+  for (const x of xs) {
+    const last = clusters[clusters.length - 1];
+    if (last && x - last[last.length - 1] < width * 0.15) last.push(x);
+    else clusters.push([x]);
+  }
+  return clusters.map((c) => Math.min(...c));
 }
 
 function groupLines(items: PdfTextItem[]): string[] {

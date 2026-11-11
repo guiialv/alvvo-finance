@@ -62,7 +62,15 @@ export interface Preview {
   cards?: { last4: string; total: number; accountId: string | null; ownerUserId: string | null }[];
   members?: { user_id: string; display_name: string }[];
   futureTotal?: number;
+  /** "Compras parceladas - próximas faturas", como no PDF */
+  futureItems?: FutureItem[];
+  /** Totais por cartão informados na fatura ("Lançamentos no cartão (final xxxx)") */
+  cardTotals?: Record<string, number>;
+  /** "Total dos lançamentos atuais" */
+  currentTotal?: number | null;
 }
+
+export type FutureItem = { date: string; description: string; amount: number; installmentNo?: number | null; installmentTotal?: number | null };
 
 export async function analyzeStatement(_: Preview | undefined, formData: FormData): Promise<Preview> {
   const ctx = await requireEdit("faturas");
@@ -207,6 +215,7 @@ export async function analyzeStatement(_: Preview | undefined, formData: FormDat
     fileName: file.name, readWith, source, docType, accountRef: st.accountRef ?? null, bank: st.bank, dueDate: st.dueDate, statementTotal: st.statementTotal, cycle,
     warnings: st.warnings, rows, cards, members: members.map((m) => ({ user_id: m.user_id, display_name: m.display_name })),
     futureTotal: Math.round(st.futureInstallments.reduce((a, f) => a + f.amount, 0) * 100) / 100,
+    futureItems: st.futureInstallments, cardTotals: st.cardTotals, currentTotal: st.currentTotal ?? null,
   };
 }
 
@@ -257,6 +266,9 @@ export interface ConfirmPayload {
   dueDate: string | null;
   statementTotal: number | null;
   futureTotal: number | null;
+  futureItems?: FutureItem[];
+  cardTotals?: Record<string, number>;
+  currentTotal?: number | null;
   cycle: string;
   cards: { last4: string; ownerUserId: string | null }[];
   rows: (PreviewRow & { categoryId: string | null })[];
@@ -324,7 +336,8 @@ export async function confirmImport(payload: ConfirmPayload): Promise<{ error?: 
 
   const { data: batch, error: bErr } = await ctx.supabase.from("import_batches").insert({
     household_id: hh, source: payload.source, doc_type: isExtrato ? "extrato" : "fatura", account_id: isExtrato ? bankAccountId : cardAccountId, institution: payload.bank, file_name: payload.fileName,
-    due_date: payload.dueDate, statement_total: payload.statementTotal, future_total: payload.futureTotal, tx_count: payload.rows.length, created_by: ctx.user.id,
+    due_date: payload.dueDate, statement_total: payload.statementTotal, future_total: payload.futureTotal,
+    current_total: payload.currentTotal ?? null, card_totals: payload.cardTotals ?? {}, future_items: (payload.futureItems ?? []).slice(0, 300), tx_count: payload.rows.length, created_by: ctx.user.id,
   }).select("id").single();
   if (bErr || !batch) return { error: bErr?.message ?? "Falha ao registrar importação" };
 
@@ -337,6 +350,7 @@ export async function confirmImport(payload: ConfirmPayload): Promise<{ error?: 
       amount: isExtrato && r.flow ? signedAmount(r.amount, r.flow, kind) : r.amount, flow: r.flow ?? null,
       kind, category_id: cat?.id ?? null, notes: r.note ?? null,
       reconciled_batch_id: r.reconciledBatchId && r.categoryId === r.suggestedCategoryId ? r.reconciledBatchId : null,
+      card_last4: isExtrato ? null : r.cardLast4 ?? null,
       account_id: isExtrato ? bankAccountId : (r.cardLast4 ? accByLast4.get(r.cardLast4) : null) ?? cardAccountId,
       member_user_id: !isExtrato && r.cardLast4 ? ownerByLast4.get(r.cardLast4) ?? null : ctx.user.id,
       installment_no: r.installmentNo, installment_total: r.installmentTotal,
