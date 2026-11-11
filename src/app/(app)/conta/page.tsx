@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { requireArea } from "@/lib/context";
-import { categoryIndex, loadAccounts, loadCategories, loadMembers, type Transaction } from "@/lib/data";
+import { categoryIndex, fetchAll, loadAccounts, loadCategories, loadMembers, type Transaction } from "@/lib/data";
 import { formatBRL, formatDateBR } from "@/lib/format";
 import { groupColor } from "@/lib/theme";
 import { buildTxViews, toCatLite, toMemberLite } from "@/lib/tx-view";
@@ -22,7 +22,7 @@ export default async function ContaCorrentePage({ searchParams }: { searchParams
   const hh = ctx.household.id;
   const [cats, accounts, members, txRes, batchRes] = await Promise.all([
     loadCategories(ctx), loadAccounts(ctx), loadMembers(ctx),
-    ctx.supabase.from("transactions").select("*").eq("household_id", hh).eq("source", "extrato").order("date", { ascending: false }).order("created_at", { ascending: false }).limit(10000),
+    fetchAll(() => ctx.supabase.from("transactions").select("*").eq("household_id", hh).eq("source", "extrato")).then((data) => ({ data: (data as Tx[]).sort((a, b) => b.date.localeCompare(a.date)) })),
     ctx.supabase.from("import_batches").select("id, institution, file_name, created_at, tx_count").eq("household_id", hh).eq("doc_type", "extrato").order("created_at", { ascending: false }),
   ]);
   const all = (txRes.data ?? []) as Tx[];

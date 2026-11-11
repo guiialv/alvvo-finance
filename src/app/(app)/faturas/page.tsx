@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { requireArea } from "@/lib/context";
 import { cycleLabel, cycleOf } from "@/lib/cycle";
-import { categoryIndex, loadCategories } from "@/lib/data";
+import { fetchAll, categoryIndex, loadCategories } from "@/lib/data";
 import { formatBRL, formatDateBR } from "@/lib/format";
 import { groupColor } from "@/lib/theme";
 import { Bar, PageHeader } from "@/components/ui";
@@ -27,7 +27,7 @@ export default async function FaturasPage({ searchParams }: { searchParams: Prom
   const [cats, batchesRes, txRes, accRes] = await Promise.all([
     loadCategories(ctx),
     ctx.supabase.from("import_batches").select("*").eq("household_id", hh).neq("source", "planilha").order("due_date", { ascending: false, nullsFirst: false }).limit(200),
-    ctx.supabase.from("transactions").select("id, date, cycle, description, merchant_key, amount, installment_no, installment_total, category_id, account_id, member_user_id, notes, source, import_batch_id, international, reconciled_batch_id, card_last4").eq("household_id", hh).or("import_batch_id.not.is.null,reconciled_batch_id.not.is.null").limit(20000),
+    fetchAll(() => ctx.supabase.from("transactions").select("id, date, cycle, description, merchant_key, amount, installment_no, installment_total, category_id, account_id, member_user_id, notes, source, import_batch_id, international, reconciled_batch_id, card_last4").eq("household_id", hh).or("import_batch_id.not.is.null,reconciled_batch_id.not.is.null")).then((data) => ({ data })),
     ctx.supabase.from("accounts").select("*").eq("household_id", hh).eq("type", "cartao").eq("active", true).order("sort", { nullsFirst: false }).order("name"),
   ]);
   const { byId } = categoryIndex(cats);

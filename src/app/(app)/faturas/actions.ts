@@ -6,7 +6,7 @@ import { redirect } from "next/navigation";
 import { requireEdit } from "@/lib/context";
 import { cycleOf } from "@/lib/cycle";
 import { normalizeMerchant, suggestCategory, UNCATEGORIZED_KEY, type LearnedRule } from "@/lib/categorize";
-import { categoryIndex, loadAccounts, loadCategories, loadMembers } from "@/lib/data";
+import { fetchAll, categoryIndex, loadAccounts, loadCategories, loadMembers } from "@/lib/data";
 import { faturaIssues, PdfPasswordError, pagesToText, parseStatementFile } from "@/lib/faturas";
 import { aiAvailable, aiKeyFor } from "@/lib/ai";
 import { aiCategorize, aiReadStatement } from "@/lib/ai-tasks";
@@ -272,7 +272,7 @@ async function loadFaturaRefs(ctx: Ctx, rows: { date: string }[]): Promise<Fatur
     .eq("household_id", ctx.household.id).eq("doc_type", "fatura").gte("due_date", shiftD(dates[0], -15)).lte("due_date", shiftD(dates[dates.length - 1], 15));
   const list = (batches ?? []) as { id: string; institution: string | null; file_name: string | null; due_date: string | null; statement_total: number | null }[];
   if (!list.length) return [];
-  const { data: txs } = await ctx.supabase.from("transactions").select("import_batch_id, amount").eq("household_id", ctx.household.id).in("import_batch_id", list.map((b) => b.id)).limit(20000);
+  const txs = await fetchAll<{ import_batch_id: string; amount: number }>(() => ctx.supabase.from("transactions").select("id, import_batch_id, amount").eq("household_id", ctx.household.id).in("import_batch_id", list.map((b) => b.id)));
   const sum = new Map<string, number>();
   for (const t of (txs ?? []) as { import_batch_id: string; amount: number }[]) sum.set(t.import_batch_id, (sum.get(t.import_batch_id) ?? 0) + Number(t.amount));
   return list.map((b) => ({
@@ -386,7 +386,7 @@ export async function confirmImport(payload: ConfirmPayload): Promise<{ error?: 
     const { data: ok } = await ctx.supabase.from("import_batches").select("id").eq("household_id", hh).eq("doc_type", "fatura").eq("account_id", cardAccountId ?? "-").eq("due_date", payload.dueDate ?? "-").in("id", payload.replacesBatchIds);
     replaceIds = ((ok ?? []) as { id: string }[]).map((b) => b.id);
     if (replaceIds.length) {
-      const { data: olds } = await ctx.supabase.from("transactions").select("date, amount, merchant_key, category_id, notes").eq("household_id", hh).in("import_batch_id", replaceIds).limit(5000);
+      const olds = await fetchAll(() => ctx.supabase.from("transactions").select("id, date, amount, merchant_key, category_id, notes").eq("household_id", hh).in("import_batch_id", replaceIds));
       for (const o of (olds ?? []) as OldTx[]) {
         const k = `${o.date}|${Number(o.amount).toFixed(2)}|${o.merchant_key ?? ""}`;
         oldByKey.set(k, [...(oldByKey.get(k) ?? []), o]);

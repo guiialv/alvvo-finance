@@ -149,3 +149,19 @@ export function summarize(txs: Transaction[], cats: Category[]): CycleSummary {
   s.saldo = s.receitas - s.investimentos - s.despesas;
   return s;
 }
+
+/**
+ * Lê todas as linhas de uma consulta, de 1000 em 1000 (o Supabase devolve no máximo 1000 por vez).
+ * `make` precisa criar a consulta do zero a cada página; a ordenação por id garante páginas estáveis.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export async function fetchAll<T = any>(make: () => any, page = 1000): Promise<T[]> {
+  const out: T[] = [];
+  for (let from = 0; from < 200_000; from += page) {
+    const { data, error } = await make().order("id").range(from, from + page - 1);
+    if (error) throw new Error(error.message);
+    out.push(...((data ?? []) as T[]));
+    if (!data || data.length < page) break;
+  }
+  return out;
+}

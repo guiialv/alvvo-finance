@@ -12,7 +12,7 @@ import { CycleSummary } from "./cycle-summary";
 import { currentCycle, cycleRange, shiftCycle, todayIso } from "@/lib/cycle";
 import { addDays } from "@/lib/agenda";
 import { loadAgenda } from "@/lib/agenda-data";
-import { categoryIndex, loadCategories, loadTransactions, type Transaction } from "@/lib/data";
+import { fetchAll, categoryIndex, loadCategories, loadTransactions, type Transaction } from "@/lib/data";
 import { buildInstallmentPlans, totalsByCycle, type InstallmentTx } from "@/lib/installments";
 import { generateInsights, type InsightArea, type InsightKind, type InsightTx } from "@/lib/insights";
 import { Empty, PageHeader, Seg } from "@/components/ui";
@@ -40,7 +40,7 @@ export default async function InsightsPage({ searchParams }: { searchParams: Pro
     loadCategories(ctx),
     loadTransactions(ctx, { cycles }),
     ctx.supabase.from("budgets").select("category_id, cycle, planned").eq("household_id", ctx.household.id).eq("cycle", cur),
-    ctx.supabase.from("transactions").select("*").eq("household_id", ctx.household.id).not("installment_total", "is", null).gt("installment_total", 1).limit(10000),
+    fetchAll(() => ctx.supabase.from("transactions").select("*").eq("household_id", ctx.household.id).not("installment_total", "is", null).gt("installment_total", 1)).then((data) => ({ data })),
     loadAgenda(ctx, addDays(today, -60), addDays(today, 7)),
     ctx.supabase.from("insight_dismissals").select("key").eq("household_id", ctx.household.id),
   ]);

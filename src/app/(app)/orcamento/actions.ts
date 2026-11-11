@@ -1,4 +1,5 @@
 "use server";
+import { fetchAll } from "@/lib/data";
 
 import { revalidatePath } from "next/cache";
 import { requireEdit } from "@/lib/context";
@@ -36,7 +37,7 @@ export async function fillBudget(formData: FormData) {
     rows = (data ?? []).filter((b) => ids.has(b.category_id)).map((b) => ({ household_id: hh, category_id: b.category_id, cycle, planned: Number(b.planned) }));
   } else {
     const prev = [1, 2, 3].map((n) => shiftCycle(cycle, -n));
-    const { data } = await ctx.supabase.from("transactions").select("category_id, amount").eq("household_id", hh).eq("scope", scope).in("cycle", prev).limit(10000);
+    const data = await fetchAll(() => ctx.supabase.from("transactions").select("id, category_id, amount").eq("household_id", hh).eq("scope", scope).in("cycle", prev));
     const sum = new Map<string, number>();
     for (const t of data ?? []) if (t.category_id && ids.has(t.category_id)) sum.set(t.category_id, (sum.get(t.category_id) ?? 0) + Number(t.amount));
     rows = [...sum.entries()].filter(([, v]) => v > 0).map(([id, v]) => ({ household_id: hh, category_id: id, cycle, planned: Math.ceil(round2(v / 3) / 10) * 10 }));

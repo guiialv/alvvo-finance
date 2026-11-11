@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { requireArea } from "@/lib/context";
 import { currentCycle, cycleLabel, isValidCycle, shiftCycle } from "@/lib/cycle";
-import { loadAccounts, loadCategories, loadMembers, type Transaction } from "@/lib/data";
+import { fetchAll, loadAccounts, loadCategories, loadMembers, type Transaction } from "@/lib/data";
 import { formatBRL } from "@/lib/format";
 import { buildInstallmentPlans, totalsByCycle, type InstallmentTx } from "@/lib/installments";
 import { buildTxViews, toCatLite, toMemberLite } from "@/lib/tx-view";
@@ -21,7 +21,7 @@ export default async function ParcelamentosPage({ searchParams }: { searchParams
 
   const [cats, accounts, members, txRes] = await Promise.all([
     loadCategories(ctx), loadAccounts(ctx), loadMembers(ctx),
-    ctx.supabase.from("transactions").select("*").eq("household_id", ctx.household.id).not("installment_total", "is", null).gt("installment_total", 1).limit(10000),
+    fetchAll(() => ctx.supabase.from("transactions").select("*").eq("household_id", ctx.household.id).not("installment_total", "is", null).gt("installment_total", 1)).then((data) => ({ data })),
   ]);
   const txs = (txRes.data ?? []) as Transaction[];
   const all = buildInstallmentPlans(txs as unknown as InstallmentTx[], current);
