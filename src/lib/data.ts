@@ -46,6 +46,9 @@ export interface Account {
   last4: string | null;
   owner_user_id: string | null;
   active: boolean;
+  statement_key?: string | null;
+  due_day?: number | null;
+  closing_day?: number | null;
 }
 
 export async function loadCategories(ctx: Ctx, scope?: Scope): Promise<Category[]> {

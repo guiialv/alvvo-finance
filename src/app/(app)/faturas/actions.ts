@@ -10,6 +10,7 @@ import { categoryIndex, loadAccounts, loadCategories, loadMembers } from "@/lib/
 import { PdfPasswordError, pagesToText, parseStatementFile } from "@/lib/faturas";
 import { aiAvailable, aiKeyFor } from "@/lib/ai";
 import { aiCategorize, aiReadStatement } from "@/lib/ai-tasks";
+import { brandOf, statementKey } from "@/lib/cards";
 import { cardCycle, type FaturaRef, type Flow, isAutoInvest, isCardPayment, isLoan, matchFatura, pairPixCredit, signedAmount, SYS } from "@/lib/reconcile";
 import type { Ctx } from "@/lib/context";
 import type { Category } from "@/lib/data";
@@ -268,22 +269,28 @@ export async function confirmImport(payload: ConfirmPayload): Promise<{ error?: 
   const cats = await loadCategories(ctx);
   const { byId } = categoryIndex(cats);
 
-  // Garante uma conta para cada cartão
+  // Fatura: o cartão é a conta-cartão da fatura (número da conta no arquivo ou final do cartão principal).
+  // Os cartões adicionais (finais diferentes na mesma fatura) entram no mesmo cartão; quem gastou fica em member_user_id.
   const accounts = await loadAccounts(ctx);
   const accByLast4 = new Map<string, string>();
-  for (const c of payload.cards) {
-    let acc = accounts.find((a) => a.last4 === c.last4 && (a.institution ?? "") === payload.bank);
+  let cardAccountId: string | null = null;
+  if (payload.docType !== "extrato") {
+    const skey = statementKey(payload.fileName, payload.bank, payload.cards.map((c) => c.last4));
+    const brand = brandOf(payload.fileName);
+    let acc = (accounts as (typeof accounts[number] & { statement_key?: string | null })[]).find((a) => a.type === "cartao" && a.statement_key === skey);
     if (!acc) {
+      const main = payload.cards[0]?.last4 ?? null;
       const { data } = await ctx.supabase.from("accounts").insert({
-        household_id: hh, scope: "pessoal", name: `${payload.bank} •••• ${c.last4}`, type: "cartao",
-        institution: payload.bank, last4: c.last4, owner_user_id: c.ownerUserId,
+        household_id: hh, scope: "pessoal", type: "cartao", institution: payload.bank, brand, statement_key: skey, last4: main,
+        name: `${payload.bank}${brand ? ` ${brand}` : ""} ••${(main ?? skey).slice(-4)}`,
+        due_day: payload.dueDate ? Number(payload.dueDate.slice(8, 10)) : null, owner_user_id: ctx.user.id,
       }).select("*").single();
-      if (data) acc = data as typeof accounts[number];
-    } else if (c.ownerUserId && acc.owner_user_id !== c.ownerUserId) {
-      await ctx.supabase.from("accounts").update({ owner_user_id: c.ownerUserId }).eq("id", acc.id);
-      acc.owner_user_id = c.ownerUserId;
+      if (data) acc = data as typeof acc;
+    } else if (payload.dueDate && !acc.due_day) {
+      await ctx.supabase.from("accounts").update({ due_day: Number(payload.dueDate.slice(8, 10)) }).eq("id", acc.id);
     }
-    if (acc) accByLast4.set(c.last4, acc.id);
+    cardAccountId = acc?.id ?? null;
+    if (cardAccountId) for (const c of payload.cards) accByLast4.set(c.last4, cardAccountId);
   }
   const ownerByLast4 = new Map<string, string | null>(payload.cards.map((c) => [c.last4, c.ownerUserId] as [string, string | null]));
   const isExtrato = payload.docType === "extrato";
@@ -303,7 +310,7 @@ export async function confirmImport(payload: ConfirmPayload): Promise<{ error?: 
   }
 
   const { data: batch, error: bErr } = await ctx.supabase.from("import_batches").insert({
-    household_id: hh, source: payload.source, doc_type: isExtrato ? "extrato" : "fatura", account_id: bankAccountId, institution: payload.bank, file_name: payload.fileName,
+    household_id: hh, source: payload.source, doc_type: isExtrato ? "extrato" : "fatura", account_id: isExtrato ? bankAccountId : cardAccountId, institution: payload.bank, file_name: payload.fileName,
     due_date: payload.dueDate, statement_total: payload.statementTotal, future_total: payload.futureTotal, tx_count: payload.rows.length, created_by: ctx.user.id,
   }).select("id").single();
   if (bErr || !batch) return { error: bErr?.message ?? "Falha ao registrar importação" };
@@ -317,7 +324,7 @@ export async function confirmImport(payload: ConfirmPayload): Promise<{ error?: 
       amount: isExtrato && r.flow ? signedAmount(r.amount, r.flow, kind) : r.amount, flow: r.flow ?? null,
       kind, category_id: cat?.id ?? null, notes: r.note ?? null,
       reconciled_batch_id: r.reconciledBatchId && r.categoryId === r.suggestedCategoryId ? r.reconciledBatchId : null,
-      account_id: isExtrato ? bankAccountId : r.cardLast4 ? accByLast4.get(r.cardLast4) ?? null : null,
+      account_id: isExtrato ? bankAccountId : (r.cardLast4 ? accByLast4.get(r.cardLast4) : null) ?? cardAccountId,
       member_user_id: !isExtrato && r.cardLast4 ? ownerByLast4.get(r.cardLast4) ?? null : ctx.user.id,
       installment_no: r.installmentNo, installment_total: r.installmentTotal,
       bank_category: r.bankCategory, city: r.city, international: r.international,

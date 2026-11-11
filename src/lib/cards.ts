@@ -1,0 +1,88 @@
+/**
+ * Cartões de crédito vistos pelas faturas: cada conta-cartão (ex.: número da conta no nome do PDF do Itaú)
+ * vira um cartão, com a fatura mês a mês, o que já está comprometido em parcelas e o resumo de cada fatura.
+ */
+import { buildInstallmentPlans, type InstallmentTx } from "@/lib/installments";
+import type { Category } from "@/lib/data";
+import { cycleOf } from "@/lib/cycle";
+
+export interface CardAccount {
+  id: string; name: string; institution: string | null; brand: string | null; color: string | null; purpose: string | null;
+  statement_key: string | null; last4: string | null; closing_day: number | null; due_day: number | null; credit_limit: number | null; sort: number | null;
+}
+export interface Batch { id: string; account_id: string | null; due_date: string | null; statement_total: number | null; institution: string | null; file_name: string | null }
+export interface CardTx extends InstallmentTx { import_batch_id: string | null; international?: boolean | null; bank_category?: string | null; kind?: string }
+
+export function brandOf(text: string | null | undefined) {
+  const t = (text ?? "").toUpperCase();
+  return /VISA/.test(t) ? "Visa" : /MASTER/.test(t) ? "Mastercard" : /\bELO\b/.test(t) ? "Elo" : /AMEX|AMERICAN EXPRESS/.test(t) ? "Amex" : /HIPER/.test(t) ? "Hipercard" : null;
+}
+
+/** Chave da conta-cartão: número da conta no nome do arquivo (Itaú), senão o final do cartão principal, senão o banco. */
+export function statementKey(fileName: string, bank: string, cardLast4s: string[]) {
+  const m = fileName.match(/_(\d{6,})_/) ?? fileName.match(/(\d{8,})/);
+  if (m) return m[1];
+  const main = [...cardLast4s].sort()[0];
+  return `${bank.toLowerCase().replace(/\s+/g, "-")}${main ? `-${main}` : ""}`;
+}
+
+export const CARD_COLORS: [string, string][] = [["#1f1b17", "Grafite"], ["#2b3445", "Azul-noite"], ["#3b2a1f", "Café"], ["#4a3b5c", "Ameixa"], ["#24433a", "Verde-inglês"], ["#7d5f36", "Bronze"], ["#5b1f24", "Bordô"]];
+export const defaultCardColor = (c: Pick<CardAccount, "color" | "brand" | "name">) =>
+  c.color ?? (/black|infinite|the essential|personnalit/i.test(c.name) ? "#1f1b17" : c.brand === "Visa" ? "#2b3445" : "#3b2a1f");
+
+const FEES = /\bIOF\b|ANUIDADE|JUROS|ENCARGO|MULTA|MORA|TARIFA|SEGURO CART|AVAL EMERG/i;
+
+export interface MonthCell { cycle: string; total: number; batchId: string | null; dueDate: string | null; projected: boolean; paid: boolean }
+export interface CardSummary {
+  card: CardAccount; months: MonthCell[]; selected: MonthCell | null;
+  breakdown: { aVista: number; parcelas: number; internacional: number; encargos: number; creditos: number; itens: number };
+  categories: { cat: Category | undefined; v: number }[]; upcoming: { cycle: string; v: number }[]; avg: number;
+}
+
+/**
+ * Monta a visão de um cartão: até 7 meses com fatura importada + 3 meses seguintes com as parcelas já compradas.
+ * `selectedCycle` escolhe o mês detalhado (padrão: o último com fatura).
+ */
+export function cardSummary(card: CardAccount, batches: Batch[], txs: CardTx[], byId: Map<string, Category>, paidBatches: Set<string>, startDay: number, currentCycle: string, selectedCycle?: string): CardSummary {
+  const mine = batches.filter((b) => b.account_id === card.id && b.due_date).sort((a, b) => a.due_date!.localeCompare(b.due_date!));
+  const tx = txs.filter((t) => t.import_batch_id && mine.some((b) => b.id === t.import_batch_id));
+  const sumBatch = (id: string) => Math.round(tx.filter((t) => t.import_batch_id === id).reduce((a, t) => a + Number(t.amount), 0) * 100) / 100;
+  const real: MonthCell[] = mine.slice(-7).map((b) => ({ cycle: cycleOf(b.due_date!, startDay), total: sumBatch(b.id), batchId: b.id, dueDate: b.due_date, projected: false, paid: paidBatches.has(b.id) }));
+  // Próximas faturas: parcelas já compradas que ainda vão cair
+  const last = real.length ? real[real.length - 1].cycle : currentCycle;
+  const plans = buildInstallmentPlans(tx, last);
+  const future: MonthCell[] = [];
+  for (let i = 1; i <= 3; i++) {
+    const [y, m] = last.split("-").map(Number); const k = (y * 12 + m - 1 + i);
+    const cy = `${Math.floor(k / 12)}-${String((k % 12) + 1).padStart(2, "0")}`;
+    const v = plans.reduce((a, p) => a + (p.schedule.get(cy)?.known === false ? p.schedule.get(cy)!.amount : 0), 0);
+    if (v > 0) future.push({ cycle: cy, total: Math.round(v * 100) / 100, batchId: null, dueDate: card.due_day ? `${cy}-${String(card.due_day).padStart(2, "0")}` : null, projected: true, paid: false });
+  }
+  const months = [...real, ...future];
+  const selected = months.find((x) => x.cycle === selectedCycle) ?? real[real.length - 1] ?? months[0] ?? null;
+
+  const sel = selected?.batchId ? tx.filter((t) => t.import_batch_id === selected.batchId) : [];
+  const breakdown = { aVista: 0, parcelas: 0, internacional: 0, encargos: 0, creditos: 0, itens: sel.length };
+  const catMap = new Map<string, number>();
+  for (const t of sel) {
+    const v = Number(t.amount);
+    if (v < 0) { breakdown.creditos += -v; continue; }
+    if (FEES.test(t.description)) breakdown.encargos += v;
+    else if (t.installment_total && t.installment_total > 1) breakdown.parcelas += v;
+    else breakdown.aVista += v;
+    if (t.international) breakdown.internacional += v;
+    const k = t.category_id ?? "_";
+    catMap.set(k, (catMap.get(k) ?? 0) + v);
+  }
+  const categories = [...catMap].map(([k, v]) => ({ cat: byId.get(k), v })).sort((a, b) => b.v - a.v).slice(0, 4);
+  const upcoming = (selected && !selected.projected ? future : future.filter((f) => f.cycle > selected!.cycle)).map((f) => ({ cycle: f.cycle, v: f.total }));
+  const avg = real.length ? real.reduce((a, r) => a + r.total, 0) / real.length : 0;
+  return { card, months, selected, breakdown, categories, upcoming, avg };
+}
+
+/** Melhor dia de compra: o dia seguinte ao fechamento. Sem fechamento conhecido, estima 7 dias antes do vencimento (ex.: vence 08 → compra a partir do dia 01). */
+export function bestPurchaseDay(card: Pick<CardAccount, "closing_day" | "due_day">): { day: number; estimated: boolean } | null {
+  if (card.closing_day) return { day: (card.closing_day % 31) + 1, estimated: false };
+  if (card.due_day) return { day: ((card.due_day - 8 + 30) % 30) + 1, estimated: true };
+  return null;
+}

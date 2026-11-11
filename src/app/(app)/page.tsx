@@ -40,11 +40,11 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
     loadAgenda(ctx, addDays(today, -5), addDays(today, 14)),
     ctx.supabase.from("import_batches").select("id, institution, due_date, statement_total, tx_count").eq("household_id", ctx.household.id).neq("source", "planilha").order("due_date", { ascending: false, nullsFirst: false }).limit(1),
     loadAgenda(ctx, range.start, range.end),
-    ctx.supabase.from("accounts").select("id, name, type, institution, last4, closing_day, due_day").eq("household_id", ctx.household.id).eq("type", "cartao").eq("active", true),
+    ctx.supabase.from("accounts").select("id, name, type, institution, last4, closing_day, due_day, statement_key, color").eq("household_id", ctx.household.id).eq("type", "cartao").eq("active", true),
     seeGoals ? ctx.supabase.from("goals").select("*").eq("household_id", ctx.household.id).eq("type", "caixinha").order("sort") : Promise.resolve({ data: [] }),
     seeInv ? ctx.supabase.from("inv_ops").select("*").eq("household_id", ctx.household.id) : Promise.resolve({ data: [] }),
     seeInv ? ctx.supabase.from("inv_fixed").select("amount, redeemed_at").eq("household_id", ctx.household.id) : Promise.resolve({ data: [] }),
-    ctx.supabase.from("import_batches").select("id, institution, file_name, due_date").eq("household_id", ctx.household.id).eq("doc_type", "fatura").gte("due_date", range.start).lte("due_date", nextRange.end),
+    ctx.supabase.from("import_batches").select("id, institution, file_name, due_date, account_id").eq("household_id", ctx.household.id).eq("doc_type", "fatura").gte("due_date", range.start).lte("due_date", nextRange.end),
   ]);
   const { byId } = categoryIndex(cats);
   const curTx = txs.filter((t) => t.cycle === cycle);
