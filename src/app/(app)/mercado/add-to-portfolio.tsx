@@ -32,8 +32,8 @@ export function AddToPortfolio({ yahoo, portfolios, inPortfolios = [], compact =
 
   return (
     <div className="relative inline-block" ref={ref}>
-      <button type="button" onClick={() => setOpen((o) => !o)} className={compact ? `rounded-full border px-2 py-0.5 text-[11px] transition ${added.length ? "border-gold/50 bg-brand-soft text-brand" : "border-ink/12 text-ink/55 hover:border-ink/30 hover:text-ink"}` : "btn-ghost"}>
-        {added.length ? (compact ? "✓ Carteira" : `Em ${added.length} carteira(s)`) : "+ Carteira"}
+      <button type="button" onClick={() => setOpen((o) => !o)} title={added.length ? "Já está em carteira de avaliação" : "Adicionar a uma carteira de avaliação"} className={compact ? `grid h-6 w-6 place-items-center rounded-full border text-[13px] leading-none transition ${added.length ? "border-gold/50 bg-brand-soft text-brand" : "border-ink/12 text-ink/55 hover:border-ink/30 hover:text-ink"}` : "btn-ghost"}>
+        {added.length ? (compact ? "✓" : `Em ${added.length} carteira(s)`) : compact ? "+" : "+ Carteira"}
       </button>
       {open && (
         <div className="absolute right-0 z-30 mt-1 w-64 rounded-2xl border border-ink/10 bg-surface p-2 text-left shadow-[0_18px_40px_-12px_rgba(40,30,20,.35)]">

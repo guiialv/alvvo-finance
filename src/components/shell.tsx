@@ -87,7 +87,7 @@ export function Shell({ children, allowed, badges, household, viewer, initialCol
           <span className="mx-1 h-5 w-px bg-ink/10" />
           {eye}
         </div>
-        <div className="px-4 py-6 md:px-12 md:py-8"><div className="mx-auto max-w-[1280px]">{children}</div></div>
+        <div className="px-4 py-6 md:px-12 md:py-8"><div className="mx-auto max-w-[1440px]">{children}</div></div>
       </main>
     </div>
   );

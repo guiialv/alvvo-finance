@@ -13,12 +13,16 @@ export interface UniverseRow {
   price: number | null; change_pct: number | null; volume: number | null; market_cap: number | null;
   pe: number | null; pb: number | null; dy: number | null; roe: number | null; net_margin: number | null; debt_equity: number | null; ev_ebitda: number | null; eps: number | null;
   perf_1m: number | null; perf_ytd: number | null; perf_1y: number | null; rsi: number | null; rating: number | null; logoid: string | null; sort: number | null; updated_at?: string;
+  perf_w?: number | null; perf_3m?: number | null; perf_6m?: number | null; perf_3y?: number | null; perf_5y?: number | null; volatility_m?: number | null;
+  sma50?: number | null; sma200?: number | null; rec_ma?: number | null; rec_osc?: number | null; adx?: number | null; beta?: number | null; payout?: number | null;
+  avg_volume?: number | null; liquidity?: number | null;
 }
 
 const UA = { "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124 Safari/537.36" };
 const COLS = ["name", "description", "close", "change", "volume", "market_cap_basic", "sector", "industry", "price_earnings_ttm", "price_book_fq",
   "dividends_yield_current", "return_on_equity", "net_margin", "debt_to_equity", "enterprise_value_ebitda_ttm", "earnings_per_share_basic_ttm",
-  "Perf.1M", "Perf.YTD", "Perf.Y", "RSI", "Recommend.All", "type", "subtype", "currency", "logoid"] as const;
+  "Perf.1M", "Perf.YTD", "Perf.Y", "RSI", "Recommend.All", "type", "subtype", "currency", "logoid",
+  "Perf.W", "Perf.3M", "Perf.6M", "Perf.3Y", "Perf.5Y", "Volatility.M", "SMA50", "SMA200", "Recommend.MA", "Recommend.Other", "ADX", "beta_1_year", "dividend_payout_ratio_ttm", "average_volume_30d_calc"] as const;
 
 const num = (v: unknown) => (typeof v === "number" && isFinite(v) ? v : null);
 
@@ -50,7 +54,8 @@ async function scan(market: "brazil" | "america", filter: unknown[], range = 600
 }
 
 function toRow(market: "BR" | "US", d: unknown[], i: number): UniverseRow | null {
-  const [name, description, close, change, volume, cap, sector, industry, pe, pb, dy, roe, nm, de, eve, eps, p1m, pytd, p1y, rsi, rec, type, subtype, currency, logoid] = d;
+  const [name, description, close, change, volume, cap, sector, industry, pe, pb, dy, roe, nm, de, eve, eps, p1m, pytd, p1y, rsi, rec, type, subtype, currency, logoid,
+    pw, p3m, p6m, p3y, p5y, volm, sma50, sma200, recMa, recOsc, adx, beta, payout, avgVol] = d;
   const symbol = String(name ?? "").toUpperCase();
   if (!symbol || num(close) == null) return null;
   // B3: ignora o mercado fracionário (PETR4F) e códigos estranhos
@@ -62,6 +67,10 @@ function toRow(market: "BR" | "US", d: unknown[], i: number): UniverseRow | null
     price: num(close), change_pct: num(change), volume: num(volume), market_cap: num(cap), pe: num(pe), pb: num(pb), dy: num(dy), roe: num(roe),
     net_margin: num(nm), debt_equity: num(de), ev_ebitda: num(eve), eps: num(eps), perf_1m: num(p1m), perf_ytd: num(pytd), perf_1y: num(p1y),
     rsi: num(rsi), rating: num(rec), logoid: (logoid as string) ?? null, sort: i,
+    perf_w: num(pw), perf_3m: num(p3m), perf_6m: num(p6m), perf_3y: num(p3y), perf_5y: num(p5y), volatility_m: num(volm), sma50: num(sma50), sma200: num(sma200),
+    rec_ma: num(recMa), rec_osc: num(recOsc), adx: num(adx), beta: num(beta), payout: num(payout), avg_volume: num(avgVol),
+    // BDR: os indicadores por ação vêm em moedas/unidades diferentes do preço em reais e distorcem P/L e P/VP
+    ...(kind === "bdr" ? { pe: null, pb: null, eps: null, ev_ebitda: null } : {}),
   };
 }
 
@@ -104,6 +113,48 @@ async function spark(symbols: string[]) {
   return out;
 }
 
+/** Índices disponíveis no filtro. BR: carteira teórica oficial da B3; EUA: composição via TradingView. */
+export const INDICES: { market: "BR" | "US"; code: string; name: string; tv?: string }[] = [
+  { market: "BR", code: "IBOV", name: "Ibovespa" }, { market: "BR", code: "IBXX", name: "IBrX 100" }, { market: "BR", code: "IBXL", name: "IBrX 50" },
+  { market: "BR", code: "IBRA", name: "Índice Brasil Amplo" }, { market: "BR", code: "MLCX", name: "MidLarge Cap" }, { market: "BR", code: "SMLL", name: "Small Cap" },
+  { market: "BR", code: "IDIV", name: "Dividendos (IDIV)" }, { market: "BR", code: "IBSD", name: "Bovespa Smart Dividendos" }, { market: "BR", code: "IDVR", name: "Dividendos BR (IDVR)" },
+  { market: "BR", code: "IBLV", name: "Baixa Volatilidade" }, { market: "BR", code: "ITAG", name: "Tag Along Diferenciado" }, { market: "BR", code: "IGNM", name: "Governança — Novo Mercado" },
+  { market: "BR", code: "IGCX", name: "Governança Corporativa" }, { market: "BR", code: "ISEE", name: "Sustentabilidade (ISE)" }, { market: "BR", code: "ICO2", name: "Carbono Eficiente" },
+  { market: "BR", code: "ICON", name: "Consumo" }, { market: "BR", code: "IEEX", name: "Energia Elétrica" }, { market: "BR", code: "IFNC", name: "Financeiro" },
+  { market: "BR", code: "IMAT", name: "Materiais Básicos" }, { market: "BR", code: "IMOB", name: "Imobiliário" }, { market: "BR", code: "INDX", name: "Setor Industrial" },
+  { market: "BR", code: "UTIL", name: "Utilidade Pública" }, { market: "BR", code: "GPTW", name: "GPTW (melhores empresas para trabalhar)" },
+  { market: "BR", code: "IFIX", name: "Fundos Imobiliários (IFIX)" }, { market: "BR", code: "IFIL", name: "IFIX Líquidos" }, { market: "BR", code: "BDRX", name: "BDRs (BDRX)" },
+  { market: "US", code: "SPX", name: "S&P 500", tv: "SYML:SP;SPX" }, { market: "US", code: "NDX", name: "Nasdaq 100", tv: "SYML:NASDAQ;NDX" }, { market: "US", code: "DJI", name: "Dow Jones", tv: "SYML:DJ;DJI" },
+];
+
+async function refreshIndices(db: ReturnType<typeof createAdminClient>, now: string) {
+  const one = async (ix: (typeof INDICES)[number]): Promise<Record<string, number> | null> => {
+    try {
+      if (ix.market === "BR") {
+        const q = Buffer.from(JSON.stringify({ language: "pt-br", pageNumber: 1, pageSize: 400, index: ix.code, segment: "1" })).toString("base64");
+        const res = await fetch(`https://sistemaswebb3-listados.b3.com.br/indexProxy/indexCall/GetPortfolioDay/${q}`, { headers: UA, cache: "no-store" });
+        if (!res.ok) return null;
+        const j = (await res.json()) as { results?: { cod: string; part: string }[] };
+        return Object.fromEntries((j.results ?? []).map((r) => [r.cod.trim(), Number(r.part.replace(/\./g, "").replace(",", "."))]));
+      }
+      const res = await fetch("https://scanner.tradingview.com/america/scan", { method: "POST", headers: { ...UA, "content-type": "application/json" }, cache: "no-store",
+        body: JSON.stringify({ columns: ["name"], symbols: { symbolset: [ix.tv] }, range: [0, 1000] }) });
+      if (!res.ok) return null;
+      const j = (await res.json()) as { data?: { d: unknown[] }[] };
+      return Object.fromEntries((j.data ?? []).map((x) => [String(x.d[0]), 0]));
+    } catch { return null; }
+  };
+  const got = await Promise.all(INDICES.map(async (ix) => [ix, await one(ix)] as const));
+  const rows = got.filter(([, m]) => m && Object.keys(m).length).map(([ix, m]) => ({ key: `idx:${ix.market}:${ix.code}`, value: { name: ix.name, members: m }, ref_date: now.slice(0, 10), updated_at: now }));
+  if (rows.length) await db.from("market_macro").upsert(rows);
+}
+
+/** Membros de um índice (código → peso %). */
+export async function indexMembers(db: { from: ReturnType<typeof createAdminClient>["from"] }, market: string, code: string) {
+  const { data } = await db.from("market_macro").select("value").eq("key", `idx:${market}:${code}`).maybeSingle();
+  return ((data?.value as { members?: Record<string, number> } | null)?.members ?? null);
+}
+
 export async function refreshUniverse(): Promise<{ br: number; us: number; macro: number }> {
   const db = createAdminClient(), now = new Date().toISOString();
   const [br, us, usEtf, sp] = await Promise.all([
@@ -134,6 +185,7 @@ export async function refreshUniverse(): Promise<{ br: number; us: number; macro
     const { error } = await db.from("market_universe").upsert(rows.slice(i, i + 800).map((r) => ({ ...r, updated_at: now })), { onConflict: "market,symbol" });
     if (error) throw new Error(error.message);
   }
+  await refreshIndices(db, now);
   // Remove o que saiu de listagem há mais de 10 dias
   await db.from("market_universe").delete().in("market", ["BR", "US"]).lt("updated_at", new Date(Date.now() - 10 * 86400000).toISOString());
   await db.from("market_macro").upsert({ key: "universe", value: { br: nBr, us: nUs, macro: rows.length - nBr - nUs }, ref_date: now.slice(0, 10), updated_at: now });
