@@ -277,15 +277,28 @@ export async function confirmImport(payload: ConfirmPayload): Promise<{ error?: 
   if (payload.docType !== "extrato") {
     const skey = statementKey(payload.fileName, payload.bank, payload.cards.map((c) => c.last4));
     const brand = brandOf(payload.fileName);
-    let acc = (accounts as (typeof accounts[number] & { statement_key?: string | null })[]).find((a) => a.type === "cartao" && a.statement_key === skey);
+    type CardAcc = typeof accounts[number] & { statement_key?: string | null; merged_keys?: string[] | null };
+    const cardsOf = (list: CardAcc[]) => list.filter((a) => a.type === "cartao");
+    const match = (list: CardAcc[]) => {
+      const cs = cardsOf(list);
+      const byKey = cs.find((a) => a.statement_key === skey || (a.merged_keys ?? []).includes(skey));
+      if (byKey) return byKey;
+      // Sem número da conta: se o banco tem um único cartão, é ele
+      const bankKey = payload.bank.toLowerCase().trim().replace(/\s+/g, "-");
+      if (skey === bankKey || skey.startsWith(`${bankKey}-`)) { const same = cs.filter((a) => (a.institution ?? "") === payload.bank); if (same.length === 1) return same[0]; }
+      return undefined;
+    };
+    let acc = match(accounts as CardAcc[]);
     if (!acc) {
       const main = payload.cards[0]?.last4 ?? null;
-      const { data } = await ctx.supabase.from("accounts").insert({
+      const { data, error } = await ctx.supabase.from("accounts").insert({
         household_id: hh, scope: "pessoal", type: "cartao", institution: payload.bank, brand, statement_key: skey, last4: main,
-        name: `${payload.bank}${brand ? ` ${brand}` : ""} ••${(main ?? skey).slice(-4)}`,
+        name: `${payload.bank}${brand ? ` ${brand}` : ""}${main ? ` ••${main}` : ""}`,
         due_day: payload.dueDate ? Number(payload.dueDate.slice(8, 10)) : null, owner_user_id: ctx.user.id,
       }).select("*").single();
-      if (data) acc = data as typeof acc;
+      if (data) acc = data as CardAcc;
+      // Outra fatura importada ao mesmo tempo já criou o cartão: usa esse
+      if (error) acc = match((await loadAccounts(ctx)) as CardAcc[]);
     } else if (payload.dueDate && !acc.due_day) {
       await ctx.supabase.from("accounts").update({ due_day: Number(payload.dueDate.slice(8, 10)) }).eq("id", acc.id);
     }

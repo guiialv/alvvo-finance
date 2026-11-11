@@ -8,7 +8,7 @@ import { cycleOf } from "@/lib/cycle";
 
 export interface CardAccount {
   id: string; name: string; institution: string | null; brand: string | null; color: string | null; purpose: string | null;
-  statement_key: string | null; last4: string | null; closing_day: number | null; due_day: number | null; credit_limit: number | null; sort: number | null;
+  statement_key: string | null; merged_keys?: string[] | null; last4: string | null; closing_day: number | null; due_day: number | null; credit_limit: number | null; sort: number | null;
 }
 export interface Batch { id: string; account_id: string | null; due_date: string | null; statement_total: number | null; institution: string | null; file_name: string | null }
 export interface CardTx extends InstallmentTx { import_batch_id: string | null; international?: boolean | null; bank_category?: string | null; kind?: string }
@@ -18,12 +18,21 @@ export function brandOf(text: string | null | undefined) {
   return /VISA/.test(t) ? "Visa" : /MASTER/.test(t) ? "Mastercard" : /\bELO\b/.test(t) ? "Elo" : /AMEX|AMERICAN EXPRESS/.test(t) ? "Amex" : /HIPER/.test(t) ? "Hipercard" : null;
 }
 
-/** Chave da conta-cartão: número da conta no nome do arquivo (Itaú), senão o final do cartão principal, senão o banco. */
+/** Números que são data/hora do download (ex.: Fatura_Itau_20261111-135442.pdf), não o número da conta. */
+const isDateLike = (n: string) => /^(19|20)\d{2}(0[1-9]|1[0-2])(0[1-9]|[12]\d|3[01])(\d{4,6})?$/.test(n);
+
+/**
+ * Chave da conta-cartão: número da conta no nome do arquivo (ex.: Fatura_VISA_100252576003_08-11-2026.pdf),
+ * senão o final do cartão principal, senão só o banco. Nunca usa a data do download.
+ */
 export function statementKey(fileName: string, bank: string, cardLast4s: string[]) {
-  const m = fileName.match(/_(\d{6,})_/) ?? fileName.match(/(\d{8,})/);
-  if (m) return m[1];
+  // Tira data e hora do download (20261111-135442) e datas (08-11-2026) antes de procurar o número da conta
+  const clean = fileName.replace(/(19|20)\d{6}[-_ ]?\d{4,6}/g, " ").replace(/\d{2}[-_.]\d{2}[-_.]\d{4}/g, " ");
+  const nums = [...clean.matchAll(/\d{8,}/g)].map((m) => m[0]).filter((n) => !isDateLike(n));
+  if (nums.length) return nums[0];
+  const b = bank.toLowerCase().trim().replace(/\s+/g, "-");
   const main = [...cardLast4s].sort()[0];
-  return `${bank.toLowerCase().replace(/\s+/g, "-")}${main ? `-${main}` : ""}`;
+  return main ? `${b}-${main}` : b;
 }
 
 export const CARD_COLORS: [string, string][] = [["#1f1b17", "Grafite"], ["#2b3445", "Azul-noite"], ["#3b2a1f", "Café"], ["#4a3b5c", "Ameixa"], ["#24433a", "Verde-inglês"], ["#7d5f36", "Bronze"], ["#5b1f24", "Bordô"]];
@@ -47,7 +56,7 @@ export function cardSummary(card: CardAccount, batches: Batch[], txs: CardTx[], 
   const mine = batches.filter((b) => b.account_id === card.id && b.due_date).sort((a, b) => a.due_date!.localeCompare(b.due_date!));
   const tx = txs.filter((t) => t.import_batch_id && mine.some((b) => b.id === t.import_batch_id));
   const sumBatch = (id: string) => Math.round(tx.filter((t) => t.import_batch_id === id).reduce((a, t) => a + Number(t.amount), 0) * 100) / 100;
-  const real: MonthCell[] = mine.slice(-7).map((b) => ({ cycle: cycleOf(b.due_date!, startDay), total: sumBatch(b.id), batchId: b.id, dueDate: b.due_date, projected: false, paid: paidBatches.has(b.id) }));
+  const real: MonthCell[] = mine.slice(-12).map((b) => ({ cycle: cycleOf(b.due_date!, startDay), total: sumBatch(b.id), batchId: b.id, dueDate: b.due_date, projected: false, paid: paidBatches.has(b.id) }));
   // Próximas faturas: parcelas já compradas que ainda vão cair
   const last = real.length ? real[real.length - 1].cycle : currentCycle;
   const plans = buildInstallmentPlans(tx, last);

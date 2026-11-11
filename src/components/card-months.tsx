@@ -18,8 +18,8 @@ export function CardMonths({ months, selected, hrefFor, color }: { months: Month
   const real = pts.filter((p) => !p.p), proj = pts.filter((p, i) => p.p || pts[i + 1]?.p);
   const total = months.length * W;
   return (
-    <div className="-mx-1 overflow-x-auto pb-1">
-      <div className="relative px-1" style={{ minWidth: months.length * 64 }}>
+    <div className="-mx-1 overflow-x-auto pb-1" dir="rtl">
+      <div className="relative px-1" dir="ltr" style={{ minWidth: months.length * 64 }}>
         <div className="grid gap-1.5" style={{ gridTemplateColumns: `repeat(${months.length}, minmax(0, 1fr))` }}>
           {months.map((m) => {
             const on = m.cycle === selected;

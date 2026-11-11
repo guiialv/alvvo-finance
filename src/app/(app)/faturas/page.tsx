@@ -11,7 +11,7 @@ import { currentCycle, todayIso } from "@/lib/cycle";
 import { bestPurchaseDay, CARD_COLORS, type CardAccount, type CardSummary, cardSummary, type CardTx, defaultCardColor } from "@/lib/cards";
 import { CardMonths } from "@/components/card-months";
 import { BrandMark } from "@/components/brand";
-import { updateCard } from "./card-actions";
+import { mergeCard, updateCard } from "./card-actions";
 
 type SP = { cartoes?: string; cartao?: string; mes?: string };
 const MES = ["janeiro", "fevereiro", "março", "abril", "maio", "junho", "julho", "agosto", "setembro", "outubro", "novembro", "dezembro"];
@@ -65,7 +65,7 @@ export default async function FaturasPage({ searchParams }: { searchParams: Prom
             </div>
           </div>
           <div className={`grid items-start gap-4 ${mode === "um" ? "mx-auto max-w-2xl" : shown.length >= 3 ? "lg:grid-cols-2 xl:grid-cols-3" : shown.length === 2 ? "lg:grid-cols-2" : "max-w-2xl"}`}>
-            {shown.map((x) => <CardColumn key={x.card.id} s={x} edit={edit} today={today} hrefFor={(c) => href({ mes: c, cartao: x.card.id })} />)}
+            {shown.map((x) => <CardColumn key={x.card.id} s={x} edit={edit} today={today} others={summaries.filter((o) => o.card.id !== x.card.id).map((o) => ({ id: o.card.id, name: o.card.name }))} hrefFor={(c) => href({ mes: c, cartao: x.card.id })} />)}
           </div>
         </section>
       )}
@@ -111,7 +111,7 @@ export default async function FaturasPage({ searchParams }: { searchParams: Prom
   );
 }
 
-function CardColumn({ s, edit, today, hrefFor }: { s: CardSummary; edit: boolean; today: string; hrefFor: (cycle: string) => string }) {
+function CardColumn({ s, edit, today, hrefFor, others }: { s: CardSummary; edit: boolean; today: string; hrefFor: (cycle: string) => string; others: { id: string; name: string }[] }) {
   const c = s.card, color = defaultCardColor(c), sel = s.selected;
   const best = bestPurchaseDay(c);
   const status = !sel ? "" : sel.projected ? "Prevista · parcelas já compradas" : sel.paid ? "Paga · conferida com o extrato" : sel.dueDate && sel.dueDate < today ? `Fechada · venceu em ${dm(sel.dueDate)}` : `Fechada · vence ${dm(sel.dueDate)}`;
@@ -183,6 +183,14 @@ function CardColumn({ s, edit, today, hrefFor }: { s: CardSummary; edit: boolean
                 <label key={hex} className="cursor-pointer" title={l}><input type="radio" name="color" value={hex} defaultChecked={(c.color ?? "") === hex} className="peer sr-only" /><span className="block h-7 w-7 rounded-full ring-2 ring-transparent ring-offset-2 peer-checked:ring-gold" style={{ background: hex }} /></label>))}</div></div>
               <div className="col-span-2"><button className="btn !py-1.5 text-xs">Salvar</button></div>
             </form>
+            {others.length > 0 && (
+              <form action={mergeCard} className="mt-4 border-t border-ink/[0.06] pt-3">
+                <input type="hidden" name="id" value={c.id} />
+                <label className="label">Juntar com outro cartão</label>
+                <p className="mb-2 text-[11.5px] text-ink/50">Use quando dois cartões são o mesmo conjunto de faturas. As faturas e lançamentos deste cartão passam para o escolhido, e as próximas importações também.</p>
+                <div className="flex gap-2"><select name="into" className="input !py-1.5" required defaultValue=""><option value="" disabled>Escolha o cartão…</option>{others.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}</select>
+                  <button className="btn-ghost !py-1.5 text-xs whitespace-nowrap">Juntar</button></div>
+              </form>)}
           </details>)}
       </div>
     </section>
