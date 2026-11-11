@@ -61,7 +61,7 @@ export function ImportWizard({ options, review = false }: { options: CatOpt[]; r
     patch(it.id, { status: "importando", preview: pv });
     const r = await confirmImport({
       fileName: pv.fileName!, source: pv.source!, docType: pv.docType, accountRef: pv.accountRef ?? null, bank: pv.bank!, dueDate: pv.dueDate ?? null, statementTotal: pv.statementTotal ?? null, futureTotal: pv.futureTotal ?? null,
-      futureItems: pv.futureItems, cardTotals: pv.cardTotals, currentTotal: pv.currentTotal ?? null, replacesBatchIds: pv.replacesBatchIds,
+      futureItems: pv.futureItems, cardTotals: pv.cardTotals, currentTotal: pv.currentTotal ?? null, replacesBatchIds: pv.replacesBatchIds, mainCard: pv.mainCard ?? null,
       cycle: pv.cycle!, cards: (pv.cards ?? []).map((c) => ({ last4: c.last4, ownerUserId: c.ownerUserId })), rows: rows.map((x) => ({ ...x, categoryId: x.suggestedCategoryId })),
     });
     patch(it.id, r.error ? { status: "erro", note: r.error, result: r } : { status: "feita", result: r });
@@ -169,7 +169,7 @@ function Review({ preview, options, onDone }: { preview: Preview; options: CatOp
     const r = await confirmImport({
       fileName: preview.fileName!, source: preview.source!, docType: preview.docType, accountRef: preview.accountRef ?? null, bank: preview.bank!, dueDate: preview.dueDate ?? null,
       statementTotal: preview.statementTotal ?? null, futureTotal: preview.futureTotal ?? null, cycle,
-      futureItems: preview.futureItems, cardTotals: preview.cardTotals, currentTotal: preview.currentTotal ?? null, replacesBatchIds: preview.replacesBatchIds,
+      futureItems: preview.futureItems, cardTotals: preview.cardTotals, currentTotal: preview.currentTotal ?? null, replacesBatchIds: preview.replacesBatchIds, mainCard: preview.mainCard ?? null,
       cards: (preview.cards ?? []).map((c) => ({ last4: c.last4, ownerUserId: owners[c.last4] ?? null })),
       rows: selected.map((r) => ({ ...r, categoryId: cats[r.idx] ?? null })),
     });

@@ -25,6 +25,9 @@ export function parseItauStatement(pages: PdfPage[]): ParsedStatement {
   const totalMatch = squash(fullText).match(new RegExp(String.raw`Totaldestafatura${MONEY}`));
   let statementTotal = totalMatch ? parseBRL(totalMatch[1]) : null;
   const holderMatch = fullText.match(/Titular\s+(.+)/);
+  // Cartão principal da fatura (identifica a linha do cartão): "Cartão 5234.XXXX.XXXX.1617 MASTERCARD BLACK"
+  const mc = fullText.match(/(\d{4})[.\s]?X{4}[.\s]?X{4}[.\s]?(\d{4})\s*([A-ZÀ-Ü][A-ZÀ-Ü ]{2,40})?/);
+  const mainCard = mc ? { last4: mc[2], bin: mc[1], product: (mc[3] ?? "").replace(/\s+(O TOTAL|COM VENC|VENCIMENTO).*$/i, "").trim() || null } : null;
   const holder = holderMatch ? holderMatch[1].trim() : null;
 
   const ref = dueDate ? new Date(dueDate + "T12:00:00") : new Date();
@@ -180,7 +183,7 @@ export function parseItauStatement(pages: PdfPage[]): ParsedStatement {
     if (Math.abs(s - total) > 0.05) warnings.push(`Cartão final ${card}: lido R$ ${fmt(s)}, fatura informa R$ ${fmt(total)}.`);
   }
 
-  return { bank: "Itaú", holder, dueDate, closingDate, statementTotal, currentTotal, transactions, cardTotals, futureInstallments, warnings };
+  return { bank: "Itaú", mainCard, accountRef: mainCard ? `cartão final ${mainCard.last4}` : null, holder, dueDate, closingDate, statementTotal, currentTotal, transactions, cardTotals, futureInstallments, warnings };
 }
 
 function matchDate(text: string, re: RegExp): string | null {

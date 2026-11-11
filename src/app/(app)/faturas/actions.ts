@@ -10,7 +10,8 @@ import { categoryIndex, loadAccounts, loadCategories, loadMembers } from "@/lib/
 import { faturaIssues, PdfPasswordError, pagesToText, parseStatementFile } from "@/lib/faturas";
 import { aiAvailable, aiKeyFor } from "@/lib/ai";
 import { aiCategorize, aiReadStatement } from "@/lib/ai-tasks";
-import { brandOf, statementKey } from "@/lib/cards";
+import { brandOf } from "@/lib/cards";
+import { cardKey, type CardAcc, fileAccountKey, matchCardAccount } from "@/lib/card-resolve";
 import { cardCycle, type FaturaRef, type Flow, isAutoInvest, isCardPayment, isLoan, matchFatura, pairPixCredit, signedAmount, SYS } from "@/lib/reconcile";
 import type { Ctx } from "@/lib/context";
 import type { Category } from "@/lib/data";
@@ -70,6 +71,9 @@ export interface Preview {
   currentTotal?: number | null;
   /** Importações anteriores desta mesma fatura, que serão substituídas */
   replacesBatchIds?: string[];
+  mainCard?: { last4: string; product?: string | null } | null;
+  /** Cartão (linha) já existente a que esta fatura pertence */
+  cardAccountName?: string | null;
 }
 
 export type FutureItem = { date: string; description: string; amount: number; installmentNo?: number | null; installmentTotal?: number | null };
@@ -204,10 +208,18 @@ export async function analyzeStatement(_: Preview | undefined, formData: FormDat
   }
 
   // Reimportar a mesma fatura (mesmo banco e vencimento) substitui a anterior, mantendo as classificações
+  // Só substitui a fatura do MESMO cartão (linha) e mesmo vencimento — cartões diferentes vencem no mesmo dia
   let replacesBatchIds: string[] = [];
-  if (docType === "fatura" && st.dueDate) {
-    const { data: prev } = await ctx.supabase.from("import_batches").select("id").eq("household_id", ctx.household.id)
-      .eq("doc_type", "fatura").eq("institution", st.bank).eq("due_date", st.dueDate);
+  let cardAccountName: string | null = null;
+  if (docType === "fatura") {
+    const finals = [...new Set(st.transactions.map((t) => t.cardLast4).filter((x): x is string => !!x))];
+    const acc = matchCardAccount((await loadAccounts(ctx)) as CardAcc[], { bank: st.bank, main: st.mainCard?.last4 ?? null, finals, fileName: file.name });
+    cardAccountName = acc?.name ?? null;
+    const m = st.mainCard;
+    st.warnings.unshift(acc ? `Cartão: ${acc.name}${m?.product ? ` (${m.product})` : ""}.` : `Cartão novo: ${st.bank}${m?.product ? ` ${m.product}` : ""}${m ? ` ••${m.last4}` : finals[0] ? ` ••${finals[0]}` : ""} — será criado ao importar.`);
+    const { data: prev } = acc && st.dueDate
+      ? await ctx.supabase.from("import_batches").select("id").eq("household_id", ctx.household.id).eq("doc_type", "fatura").eq("account_id", acc.id).eq("due_date", st.dueDate)
+      : { data: [] };
     replacesBatchIds = ((prev ?? []) as { id: string }[]).map((b) => b.id);
     if (replacesBatchIds.length) st.warnings.unshift(`Esta fatura já tinha sido importada${replacesBatchIds.length > 1 ? ` (${replacesBatchIds.length} vezes)` : ""}. Ao importar, a versão anterior é substituída por esta leitura — as classificações que você já fez são mantidas.`);
   }
@@ -247,6 +259,7 @@ export async function analyzeStatement(_: Preview | undefined, formData: FormDat
     warnings: st.warnings, rows, cards, members: members.map((m) => ({ user_id: m.user_id, display_name: m.display_name })),
     futureTotal: Math.round(st.futureInstallments.reduce((a, f) => a + f.amount, 0) * 100) / 100,
     futureItems: st.futureInstallments, cardTotals: st.cardTotals, currentTotal: st.currentTotal ?? null, replacesBatchIds,
+    mainCard: st.mainCard ?? null, cardAccountName,
   };
 }
 
@@ -301,6 +314,7 @@ export interface ConfirmPayload {
   cardTotals?: Record<string, number>;
   currentTotal?: number | null;
   replacesBatchIds?: string[];
+  mainCard?: { last4: string; product?: string | null } | null;
   cycle: string;
   cards: { last4: string; ownerUserId: string | null }[];
   rows: (PreviewRow & { categoryId: string | null })[];
@@ -319,32 +333,30 @@ export async function confirmImport(payload: ConfirmPayload): Promise<{ error?: 
   const accByLast4 = new Map<string, string>();
   let cardAccountId: string | null = null;
   if (payload.docType !== "extrato") {
-    const skey = statementKey(payload.fileName, payload.bank, payload.cards.map((c) => c.last4));
-    const brand = brandOf(payload.fileName);
-    type CardAcc = typeof accounts[number] & { statement_key?: string | null; merged_keys?: string[] | null };
-    const cardsOf = (list: CardAcc[]) => list.filter((a) => a.type === "cartao");
-    const match = (list: CardAcc[]) => {
-      const cs = cardsOf(list);
-      const byKey = cs.find((a) => a.statement_key === skey || (a.merged_keys ?? []).includes(skey));
-      if (byKey) return byKey;
-      // Sem número da conta: se o banco tem um único cartão, é ele
-      const bankKey = payload.bank.toLowerCase().trim().replace(/\s+/g, "-");
-      if (skey === bankKey || skey.startsWith(`${bankKey}-`)) { const same = cs.filter((a) => (a.institution ?? "") === payload.bank); if (same.length === 1) return same[0]; }
-      return undefined;
-    };
-    let acc = match(accounts as CardAcc[]);
+    const finals = [...new Set([...payload.cards.map((c) => c.last4), ...payload.rows.map((r) => r.cardLast4).filter((x): x is string => !!x)])];
+    const main = payload.mainCard?.last4 ?? payload.cards[0]?.last4 ?? null;
+    const brand = brandOf(`${payload.mainCard?.product ?? ""} ${payload.fileName}`);
+    const product = payload.mainCard?.product ?? null;
+    const key = main ? cardKey(payload.bank, main) : fileAccountKey(payload.fileName) ?? `${payload.bank}-${Date.now()}`;
+    const find = (list: unknown[]) => matchCardAccount(list as CardAcc[], { bank: payload.bank, main, finals, fileName: payload.fileName });
+    let acc = find(accounts);
     if (!acc) {
-      const main = payload.cards[0]?.last4 ?? null;
+      const title = product ? product.toLowerCase().replace(/\b\p{L}/gu, (c) => c.toUpperCase()) : brand;
       const { data, error } = await ctx.supabase.from("accounts").insert({
-        household_id: hh, scope: "pessoal", type: "cartao", institution: payload.bank, brand, statement_key: skey, last4: main,
-        name: `${payload.bank}${brand ? ` ${brand}` : ""}${main ? ` ••${main}` : ""}`,
+        household_id: hh, scope: "pessoal", type: "cartao", institution: payload.bank, brand, statement_key: key, last4: main, product, known_last4: finals,
+        name: `${payload.bank}${title ? ` ${title}` : ""}${main ? ` ••${main}` : ""}`,
         due_day: payload.dueDate ? Number(payload.dueDate.slice(8, 10)) : null, owner_user_id: ctx.user.id,
       }).select("*").single();
       if (data) acc = data as CardAcc;
       // Outra fatura importada ao mesmo tempo já criou o cartão: usa esse
-      if (error) acc = match((await loadAccounts(ctx)) as CardAcc[]);
-    } else if (payload.dueDate && !acc.due_day) {
-      await ctx.supabase.from("accounts").update({ due_day: Number(payload.dueDate.slice(8, 10)) }).eq("id", acc.id);
+      if (error) acc = find(await loadAccounts(ctx));
+    } else {
+      const known = [...new Set([...(acc.known_last4 ?? []), ...finals])];
+      const upd: Record<string, unknown> = {};
+      if (known.length !== (acc.known_last4 ?? []).length) upd.known_last4 = known;
+      if (product && !acc.product) upd.product = product;
+      if (payload.dueDate && !acc.due_day) upd.due_day = Number(payload.dueDate.slice(8, 10));
+      if (Object.keys(upd).length) await ctx.supabase.from("accounts").update(upd).eq("id", acc.id);
     }
     cardAccountId = acc?.id ?? null;
     if (cardAccountId) for (const c of payload.cards) accByLast4.set(c.last4, cardAccountId);
@@ -371,7 +383,7 @@ export async function confirmImport(payload: ConfirmPayload): Promise<{ error?: 
   const oldByKey = new Map<string, OldTx[]>();
   let replaceIds: string[] = [];
   if (!isExtrato && payload.replacesBatchIds?.length) {
-    const { data: ok } = await ctx.supabase.from("import_batches").select("id").eq("household_id", hh).eq("doc_type", "fatura").in("id", payload.replacesBatchIds);
+    const { data: ok } = await ctx.supabase.from("import_batches").select("id").eq("household_id", hh).eq("doc_type", "fatura").eq("account_id", cardAccountId ?? "-").eq("due_date", payload.dueDate ?? "-").in("id", payload.replacesBatchIds);
     replaceIds = ((ok ?? []) as { id: string }[]).map((b) => b.id);
     if (replaceIds.length) {
       const { data: olds } = await ctx.supabase.from("transactions").select("date, amount, merchant_key, category_id, notes").eq("household_id", hh).in("import_batch_id", replaceIds).limit(5000);

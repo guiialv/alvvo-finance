@@ -42,6 +42,8 @@ export interface ParsedStatement {
   docType?: "fatura" | "extrato";
   /** Extratos: agência/conta, quando aparecem */
   accountRef?: string | null;
+  /** Cartão principal informado na fatura (identifica a linha do cartão) */
+  mainCard?: { last4: string; bin?: string | null; product?: string | null } | null;
   bank: string;
   holder: string | null;
   dueDate: string | null; // AAAA-MM-DD
