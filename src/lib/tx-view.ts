@@ -8,8 +8,8 @@ export async function buildTxViews(ctx: Ctx, txs: Transaction[], accounts: Accou
   const batchIds = [...new Set(txs.map((t) => (t as Transaction & { import_batch_id?: string | null }).import_batch_id).filter((x): x is string => !!x))];
   const labels = new Map<string, string>();
   if (batchIds.length) {
-    const { data } = await ctx.supabase.from("import_batches").select("id, institution, due_date").in("id", batchIds);
-    for (const b of data ?? []) labels.set(b.id, `Fatura ${b.institution ?? ""} · venc. ${b.due_date ? String(b.due_date).split("-").reverse().join("/") : "—"}`);
+    const { data } = await ctx.supabase.from("import_batches").select("id, institution, due_date, doc_type").in("id", batchIds);
+    for (const b of data ?? []) labels.set(b.id, b.doc_type === "extrato" ? `Extrato ${b.institution ?? ""}`.trim() : `Fatura ${b.institution ?? ""} · venc. ${b.due_date ? String(b.due_date).split("-").reverse().join("/") : "—"}`);
   }
   const mkCount = new Map<string, number>();
   for (const t of txs) if (t.merchant_key) mkCount.set(t.merchant_key, (mkCount.get(t.merchant_key) ?? 0) + 1);

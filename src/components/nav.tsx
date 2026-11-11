@@ -12,6 +12,7 @@ const SECTIONS: { title: string; items: { href: string; label: string; icon: str
     { href: "/agenda", label: "Agenda", icon: "calendar" },
     { href: "/orcamento", label: "Orçamento", icon: "pie" },
     { href: "/lancamentos", label: "Lançamentos", icon: "list" },
+    { href: "/conta", label: "Conta corrente", icon: "bank" },
     { href: "/faturas", label: "Faturas do cartão", icon: "card" },
     { href: "/parcelamentos", label: "Parcelamentos", icon: "layers" },
     { href: "/pj", label: "PJ", icon: "building" },

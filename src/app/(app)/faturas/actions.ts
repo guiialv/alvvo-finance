@@ -181,7 +181,9 @@ export async function analyzeStatement(_: Preview | undefined, formData: FormDat
         else set(sys.semDetalhe ?? sys.fatura, "Pagamento de fatura ainda não importada. Ao importar a fatura, este pagamento vira transferência para não contar em dobro.");
       } else if (isLoan(r.description, r.nature)) set(sys.loan, r.flow === "entrada" ? "Dinheiro de empréstimo não é receita" : "Pagamento de empréstimo: confira se há juros a registrar como despesa");
       else if (isAutoInvest(r.description, r.nature)) set(sys.own, "Aplicação/resgate automático");
+      else if (r.suggestionSource !== "regra") extratoDefaults(r, cats, sys.own);
     }
+    splitLoanInterest(rows, cats, sys.loan);
   }
 
   // Lançamentos que as regras não reconheceram: sugestão com IA (se ativa)
@@ -449,6 +451,7 @@ export async function confirmImport(payload: ConfirmPayload): Promise<{ error?: 
 
   revalidatePath("/");
   revalidatePath("/lancamentos");
+  revalidatePath("/conta");
   revalidatePath("/orcamento");
   revalidatePath("/faturas");
   return { inserted: rows.length, learned: learned.size, batchId: batch.id, reconciled };
@@ -460,5 +463,51 @@ export async function deleteBatch(formData: FormData) {
   revalidatePath("/faturas", "layout");
   revalidatePath("/");
   revalidatePath("/lancamentos");
-  redirect("/faturas");
+  revalidatePath("/conta");
+  redirect(formData.get("back") === "/conta" ? "/conta" : "/faturas");
+}
+
+
+/** Interpretações padrão do extrato (o que as regras aprendidas ainda não cobrem). Sempre ajustáveis na prévia. */
+function extratoDefaults(r: PreviewRow, cats: Category[], own: Category | undefined) {
+  const named = (name: string) => cats.find((c) => c.active && c.scope === "pessoal" && c.name.toLowerCase() === name.toLowerCase());
+  const d = r.description.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase();
+  const set = (c: Category | undefined, note: string) => { if (c) { r.suggestedCategoryId = c.id; r.suggestionSource = "interpretacao"; r.note = note; } };
+  if (r.nature === "transferencia_propria") {
+    const day = Number(r.date.slice(8, 10));
+    return set(own, r.flow === "entrada" && /TED/.test(d) && day >= 23 && day <= 28 && r.amount >= 5000
+      ? "Transferência sua (padrão). Atenção: recorrente perto do dia 25 — se for salário, mude para Salário."
+      : "Transferência entre suas contas: não conta como renda nem gasto");
+  }
+  if (r.nature === "tarifa") return set(named("Custos Financeiros"), "Juros, IOF, seguros e tarifas do banco");
+  if (r.flow === "entrada") {
+    if (/ZTE DO BRASIL/.test(d)) return r.amount >= 1000
+      ? set(named("Salário / Retirada PJ"), "ZTE acima de R$ 1.000: tratado como salário (ajuste se for reembolso)")
+      : set(named("Reembolsos Corporativo"), "ZTE abaixo de R$ 1.000: reembolso de despesa (abate o gasto, não é renda)");
+    if (/ALVVO/.test(d)) return set(named("Salário / Retirada PJ"), "Pró-labore / lucros da ALVVO");
+    if (/MAINA/.test(d)) return set(named("Maína"), "Dinheiro vindo da Maína");
+    return;
+  }
+  if (/ELETROPAULO|ENEL/.test(d)) return set(named("Luz"), "Conta de luz");
+  if (/COMGAS|NATURGY/.test(d)) return set(named("Gás"), "Conta de gás");
+  if (/SABESP/.test(d)) return set(named("Água"), "Conta de água");
+  if (/SEM PARAR/.test(d)) return set(named("Sem Parar"), "Pedágio/estacionamento automático");
+  if (/CONDOMINIO/.test(d)) return set(named("Condomínio"), "Boleto do condomínio");
+}
+
+/** Quitação de empréstimo maior que o valor emprestado: separa o principal (transferência) dos juros (despesa). */
+function splitLoanInterest(rows: PreviewRow[], cats: Category[], loanCat: Category | undefined) {
+  const custos = cats.find((c) => c.active && c.scope === "pessoal" && c.name === "Custos Financeiros");
+  if (!custos) return;
+  const ins = rows.filter((r) => r.flow === "entrada" && r.nature === "emprestimo").sort((a, b) => a.date.localeCompare(b.date));
+  for (const out of rows.filter((r) => r.flow === "saida" && r.nature === "pagamento_emprestimo")) {
+    const principal = ins.filter((i) => i.date <= out.date && Date.parse(out.date) - Date.parse(i.date) < 400 * 86400000).reduce((a, i) => a + i.amount, 0);
+    if (!(principal > 0 && out.amount > principal)) continue;
+    const juros = Math.round((out.amount - principal) * 100) / 100;
+    out.amount = Math.round(principal * 100) / 100;
+    if (loanCat) { out.suggestedCategoryId = loanCat.id; out.suggestionSource = "conciliacao"; }
+    out.note = `Quitação do empréstimo: R$ ${out.amount.toFixed(2).replace(".", ",")} de principal (transferência) + R$ ${juros.toFixed(2).replace(".", ",")} de juros (despesa)`;
+    rows.push({ ...out, idx: rows.length, description: `Juros · ${out.description}`, amount: juros, suggestedCategoryId: custos.id, suggestionSource: "interpretacao",
+      nature: "tarifa", hash: createHash("sha256").update(`${out.hash}|juros`).digest("hex").slice(0, 32), note: "Juros pagos na quitação do empréstimo" });
+  }
 }

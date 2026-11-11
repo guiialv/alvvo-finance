@@ -30,10 +30,10 @@ const ST: Record<Status, [string, string]> = {
 };
 
 /** Importação em lote: vários arquivos (botão ou arrastar e soltar), leitura com o leitor do banco ou IA, e importação automática. */
-export function ImportWizard({ options }: { options: CatOpt[] }) {
+export function ImportWizard({ options, review = false }: { options: CatOpt[]; review?: boolean }) {
   const [items, setItems] = useState<Item[]>([]);
   const [password, setPassword] = useState("");
-  const [auto, setAuto] = useState(true);
+  const [auto, setAuto] = useState(!review);
   const [running, setRunning] = useState(false);
   const [drag, setDrag] = useState(false);
   const [reviewId, setReviewId] = useState<string | null>(null);
@@ -118,7 +118,7 @@ export function ImportWizard({ options }: { options: CatOpt[] }) {
                   </span>)}
                 {it.status === "erro" && <button className="btn-ghost !py-1 text-xs" disabled={running} onClick={() => runAll(it.id)}>Tentar de novo</button>}
                 {it.status === "pronta" && <button className="btn-ghost !py-1 text-xs" onClick={() => setReviewId(it.id)}>Revisar e importar</button>}
-                {it.result?.batchId && <Link className="btn-ghost !py-1 text-xs" href={`/faturas/${it.result.batchId}`}>{isExt ? "Ver extrato" : "Ver fatura"}</Link>}
+                {it.result?.batchId && <Link className="btn-ghost !py-1 text-xs" href={isExt ? "/conta" : `/faturas/${it.result.batchId}`}>{isExt ? "Ver na conta corrente" : "Ver fatura"}</Link>}
                 {["fila", "senha", "erro"].includes(it.status) && !running && <button className="text-xs text-ink/35 hover:text-loss" onClick={() => setItems((xs) => xs.filter((x) => x.id !== it.id))}>Remover</button>}
               </div>); })}
           </div>

@@ -1,4 +1,5 @@
 import { isItauStatement, parseItauStatement } from "./itau";
+import { isItauExtrato, parseItauExtrato } from "./itau-extrato";
 import { parseCSV, parseOFX } from "./ofx-csv";
 import type { ParsedStatement, PdfPage } from "./types";
 import { pageToLines } from "./pdf-lines";
@@ -47,6 +48,7 @@ export async function parseStatementFile(fileName: string, bytes: Uint8Array, pa
   }
   if (lower.endsWith(".pdf")) {
     const pages = await pdfToPages(bytes, password);
+    if (isItauExtrato(pages)) return parseItauExtrato(pages);
     if (isItauStatement(pages)) return parseItauStatement(pages);
     return { pages,
       bank: "Desconhecido", holder: null, dueDate: null, closingDate: null, statementTotal: null,

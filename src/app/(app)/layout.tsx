@@ -13,6 +13,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const areas = visibleAreas(ctx);
   const allowed = [...AREAS.filter(([k]) => areas.includes(k)).map(([, , href]) => href), ...(admin ? ["/acessos", "/configuracoes"] : [])];
   if (areas.includes("orcamento") || areas.includes("visao-geral")) allowed.push("/fluxo");
+  if (areas.includes("faturas")) allowed.push("/conta");
   if (areas.includes("analise")) allowed.push("/mercado", "/mercado/carteiras");
   let pending = 0;
   if (admin) {
