@@ -10,7 +10,7 @@ export interface CardAccount {
   id: string; name: string; institution: string | null; brand: string | null; color: string | null; purpose: string | null;
   statement_key: string | null; merged_keys?: string[] | null; last4: string | null; closing_day: number | null; due_day: number | null; credit_limit: number | null; sort: number | null;
 }
-export interface Batch { id: string; account_id: string | null; due_date: string | null; statement_total: number | null; institution: string | null; file_name: string | null }
+export interface Batch { id: string; account_id: string | null; due_date: string | null; statement_total: number | null; current_total?: number | null; institution: string | null; file_name: string | null }
 export interface CardTx extends InstallmentTx { import_batch_id: string | null; international?: boolean | null; bank_category?: string | null; kind?: string }
 
 export function brandOf(text: string | null | undefined) {
@@ -56,7 +56,7 @@ export function cardSummary(card: CardAccount, batches: Batch[], txs: CardTx[], 
   const mine = batches.filter((b) => b.account_id === card.id && b.due_date).sort((a, b) => a.due_date!.localeCompare(b.due_date!));
   const tx = txs.filter((t) => t.import_batch_id && mine.some((b) => b.id === t.import_batch_id));
   const sumBatch = (id: string) => Math.round(tx.filter((t) => t.import_batch_id === id).reduce((a, t) => a + Number(t.amount), 0) * 100) / 100;
-  const real: MonthCell[] = mine.slice(-12).map((b) => ({ cycle: cycleOf(b.due_date!, startDay), total: sumBatch(b.id), batchId: b.id, dueDate: b.due_date, projected: false, paid: paidBatches.has(b.id) }));
+  const real: MonthCell[] = mine.slice(-12).map((b) => ({ cycle: cycleOf(b.due_date!, startDay), total: b.current_total != null ? Number(b.current_total) : sumBatch(b.id), batchId: b.id, dueDate: b.due_date, projected: false, paid: paidBatches.has(b.id) }));
   // Próximas faturas: parcelas já compradas que ainda vão cair
   const last = real.length ? real[real.length - 1].cycle : currentCycle;
   const plans = buildInstallmentPlans(tx, last);
