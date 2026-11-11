@@ -27,13 +27,14 @@ export async function mergeCard(f: FormData) {
   const src = String(f.get("id")), dst = String(f.get("into"));
   if (!dst || src === dst) return;
   const hh = ctx.household.id;
-  const { data: list } = await ctx.supabase.from("accounts").select("id, name, statement_key, merged_keys").eq("household_id", hh).eq("type", "cartao").in("id", [src, dst]);
+  const { data: list } = await ctx.supabase.from("accounts").select("id, name, statement_key, merged_keys, known_last4, last4").eq("household_id", hh).eq("type", "cartao").in("id", [src, dst]);
   const a = (list ?? []).find((x) => x.id === src), b = (list ?? []).find((x) => x.id === dst);
   if (!a || !b) return;
   await ctx.supabase.from("import_batches").update({ account_id: dst }).eq("household_id", hh).eq("account_id", src);
   await ctx.supabase.from("transactions").update({ account_id: dst }).eq("household_id", hh).eq("account_id", src);
   const keys = [...new Set([...((b.merged_keys as string[] | null) ?? []), ...((a.merged_keys as string[] | null) ?? []), ...(a.statement_key ? [a.statement_key as string] : [])])];
-  await ctx.supabase.from("accounts").update({ merged_keys: keys }).eq("id", dst);
+  const known = [...new Set([...((b.known_last4 as string[] | null) ?? []), ...((a.known_last4 as string[] | null) ?? []), ...(a.last4 ? [a.last4 as string] : [])])];
+  await ctx.supabase.from("accounts").update({ merged_keys: keys, known_last4: known }).eq("id", dst);
   await ctx.supabase.from("accounts").delete().eq("id", src);
   await logAction(ctx, `Juntou o cartão ${a.name} em ${b.name}`);
   revalidatePath("/faturas"); revalidatePath("/");

@@ -13,7 +13,7 @@ import { CardMonths } from "@/components/card-months";
 import { BrandMark } from "@/components/brand";
 import { mergeCard, updateCard } from "./card-actions";
 
-type SP = { cartoes?: string; cartao?: string; mes?: string };
+type SP = { cartoes?: string; cartao?: string; mes?: string; aba?: string };
 const MES = ["janeiro", "fevereiro", "março", "abril", "maio", "junho", "julho", "agosto", "setembro", "outubro", "novembro", "dezembro"];
 const mesNome = (c: string) => `${MES[Number(c.slice(5, 7)) - 1]}${c.slice(0, 4) !== String(new Date().getFullYear()) ? ` de ${c.slice(0, 4)}` : ""}`;
 const cap = (t: string) => t.charAt(0).toUpperCase() + t.slice(1);
@@ -26,8 +26,8 @@ export default async function FaturasPage({ searchParams }: { searchParams: Prom
   const startDay = ctx.household.cycle_start_day;
   const [cats, batchesRes, txRes, accRes] = await Promise.all([
     loadCategories(ctx),
-    ctx.supabase.from("import_batches").select("*").eq("household_id", hh).neq("source", "planilha").order("due_date", { ascending: false, nullsFirst: false }).limit(60),
-    ctx.supabase.from("transactions").select("id, date, cycle, description, merchant_key, amount, installment_no, installment_total, category_id, account_id, member_user_id, notes, source, import_batch_id, international, reconciled_batch_id").eq("household_id", hh).or("import_batch_id.not.is.null,reconciled_batch_id.not.is.null").limit(20000),
+    ctx.supabase.from("import_batches").select("*").eq("household_id", hh).neq("source", "planilha").order("due_date", { ascending: false, nullsFirst: false }).limit(200),
+    ctx.supabase.from("transactions").select("id, date, cycle, description, merchant_key, amount, installment_no, installment_total, category_id, account_id, member_user_id, notes, source, import_batch_id, international, reconciled_batch_id, card_last4").eq("household_id", hh).or("import_batch_id.not.is.null,reconciled_batch_id.not.is.null").limit(20000),
     ctx.supabase.from("accounts").select("*").eq("household_id", hh).eq("type", "cartao").eq("active", true).order("sort", { nullsFirst: false }).order("name"),
   ]);
   const { byId } = categoryIndex(cats);
@@ -40,37 +40,49 @@ export default async function FaturasPage({ searchParams }: { searchParams: Prom
   const cards = ((accRes.data ?? []) as CardAccount[]).filter((a) => withBatches.has(a.id) || a.statement_key);
   const cycleNow = currentCycle(startDay);
   const summaries = cards.map((c) => cardSummary(c, batches as never, txs, byId, paid, startDay, cycleNow, sp.mes));
-  const mode = sp.cartoes === "um" ? "um" : "lado";
-  const focus = summaries.find((x) => x.card.id === sp.cartao) ?? summaries[0];
+  // Abas: uma por linha de cartão (ou todos)
+  const tab = summaries.find((x) => x.card.id === sp.aba) ?? null;
+  const mode = tab ? "um" : sp.cartoes === "um" ? "um" : "lado";
+  const focus = tab ?? summaries.find((x) => x.card.id === sp.cartao) ?? summaries[0];
   const shown = mode === "um" && focus ? [focus] : summaries;
+  const accName = new Map(cards.map((c) => [c.id, c.name] as [string, string]));
+  const listed = (batchesRes.data ?? []).filter((b: { doc_type?: string; account_id: string | null }) => b.doc_type !== "extrato" && (!tab || b.account_id === tab.card.id));
   const edit = canEdit(ctx, "faturas");
   const today = todayIso();
-  const href = (p: Partial<SP>) => `/faturas?${new URLSearchParams(Object.entries({ cartoes: mode, cartao: focus?.card.id, mes: sp.mes, ...p }).filter(([, v]) => v) as [string, string][]).toString()}`;
+  const href = (p: Partial<SP>) => `/faturas?${new URLSearchParams(Object.entries({ aba: tab?.card.id, cartoes: tab ? undefined : mode, cartao: tab ? undefined : focus?.card.id, mes: sp.mes, ...p }).filter(([, v]) => v) as [string, string][]).toString()}`;
 
   return (
     <div>
       <PageHeader title="Faturas do cartão" subtitle="Abra uma fatura para ver item a item como cada gasto foi lançado e ajustar o perfil.">
         <Link className="btn" href="/faturas/importar"><Icon name="upload" /> Importar fatura</Link>
       </PageHeader>
+      {summaries.length > 1 && (
+        <nav className="-mt-2 mb-5 flex gap-1 overflow-x-auto border-b border-ink/10">
+          {[{ id: "", name: "Todos os cartões" }, ...summaries.map((x) => ({ id: x.card.id, name: x.card.name }))].map((t) => {
+            const on = (tab?.card.id ?? "") === t.id;
+            return <Link key={t.id || "todos"} href={t.id ? `/faturas?aba=${t.id}` : "/faturas"} className={`-mb-px whitespace-nowrap border-b-2 px-4 py-2.5 text-sm font-medium transition ${on ? "border-ink text-ink" : "border-transparent text-ink/50 hover:text-ink"}`}>{t.name}</Link>;
+          })}
+        </nav>
+      )}
       {summaries.length > 0 && (
         <section className="mb-8">
           <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
             <div><div className="eyebrow">Seus cartões</div><p className="text-sm text-ink/55">Fatura mês a mês de cada cartão. Clique num mês para ver o detalhe.</p></div>
             <div className="flex flex-wrap items-center gap-2">
-              {mode === "um" && summaries.length > 1 && <div className="flex gap-1 rounded-full bg-ink/[0.05] p-1 text-[12.5px]">{summaries.map((x) => <Link key={x.card.id} href={href({ cartao: x.card.id })} className={`rounded-full px-3 py-1 ${x.card.id === focus?.card.id ? "bg-ink text-[#f6efe2]" : "text-ink/60 hover:text-ink"}`}>{x.card.name}</Link>)}</div>}
-              <div className="flex gap-1 rounded-full bg-ink/[0.05] p-1 text-[12.5px]">
+              {!tab && mode === "um" && summaries.length > 1 && <div className="flex gap-1 rounded-full bg-ink/[0.05] p-1 text-[12.5px]">{summaries.map((x) => <Link key={x.card.id} href={href({ cartao: x.card.id })} className={`rounded-full px-3 py-1 ${x.card.id === focus?.card.id ? "bg-ink text-[#f6efe2]" : "text-ink/60 hover:text-ink"}`}>{x.card.name}</Link>)}</div>}
+              {!tab && <div className="flex gap-1 rounded-full bg-ink/[0.05] p-1 text-[12.5px]">
                 <Link href={href({ cartoes: "lado" })} className={`rounded-full px-3 py-1 ${mode === "lado" ? "bg-ink text-[#f6efe2]" : "text-ink/60 hover:text-ink"}`}>Lado a lado</Link>
                 <Link href={href({ cartoes: "um" })} className={`rounded-full px-3 py-1 ${mode === "um" ? "bg-ink text-[#f6efe2]" : "text-ink/60 hover:text-ink"}`}>Um por vez</Link>
-              </div>
+              </div>}
             </div>
           </div>
           <div className={`grid items-start gap-4 ${mode === "um" ? "mx-auto max-w-2xl" : shown.length >= 3 ? "lg:grid-cols-2 xl:grid-cols-3" : shown.length === 2 ? "lg:grid-cols-2" : "max-w-2xl"}`}>
-            {shown.map((x) => <CardColumn key={x.card.id} s={x} edit={edit} today={today} others={summaries.filter((o) => o.card.id !== x.card.id).map((o) => ({ id: o.card.id, name: o.card.name }))} hrefFor={(c) => href({ mes: c, cartao: x.card.id })} />)}
+            {shown.map((x) => <CardColumn key={x.card.id} s={x} edit={edit} today={today} others={summaries.filter((o) => o.card.id !== x.card.id).map((o) => ({ id: o.card.id, name: o.card.name }))} hrefFor={(c) => href({ mes: c, ...(tab ? {} : { cartao: x.card.id }) })} />)}
           </div>
         </section>
       )}
 
-      {batches.length > 0 && <div className="eyebrow mb-3">Todas as faturas e extratos importados</div>}
+      {listed.length > 0 && <div className="eyebrow mb-3">{tab ? `Faturas · ${tab.card.name}` : "Todas as faturas importadas"}</div>}
       {batches.length === 0 ? (
         <div className="card flex flex-col items-center gap-3 py-12 text-center">
           <div className="grid h-14 w-14 place-items-center rounded-2xl bg-brand/10 text-brand"><Icon name="card" className="h-7 w-7" /></div>
@@ -80,25 +92,25 @@ export default async function FaturasPage({ searchParams }: { searchParams: Prom
         </div>
       ) : (
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {(batchesRes.data ?? []).map((b) => {
+          {listed.map((b) => {
             const items = txs.filter((t) => t.import_batch_id === b.id);
             const unc = items.filter((t) => !t.category_id || byId.get(t.category_id)?.grp === "A classificar").length;
-            const cards = new Set(items.map((t) => t.account_id).filter(Boolean)).size;
+            const finals = new Set(items.map((t) => (t as { card_last4?: string | null }).card_last4).filter(Boolean)).size;
             const g: Record<string, number> = {};
             for (const t of items) { const c = t.category_id ? byId.get(t.category_id) : undefined; if (c?.excluded_from_totals) continue; const k = c?.grp ?? "A classificar"; g[k] = (g[k] ?? 0) + Math.max(0, Number(t.amount)); }
             const tot = Object.values(g).reduce((a, v) => a + v, 0) || 1;
-            const total = b.statement_total != null ? Number(b.statement_total) : items.reduce((a, t) => a + Number(t.amount), 0);
+            const total = b.current_total != null ? Number(b.current_total) : b.statement_total != null ? Number(b.statement_total) : items.reduce((a, t) => a + Number(t.amount), 0);
             return (
               <Link key={b.id} href={`/faturas/${b.id}`} className="card group transition hover:-translate-y-0.5 hover:shadow-md">
                 <div className="flex items-center gap-3">
                   <div className="grid h-11 w-11 place-items-center rounded-xl bg-[#b0703f] text-sm font-bold text-white">{(b.institution ?? "?").slice(0, 4).toLowerCase()}</div>
-                  <div className="flex-1"><div className="font-semibold">{b.institution ?? "Fatura"}</div><div className="text-xs text-ink/50">{b.due_date ? `Vencimento ${formatDateBR(b.due_date)} · ciclo ${cycleLabel(cycleOf(b.due_date, ctx.household.cycle_start_day))}` : b.file_name}</div></div>
+                  <div className="flex-1"><div className="font-semibold">{(b.account_id && accName.get(b.account_id)) ?? b.institution ?? "Fatura"}</div><div className="text-xs text-ink/50">{b.due_date ? `Vencimento ${formatDateBR(b.due_date)} · ciclo ${cycleLabel(cycleOf(b.due_date, ctx.household.cycle_start_day))}` : b.file_name}</div></div>
                   <span className="text-ink/30 transition group-hover:translate-x-0.5 group-hover:text-brand"><Icon name="right" /></span>
                 </div>
                 <div className="mt-4 text-[28px] font-semibold tracking-tight tabular-nums">{formatBRL(total)}</div>
                 <div className="mt-3 flex h-2 overflow-hidden rounded-full bg-ink/5">{Object.entries(g).map(([k, v]) => <div key={k} style={{ width: `${(v / tot) * 100}%`, background: groupColor(k) }} title={`${k}: ${formatBRL(v)}`} />)}</div>
                 <div className="mt-3 flex items-center justify-between text-xs text-ink/55">
-                  <span>{items.length} itens · {cards} cartões</span>
+                  <span>{items.length} itens{finals > 1 ? ` · ${finals} cartões (finais)` : ""}</span>
                   <span className={`font-medium ${unc ? "text-orange-700" : "text-emerald-700"}`}>{unc ? `${unc} a classificar` : "tudo classificado"}</span>
                 </div>
                 <div className="mt-1"><Bar value={items.length - unc} max={items.length || 1} color={unc ? "#c08a3e" : "#4f7a52"} /></div>
