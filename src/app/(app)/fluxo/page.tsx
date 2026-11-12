@@ -3,6 +3,7 @@ import { requireArea } from "@/lib/context";
 import { currentCycle, cycleLabel, cyclesOfYear, isValidCycle, shiftCycle } from "@/lib/cycle";
 import { categoryIndex, loadCategories, loadTransactions } from "@/lib/data";
 import { buildFlow, FLOW_COLORS, shareByCycle } from "@/lib/flow";
+import { toCashView } from "@/lib/cash-flow";
 import { formatBRL } from "@/lib/format";
 import { groupColor } from "@/lib/theme";
 import { cycleLong, CycleNav, Empty, PageHeader, Seg } from "@/components/ui";
@@ -24,10 +25,13 @@ export default async function FluxoPage({ searchParams }: { searchParams: Promis
   const trend = Array.from({ length: 12 }, (_, i) => shiftCycle(cycle, i - 11));
   const prevCycles = cycles.map((c) => shiftCycle(c, -cycles.length));
 
-  const [cats, txs] = await Promise.all([
+  const [cats, rawTxs] = await Promise.all([
     loadCategories(ctx, "pessoal"),
     loadTransactions(ctx, { scope: "pessoal", cycles: [...new Set([...cycles, ...trend, ...prevCycles])] }),
   ]);
+  // Caixa: o que entrou e saiu da conta no ciclo; cada fatura paga é aberta nas categorias das compras dela
+  const cash = await toCashView(ctx, rawTxs, cats, cycles);
+  const txs = cash.txs;
   const inPeriod = txs.filter((t) => cycles.includes(t.cycle));
   const flow = buildFlow(inPeriod, cats, nivel, nivel === "categoria" ? 10 : 8);
   const shares = shareByCycle(txs, cats, trend);
@@ -48,7 +52,7 @@ export default async function FluxoPage({ searchParams }: { searchParams: Promis
 
   return (
     <div>
-      <PageHeader title="Para onde foi sua renda?" subtitle="O caminho de cada real que entrou: quanto virou despesa, quanto foi investido e quanto sobrou.">
+      <PageHeader title="Para onde foi sua renda?" subtitle="O que entrou e saiu da conta corrente em cada ciclo. As faturas pagas no mês aparecem abertas nos grupos e categorias das compras que elas contêm (feitas no ciclo anterior).">
         <Seg options={PERIODS} current={periodo} hrefFor={(v) => href({ periodo: v })} />
         <Seg options={[["grupo", "Por grupo"], ["categoria", "Por categoria"]]} current={nivel} hrefFor={(v) => href({ nivel: v })} />
         <CycleNav cycle={cycle} startDay={startDay} basePath="/fluxo" params={{ periodo, nivel }} />
@@ -69,7 +73,12 @@ export default async function FluxoPage({ searchParams }: { searchParams: Promis
             </div>)}
         </div>
         {flow ? <Sankey data={flow} /> : <Empty icon="flow">Sem receitas ou despesas neste período. <Link className="font-medium text-brand" href="/faturas/importar">Importe faturas e extratos →</Link></Empty>}
-        <p className="mt-3 text-[11px] text-ink/40">Transferências (pagamento de fatura, PIX no crédito, empréstimos) não entram no fluxo. Passe o mouse sobre as faixas para ver os valores.</p>
+        <div className="mt-3 space-y-1 text-[11px] text-ink/45">
+          {cash.faturas.valor > 0 && <p>Faturas pagas no período: {formatBRL(cash.faturas.valor)}{cash.faturas.abertas ? ` · ${cash.faturas.abertas} aberta(s) por categoria` : ""}{cash.faturas.semDetalhe ? ` · ${cash.faturas.semDetalhe} sem a fatura importada (aparece em “A classificar”)` : ""}.</p>}
+          {(cash.transfers.entrou > 0 || cash.transfers.saiu > 0) && <p>Fora do fluxo (não são renda nem gasto): transferências entre suas contas, empréstimos e PIX no crédito — entrou {formatBRL(cash.transfers.entrou)}, saiu {formatBRL(cash.transfers.saiu)}.</p>}
+          {cash.competencia.length > 0 && <p>Sem extrato importado em {cash.competencia.map(cycleLabel).join(", ")}: {cash.competencia.length === cycles.length ? "este período usa" : "esses ciclos usam"} as compras do cartão no mês da fatura (competência).</p>}
+          <p>Passe o mouse sobre as faixas para ver os valores.</p>
+        </div>
       </section>
 
       <div className="mt-5 grid gap-5 xl:grid-cols-5">

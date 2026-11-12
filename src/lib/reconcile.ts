@@ -58,7 +58,9 @@ export function matchFatura(amount: number, date: string, faturas: FaturaRef[]):
   const cands = faturas
     .filter((f) => f.dueDate && Math.abs(daysBetween(date, f.dueDate)) <= 10)
     .map((f) => {
-      const diffs = [f.total, f.statementTotal ?? NaN].filter((v) => isFinite(v)).map((v) => Math.abs(v - amount));
+      // Pagamento antecipado: antes do vencimento, a parte já paga = lançamentos − saldo cobrado no vencimento
+      const adiantado = f.statementTotal != null && f.dueDate && date <= f.dueDate && f.total - f.statementTotal > 1 ? f.total - f.statementTotal : NaN;
+      const diffs = [f.total, f.statementTotal ?? NaN, adiantado].filter((v) => isFinite(v)).map((v) => Math.abs(v - amount));
       return { f, diff: Math.min(...diffs) };
     })
     .filter((x) => x.diff <= tol(amount))
