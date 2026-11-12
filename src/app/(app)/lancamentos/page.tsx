@@ -10,7 +10,7 @@ import { Icon } from "@/components/icons";
 import { TxTable } from "@/components/tx-table";
 import { createTransaction } from "./actions";
 
-type SP = { ciclo?: string; escopo?: string; categoria?: string; q?: string; novo?: string };
+type SP = { ciclo?: string; escopo?: string; categoria?: string; q?: string; novo?: string; origem?: string };
 
 export default async function LancamentosPage({ searchParams }: { searchParams: Promise<SP> }) {
   const ctx = await requireArea("lancamentos");
@@ -28,9 +28,20 @@ export default async function LancamentosPage({ searchParams }: { searchParams: 
   else if (sp.categoria) txs = txs.filter((t) => t.category_id === sp.categoria);
   if (sp.q) { const q = sp.q.toLowerCase(); txs = txs.filter((t) => t.description.toLowerCase().includes(q)); }
 
-  const isIncome = (t: (typeof txs)[number]) => ((t.category_id && byId.get(t.category_id)?.kind) || t.kind) === "receita";
-  const out = txs.filter((t) => !isIncome(t)).reduce((a, t) => a + Number(t.amount), 0);
-  const inc = txs.filter(isIncome).reduce((a, t) => a + Number(t.amount), 0);
+  // Entradas x saídas = só o que passou pela conta (extrato e lançamentos manuais fora do cartão).
+  // Compras no cartão ficam na lista, mas entram no caixa pelo pagamento da fatura no extrato.
+  type T = (typeof txs)[number] & { flow?: "entrada" | "saida" | null };
+  const cardIds = new Set(accounts.filter((a) => a.type === "cartao").map((a) => a.id));
+  const isCard = (t: T) => (t.account_id ? cardIds.has(t.account_id) : false) || t.source === "fatura" || (!!t.import_batch_id && t.source !== "extrato");
+  if (sp.origem === "conta") txs = txs.filter((t) => !isCard(t));
+  if (sp.origem === "cartao") txs = txs.filter((t) => isCard(t));
+  const isIncome = (t: T) => ((t.category_id && byId.get(t.category_id)?.kind) || t.kind) === "receita";
+  const flowOf = (t: T): "entrada" | "saida" => t.flow ?? (isIncome(t) ? "entrada" : Number(t.amount) < 0 ? "entrada" : "saida");
+  const cash = (txs as T[]).filter((t) => !isCard(t));
+  const out = cash.filter((t) => flowOf(t) === "saida").reduce((a, t) => a + Math.abs(Number(t.amount)), 0);
+  const inc = cash.filter((t) => flowOf(t) === "entrada").reduce((a, t) => a + Math.abs(Number(t.amount)), 0);
+  const cardTotal = (txs as T[]).filter(isCard).reduce((a, t) => a + Number(t.amount), 0);
+  const qs = (p: Partial<SP>) => `/lancamentos?${new URLSearchParams(Object.entries({ escopo: scope, ciclo: cycle, categoria: sp.categoria, q: sp.q, origem: sp.origem, ...p }).filter(([, v]) => v) as [string, string][]).toString()}`;
   const filterCat = sp.categoria && sp.categoria !== "a-classificar" ? byId.get(sp.categoria) : null;
   const rows = await buildTxViews(ctx, txs, accounts);
   const groups = [...new Set(allCats.filter((c) => c.active).map((c) => `${c.scope === "pj" ? "PJ · " : ""}${c.grp}`))];
@@ -52,10 +63,19 @@ export default async function LancamentosPage({ searchParams }: { searchParams: 
         <Link className={`btn-ghost ${sp.categoria === "a-classificar" ? "!border-orange-300 !bg-orange-50 !text-orange-800" : ""}`} href={`/lancamentos?escopo=${scope}&ciclo=${cycle}&categoria=a-classificar`}>Só a classificar</Link>
         {filterCat ? <span className="inline-flex items-center gap-1"><Pill cat={filterCat} /><Link className="text-ink/40 hover:text-ink" href={`/lancamentos?escopo=${scope}&ciclo=${cycle}`}><Icon name="x" /></Link></span>
           : (sp.q || sp.categoria) && <Link className="btn-ghost" href={`/lancamentos?escopo=${scope}&ciclo=${cycle}`}>Limpar filtros</Link>}
-        <div className="ml-auto flex items-center gap-4 text-sm">
+        <div className="flex gap-1 rounded-full bg-ink/[0.05] p-1 text-[12.5px]">
+          {([["", "Tudo"], ["conta", "Conta corrente"], ["cartao", "Cartões"]] as const).map(([k, l]) => (
+            <Link key={k || "tudo"} href={qs({ origem: k || undefined })} className={`rounded-full px-3 py-1 ${(sp.origem ?? "") === k ? "bg-ink text-[#f6efe2]" : "text-ink/60 hover:text-ink"}`}>{l}</Link>
+          ))}
+        </div>
+        <div className="ml-auto flex flex-wrap items-center justify-end gap-x-4 gap-y-1 text-sm">
           <span className="text-ink/50">{txs.length} itens</span>
-          <span>Saídas <b className="tabular-nums">{formatBRL(out)}</b></span>
-          {inc > 0 && <span>Entradas <b className="tabular-nums text-gain">{formatBRL(inc)}</b></span>}
+          {sp.origem !== "cartao" && <>
+            <span title="Só o que passou pela conta corrente (extrato)">Entradas <b className="tabular-nums text-gain">{formatBRL(inc)}</b></span>
+            <span title="Só o que saiu da conta corrente — inclui o pagamento das faturas">Saídas <b className="tabular-nums">{formatBRL(out)}</b></span>
+            <span className="text-ink/45">Saldo <b className={`tabular-nums ${inc - out < 0 ? "text-loss" : "text-ink/70"}`}>{formatBRL(inc - out)}</b></span>
+          </>}
+          {cardTotal !== 0 && <span className="text-ink/45" title="Compras no cartão: não somam nas saídas — entram pelo pagamento da fatura">Cartões <b className="tabular-nums text-ink/60">{formatBRL(cardTotal)}</b>{sp.origem !== "cartao" ? " · fora do caixa" : ""}</span>}
         </div>
       </div>
 
