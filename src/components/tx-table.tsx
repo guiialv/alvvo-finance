@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
+import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { cycleLabel, cycleRangeLabel, shiftCycle } from "@/lib/cycle";
 import { formatBRL, formatDateBR } from "@/lib/format";
@@ -98,10 +99,22 @@ export function TxDrawer({ tx, cats, byId, members, cycleStartDay, onClose }: {
     });
   };
 
-  return (
+  // O painel vai direto para o <body>: abre na posição atual da tela, sem depender da rolagem da página
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    setMounted(true);
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    window.addEventListener("keydown", onKey);
+    return () => { document.body.style.overflow = prev; window.removeEventListener("keydown", onKey); };
+  }, [onClose]);
+  if (!mounted) return null;
+
+  return createPortal(
     <>
       <div className="fixed inset-0 z-40 bg-ink/30 backdrop-blur-[1px]" onClick={onClose} />
-      <aside className="fixed inset-y-0 right-0 z-50 flex w-full max-w-md flex-col bg-white shadow-2xl" role="dialog" aria-label="Detalhes do lançamento">
+      <aside className="fixed inset-y-0 right-0 z-50 flex h-[100dvh] w-full max-w-md flex-col bg-white shadow-2xl" role="dialog" aria-label="Detalhes do lançamento">
         <div className="flex items-start justify-between gap-3 border-b border-ink/5 p-5">
           <div>
             <div className="label">{tx.source === "fatura" ? "Item da fatura" : "Lançamento"}</div>
@@ -175,6 +188,7 @@ export function TxDrawer({ tx, cats, byId, members, cycleStartDay, onClose }: {
           <button className="btn" onClick={save} disabled={pending}>{pending ? "Salvando…" : "Salvar"}</button>
         </div>
       </aside>
-    </>
+    </>,
+    document.body,
   );
 }
