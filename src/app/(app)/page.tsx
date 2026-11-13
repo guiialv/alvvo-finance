@@ -39,7 +39,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
     loadTransactions(ctx, { scope: "pessoal", cycles: [...new Set([...history, prevC, cycle, shiftCycle(cycle, 1)])] }),
     ctx.supabase.from("budgets").select("category_id, planned").eq("household_id", ctx.household.id).eq("cycle", cycle),
     loadAgenda(ctx, addDays(today, -5), addDays(today, 14)),
-    ctx.supabase.from("import_batches").select("id, institution, due_date, statement_total, tx_count").eq("household_id", ctx.household.id).neq("source", "planilha").order("due_date", { ascending: false, nullsFirst: false }).limit(1),
+    ctx.supabase.from("import_batches").select("id, institution, due_date, statement_total, current_total, tx_count, account_id").eq("household_id", ctx.household.id).eq("doc_type", "fatura").neq("source", "planilha").order("due_date", { ascending: false, nullsFirst: false }).limit(60),
     loadAgenda(ctx, range.start, range.end),
     ctx.supabase.from("accounts").select("id, name, type, institution, last4, closing_day, due_day, statement_key, color").eq("household_id", ctx.household.id).eq("type", "cartao").eq("active", true),
     seeGoals ? ctx.supabase.from("goals").select("*").eq("household_id", ctx.household.id).eq("type", "caixinha").order("sort") : Promise.resolve({ data: [] }),
@@ -70,7 +70,16 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
   const toClassify = curTx.filter((t) => !t.category_id || byId.get(t.category_id)?.grp === "A classificar").length;
   const groups = [...new Set(cats.filter((c) => c.kind === "despesa" && c.scope === "pessoal").map((c) => c.grp))]
     .map((g) => ({ label: g, v: s.porGrupo[g] ?? 0, color: groupColor(g, cats.find((c) => c.grp === g)?.color) }));
-  const batch = lastBatch.data?.[0];
+  // Última fatura de cada cartão (não só a mais recente de todas)
+  type LB = { id: string; institution: string | null; due_date: string | null; statement_total: number | null; current_total: number | null; tx_count: number | null; account_id: string | null };
+  const cardName = new Map(((accRes.data ?? []) as { id: string; name: string; last4: string | null }[]).map((a) => [a.id, a.last4 ? `${a.name} ••${a.last4}` : a.name]));
+  const lastByCard: LB[] = [];
+  for (const b of (lastBatch.data ?? []) as LB[]) if (!lastByCard.some((x) => (x.account_id ?? x.institution) === (b.account_id ?? b.institution))) lastByCard.push(b);
+  // Limites: categorias com orçamento, das mais consumidas para as menos (acima de 80% em destaque)
+  const limits = (budgetsRes.data ?? [])
+    .map((b: { category_id: string; planned: number }) => ({ cat: byId.get(b.category_id), planned: Number(b.planned), real: spent.get(b.category_id) ?? 0 }))
+    .filter((a) => a.cat && a.cat.kind === "despesa" && a.planned > 0)
+    .sort((a, b) => b.real / b.planned - a.real / a.planned);
 
   // ---------- Situação do ciclo: o que já entrou/saiu e o que ainda vem (agenda) ----------
   const occ = cycAgenda.occ.filter((o) => o.event !== "fechamento");
@@ -300,9 +309,10 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
 
         <section className="card xl:col-span-2">
           <div className="mb-3 flex items-center justify-between"><h2>Limites</h2><Link className="text-sm font-medium text-brand" href={`/orcamento?ciclo=${cycle}`}>Definir →</Link></div>
-          {alerts.length === 0 ? <Empty icon="check">Nenhuma categoria acima de 80% do limite.</Empty> : (
+          {limits.length === 0 ? <Empty icon="check">Nenhum limite definido para este ciclo. Defina no Orçamento quanto quer gastar por categoria.</Empty> : (
             <div className="space-y-3">
-              {alerts.map((a) => (
+              <p className="text-xs text-ink/45">{alerts.length ? `${alerts.length} categoria(s) acima de 80% do limite.` : "Nenhuma categoria acima de 80% do limite."} Gasto do ciclo pelo extrato, com as faturas pagas abertas por categoria.</p>
+              {limits.slice(0, 6).map((a) => (
                 <div key={a.cat!.id}>
                   <div className="mb-1 flex justify-between text-sm"><span>{a.cat!.name}</span><span className={`tabular-nums ${a.real > a.planned ? "font-medium text-rose-700" : "text-ink/60"}`}>{formatBRL(a.real)} <span className="text-ink/35">/ {formatBRL(a.planned)}</span></span></div>
                   <Bar value={a.real} max={a.planned} color={a.real > a.planned ? "#a33f30" : "#b8955a"} />
@@ -310,14 +320,18 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
               ))}
             </div>
           )}
-          {batch && (
+          {lastByCard.length > 0 && (
             <div className="mt-5 border-t border-ink/5 pt-4">
-              <div className="label mb-2">Última fatura</div>
-              <Link href={`/faturas/${batch.id}`} className="flex items-center gap-3 rounded-xl bg-ink/[0.03] p-3 hover:bg-ink/[0.05]">
-                <div className="grid h-9 w-9 place-items-center rounded-lg bg-[#b0703f] text-xs font-bold text-white">{(batch.institution ?? "").slice(0, 4).toLowerCase()}</div>
-                <div className="flex-1 text-sm"><div className="font-medium">{batch.due_date ? `Venc. ${String(batch.due_date).split("-").reverse().join("/")}` : "Fatura"}</div><div className="text-xs text-ink/50">{batch.tx_count} itens</div></div>
-                <div className="font-semibold tabular-nums">{formatBRL(batch.statement_total)}</div>
-              </Link>
+              <div className="label mb-2">Última fatura de cada cartão</div>
+              <div className="space-y-2">
+                {lastByCard.map((b) => (
+                  <Link key={b.id} href={`/faturas/${b.id}`} className="flex items-center gap-3 rounded-xl bg-ink/[0.03] p-3 hover:bg-ink/[0.05]">
+                    <div className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-[#b0703f] text-xs font-bold text-white">{(b.institution ?? "").slice(0, 4).toLowerCase()}</div>
+                    <div className="min-w-0 flex-1 text-sm"><div className="truncate font-medium">{(b.account_id && cardName.get(b.account_id)) || b.institution || "Cartão"}</div><div className="text-xs text-ink/50">{b.due_date ? `Venc. ${String(b.due_date).split("-").reverse().join("/")}` : "Fatura"} · {b.tx_count} itens</div></div>
+                    <div className="font-semibold tabular-nums">{formatBRL(Number(b.statement_total ?? b.current_total ?? 0))}</div>
+                  </Link>
+                ))}
+              </div>
             </div>
           )}
         </section>

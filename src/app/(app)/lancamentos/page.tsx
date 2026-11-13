@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { requireArea } from "@/lib/context";
 import { currentCycle, isValidCycle } from "@/lib/cycle";
-import { categoryIndex, loadAccounts, loadCategories, loadMembers, loadTransactions } from "@/lib/data";
+import { categoryIndex, fetchAll, loadAccounts, loadCategories, loadMembers, loadTransactions, type Transaction } from "@/lib/data";
+import { toCashView } from "@/lib/cash-flow";
 import { formatBRL } from "@/lib/format";
 import type { Scope } from "@/lib/categories-default";
 import { buildTxViews, toCatLite, toMemberLite } from "@/lib/tx-view";
@@ -23,24 +24,47 @@ export default async function LancamentosPage({ searchParams }: { searchParams: 
     loadCategories(ctx), loadAccounts(ctx), loadMembers(ctx), loadTransactions(ctx, { scope, cycles: [cycle] }),
   ]);
   const { byId } = categoryIndex(allCats);
-  let txs = txsAll;
+  type T = Transaction & { flow?: "entrada" | "saida" | null; reconciled_batch_id?: string | null };
+  const cardIds = new Set(accounts.filter((a) => a.type === "cartao").map((a) => a.id));
+  const isCard = (t: T) => (t.account_id ? cardIds.has(t.account_id) : false) || t.source === "fatura" || (!!t.import_batch_id && t.source !== "extrato");
+  const isPayment = (t: T) => !!t.category_id && byId.get(t.category_id)?.name === "Pagamento de fatura";
+
+  // Critério de caixa (igual a Visão geral, Orçamento e Fluxo): com extrato no ciclo, as compras no cartão que aparecem
+  // são as das faturas PAGAS neste ciclo (consumo do mês anterior), cada uma na sua categoria — e o pagamento da fatura
+  // fica na lista só como referência, sem somar de novo. Sem extrato no ciclo, vale a fatura que vence no ciclo.
+  const raw = txsAll as T[];
+  const hasExtrato = raw.some((t) => t.source === "extrato");
+  let base: T[] = raw;
+  const factor = new Map<string, number>(); // fatura -> valor pago / total das compras (pagamento parcial)
+  const openedPay = new Set<string>();
+  if (hasExtrato) {
+    await toCashView(ctx, raw, allCats.filter((c) => c.scope === scope), [cycle]); // liga pagamentos antecipados à fatura
+    const pays = raw.filter((t) => t.source === "extrato" && isPayment(t) && (t.flow ?? "saida") === "saida" && t.reconciled_batch_id);
+    const ids = [...new Set(pays.map((t) => t.reconciled_batch_id!))];
+    const items = ids.length ? await fetchAll<T>(() => ctx.supabase.from("transactions").select("*").eq("household_id", ctx.household.id).eq("scope", scope).in("import_batch_id", ids)) : [];
+    for (const id of ids) {
+      const net = items.filter((i) => i.import_batch_id === id).reduce((a, i) => a + Number(i.amount), 0);
+      const paid = pays.filter((t) => t.reconciled_batch_id === id).reduce((a, t) => a + Math.abs(Number(t.amount)), 0);
+      if (net > 0.005) { factor.set(id, paid / net); for (const t of pays) if (t.reconciled_batch_id === id) openedPay.add(t.id); }
+    }
+    base = [...raw.filter((t) => !isCard(t)), ...items.filter((i) => factor.has(i.import_batch_id!))]
+      .sort((a, b) => b.date.localeCompare(a.date));
+  }
+  let txs = base;
   if (sp.categoria === "a-classificar") txs = txs.filter((t) => !t.category_id || byId.get(t.category_id)?.grp === "A classificar");
   else if (sp.categoria) txs = txs.filter((t) => t.category_id === sp.categoria);
   if (sp.q) { const q = sp.q.toLowerCase(); txs = txs.filter((t) => t.description.toLowerCase().includes(q)); }
 
-  // Entradas x saídas = só o que passou pela conta (extrato e lançamentos manuais fora do cartão).
-  // Compras no cartão ficam na lista, mas entram no caixa pelo pagamento da fatura no extrato.
-  type T = (typeof txs)[number] & { flow?: "entrada" | "saida" | null };
-  const cardIds = new Set(accounts.filter((a) => a.type === "cartao").map((a) => a.id));
-  const isCard = (t: T) => (t.account_id ? cardIds.has(t.account_id) : false) || t.source === "fatura" || (!!t.import_batch_id && t.source !== "extrato");
+  // Entradas x saídas = o que passou pela conta. Fatura paga e aberta: entram as compras (× parcela paga), não o pagamento.
   if (sp.origem === "conta") txs = txs.filter((t) => !isCard(t));
   if (sp.origem === "cartao") txs = txs.filter((t) => isCard(t));
   const isIncome = (t: T) => ((t.category_id && byId.get(t.category_id)?.kind) || t.kind) === "receita";
   const flowOf = (t: T): "entrada" | "saida" => t.flow ?? (isIncome(t) ? "entrada" : Number(t.amount) < 0 ? "entrada" : "saida");
-  const cash = (txs as T[]).filter((t) => !isCard(t));
-  const out = cash.filter((t) => flowOf(t) === "saida").reduce((a, t) => a + Math.abs(Number(t.amount)), 0);
+  const cash = (txs as T[]).filter((t) => !isCard(t) && !openedPay.has(t.id));
+  const cardOpened = hasExtrato ? (txs as T[]).filter((t) => isCard(t) && t.import_batch_id && factor.has(t.import_batch_id)).reduce((a, t) => a + Number(t.amount) * factor.get(t.import_batch_id!)!, 0) : 0;
+  const out = cash.filter((t) => flowOf(t) === "saida").reduce((a, t) => a + Math.abs(Number(t.amount)), 0) + cardOpened;
   const inc = cash.filter((t) => flowOf(t) === "entrada").reduce((a, t) => a + Math.abs(Number(t.amount)), 0);
-  const cardTotal = (txs as T[]).filter(isCard).reduce((a, t) => a + Number(t.amount), 0);
+  const cardTotal = hasExtrato ? cardOpened : (txs as T[]).filter(isCard).reduce((a, t) => a + Number(t.amount), 0);
   const qs = (p: Partial<SP>) => `/lancamentos?${new URLSearchParams(Object.entries({ escopo: scope, ciclo: cycle, categoria: sp.categoria, q: sp.q, origem: sp.origem, ...p }).filter(([, v]) => v) as [string, string][]).toString()}`;
   const filterCat = sp.categoria && sp.categoria !== "a-classificar" ? byId.get(sp.categoria) : null;
   const rows = await buildTxViews(ctx, txs, accounts);
@@ -48,7 +72,7 @@ export default async function LancamentosPage({ searchParams }: { searchParams: 
 
   return (
     <div>
-      <PageHeader title="Lançamentos" subtitle="Tudo o que entrou e saiu no ciclo. Clique em um lançamento para ver os detalhes e mudar o perfil do gasto.">
+      <PageHeader title="Lançamentos" subtitle={hasExtrato ? "O que entrou e saiu da conta no ciclo. As faturas pagas aparecem abertas nas compras delas (consumo do mês anterior), cada uma na sua categoria. Clique em um lançamento para ver os detalhes." : "Ciclo sem extrato importado: mostra as compras do cartão das faturas que vencem no ciclo. Clique em um lançamento para ver os detalhes."}>
         <ScopeTabs scope={scope} basePath="/lancamentos" params={{ ciclo: cycle }} />
         <CycleNav cycle={cycle} startDay={startDay} basePath="/lancamentos" params={{ escopo: scope, categoria: sp.categoria, q: sp.q }} />
       </PageHeader>
@@ -72,10 +96,12 @@ export default async function LancamentosPage({ searchParams }: { searchParams: 
           <span className="text-ink/50">{txs.length} itens</span>
           {sp.origem !== "cartao" && <>
             <span title="Só o que passou pela conta corrente (extrato)">Entradas <b className="tabular-nums text-gain">{formatBRL(inc)}</b></span>
-            <span title="Só o que saiu da conta corrente — inclui o pagamento das faturas">Saídas <b className="tabular-nums">{formatBRL(out)}</b></span>
+            <span title="O que saiu da conta corrente; cada fatura paga entra pelas compras dela">Saídas <b className="tabular-nums">{formatBRL(out)}</b></span>
             <span className="text-ink/45">Saldo <b className={`tabular-nums ${inc - out < 0 ? "text-loss" : "text-ink/70"}`}>{formatBRL(inc - out)}</b></span>
           </>}
-          {cardTotal !== 0 && <span className="text-ink/45" title="Compras no cartão: não somam nas saídas — entram pelo pagamento da fatura">Cartões <b className="tabular-nums text-ink/60">{formatBRL(cardTotal)}</b>{sp.origem !== "cartao" ? " · fora do caixa" : ""}</span>}
+          {cardTotal !== 0 && (hasExtrato
+            ? <span className="text-ink/45" title="Compras das faturas pagas neste ciclo (já somadas nas saídas)">Faturas pagas <b className="tabular-nums text-ink/60">{formatBRL(cardTotal)}</b>{openedPay.size ? ` · ${openedPay.size} pagamento(s) aberto(s) por compra` : ""}</span>
+            : <span className="text-ink/45" title="Compras no cartão das faturas do ciclo">Cartões <b className="tabular-nums text-ink/60">{formatBRL(cardTotal)}</b></span>)}
         </div>
       </div>
 
