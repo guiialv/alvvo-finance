@@ -9,6 +9,7 @@ import type { Kind, Scope } from "@/lib/categories-default";
 import { Bar, CycleNav, PageHeader, ScopeTabs } from "@/components/ui";
 import { BudgetInput } from "./budget-input";
 import { fillBudget } from "./actions";
+import { toCashView } from "@/lib/cash-flow";
 
 type SP = { ciclo?: string; visao?: string; escopo?: string; ano?: string; editar?: string };
 
@@ -54,10 +55,11 @@ export default async function OrcamentoPage({ searchParams }: { searchParams: Pr
 
   if (annual) {
     const cycles = cyclesOfYear(year);
-    const txs = await loadTransactions(ctx, { scope, cycles });
+    // Realizado no critério de caixa: o que saiu da conta no ciclo, com cada fatura paga aberta nas categorias das compras
+    const txs = (await toCashView(ctx, await loadTransactions(ctx, { scope, cycles }), cats, cycles)).txs;
     return (
       <div>
-        <PageHeader title="Orçamento anual" subtitle="Realizado por categoria em cada ciclo — como na sua planilha">
+        <PageHeader title="Orçamento anual" subtitle="Realizado por categoria em cada ciclo: o que saiu da conta, com cada fatura paga aberta nas categorias das compras">
           <ScopeTabs scope={scope} basePath="/orcamento" params={{ visao: "anual", ano: String(year) }} />
           {viewTabs}
           {editBtn}
@@ -72,11 +74,15 @@ export default async function OrcamentoPage({ searchParams }: { searchParams: Pr
     );
   }
 
-  const [txs, budgetsRes] = await Promise.all([
+  const [rawTxs, budgetsRes] = await Promise.all([
     loadTransactions(ctx, { scope, cycles: [cycle] }),
     ctx.supabase.from("budgets").select("category_id, planned").eq("household_id", ctx.household.id).eq("cycle", cycle),
   ]);
   const planned = new Map<string, number>((budgetsRes.data ?? []).map((b: { category_id: string; planned: number }) => [b.category_id, Number(b.planned)] as [string, number]));
+  // Realizado no critério de caixa (igual a Lançamentos e Fluxo): a fatura paga no ciclo entra pelas compras dela
+  // (consumo do mês anterior), cada uma na sua categoria. Ciclo sem extrato importado fica nas compras do cartão do mês.
+  const cash = await toCashView(ctx, rawTxs, cats, [cycle]);
+  const txs = cash.txs.filter((t) => t.cycle === cycle);
   const real = sumByCategory(txs);
   const s = summarize(txs, cats);
 
@@ -100,7 +106,7 @@ export default async function OrcamentoPage({ searchParams }: { searchParams: Pr
 
   return (
     <div>
-      <PageHeader title="Orçamento" subtitle="Defina quanto espera receber, investir e gastar por categoria. O valor orçado funciona como limite e gera alertas.">
+      <PageHeader title="Orçamento" subtitle="Defina quanto espera receber, investir e gastar por categoria. O valor orçado funciona como limite e gera alertas. O realizado segue a conta corrente: a fatura paga no mês entra pelas compras dela, cada uma na sua categoria.">
         <ScopeTabs scope={scope} basePath="/orcamento" params={params} />
         {viewTabs}
         <CycleNav cycle={cycle} startDay={startDay} basePath="/orcamento" params={{ escopo: scope }} />

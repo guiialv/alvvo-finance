@@ -60,7 +60,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
   const p = summarize(cash.txs.filter((t) => t.cycle === prevC), cats);
   const hist = history.map((c) => ({ c, est: semExtrato.has(c), ...summarize(cash.txs.filter((t) => t.cycle === c), cats) }));
 
-  const spent = sumByCategory(curTx);
+  const spent = sumByCategory(curCash);
   const alerts = (budgetsRes.data ?? [])
     .map((b: { category_id: string; planned: number }) => ({ cat: byId.get(b.category_id), planned: Number(b.planned), real: spent.get(b.category_id) ?? 0 }))
     .filter((a) => a.cat && a.cat.kind === "despesa" && a.planned > 0 && a.real >= a.planned * 0.8)
