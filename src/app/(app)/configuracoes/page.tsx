@@ -1,7 +1,7 @@
 import { requireAdmin } from "@/lib/context";
 import { categoryIndex, loadAccounts, loadCategories, loadMembers } from "@/lib/data";
 import { PageHeader } from "@/components/ui";
-import { addCategory, deleteRule, renameCategory, saveAiKey, setAiMode, toggleCategory, updateAccount, updateHousehold } from "./actions";
+import { addCategory, deleteRule, grantSupport, renameCategory, revokeSupport, saveAiKey, setAiMode, toggleCategory, updateAccount, updateHousehold } from "./actions";
 
 
 export default async function ConfigPage() {
@@ -14,10 +14,32 @@ export default async function ConfigPage() {
   const rules = rulesRes.data ?? [];
   const { data: last4 } = await ctx.supabase.rpc("ai_key_last4", { hh: ctx.household.id });
   const ai = ctx.household.ai_mode;
+  const { data: sup } = await ctx.supabase.from("household_members").select("expires_at").eq("household_id", ctx.household.id).eq("support", true).gt("expires_at", new Date().toISOString()).order("expires_at", { ascending: false }).limit(1);
+  const supportUntil = (sup?.[0]?.expires_at as string | undefined) ?? null;
 
   return (
     <div className="space-y-6">
       <PageHeader title="Configurações" />
+
+      <section className="card">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="max-w-2xl">
+            <h2 className="mb-1">Acesso de suporte</h2>
+            <p className="text-sm text-ink/60">Se algo não estiver certo (uma fatura lida errado, um número que não bate), você pode liberar temporariamente o suporte do ALVVO para olhar a sua conta. É <b>só leitura</b>, expira sozinho, aparece em Membros e acessos e fica no registro de atividades. Sem a sua liberação, ninguém do suporte vê seus dados na plataforma.</p>
+          </div>
+          {supportUntil ? (
+            <div className="flex flex-col items-end gap-2">
+              <span className="rounded-full bg-sky-50 px-3 py-1 text-[13px] text-sky-800">Liberado até {new Date(supportUntil).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}</span>
+              <form action={revokeSupport}><button className="btn-ghost">Encerrar agora</button></form>
+            </div>
+          ) : (
+            <form action={grantSupport} className="flex items-center gap-2">
+              <select name="days" className="input w-auto" defaultValue="7" aria-label="Por quanto tempo"><option value="1">1 dia</option><option value="3">3 dias</option><option value="7">7 dias</option><option value="14">14 dias</option></select>
+              <button className="btn">Liberar acesso de suporte</button>
+            </form>
+          )}
+        </div>
+      </section>
 
       <div className="grid gap-4 lg:grid-cols-2">
         <section className="card">

@@ -23,6 +23,8 @@ export default function PrivacyPage() {
       </ul>
       <h2 className="mt-6">Segurança</h2>
       <p>Os dados ficam isolados por conta, com regras de acesso aplicadas no próprio banco de dados. Chaves de API informadas por você são guardadas criptografadas.</p>
+      <h2 className="mt-6">Suporte e administração</h2>
+      <p>Na plataforma, ninguém de fora da sua conta vê os seus dados. O suporte só olha a sua conta se você liberar o acesso de suporte em Configurações: ele é somente leitura, tem prazo, aparece em Membros e acessos e fica no registro de atividades — e você pode encerrá-lo a qualquer momento. Como em qualquer serviço on-line, a equipe técnica que mantém a infraestrutura tem acesso técnico ao banco de dados; esse acesso só é usado para manutenção e segurança, nunca para consultar dados financeiros sem o seu pedido. O feedback enviado pelo botão “Feedback” inclui só o texto que você escreveu e a tela em que estava.</p>
       <h2 className="mt-6">Seus direitos (LGPD)</h2>
       <p>Você pode pedir acesso, correção, exportação ou exclusão dos seus dados a qualquer momento pelo e-mail acima.</p>
       <h2 className="mt-6">Alterações</h2>

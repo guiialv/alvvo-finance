@@ -33,6 +33,8 @@ export function OnboardingForm({ code }: { code: string }) {
           <div><label className="label">Seu nome</label><input className="input" name="display_name" required placeholder="Nome e sobrenome" /></div>
           {mode === "criar" ? (
             <>
+              <div><label className="label">Código de acesso ao beta</label><input className="input font-mono uppercase" name="beta_code" placeholder="EX.: ALVVO-7K2Q" autoComplete="off" />
+                <p className="mt-1 text-xs text-ink/45">O ALVVO está em beta fechado: para criar uma família nova, use o código que você recebeu.</p></div>
               <div><label className="label">Nome da conta</label><input className="input" name="household_name" placeholder="Ex.: Casa Silva" /></div>
               <div><label className="label">Comece com o modelo</label>
                 <div className="space-y-2">{TEMPLATES.map(([v, l, d], i) => (

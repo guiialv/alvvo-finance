@@ -4,6 +4,8 @@ import { ROLE_LABEL } from "@/lib/access";
 import { cookies } from "next/headers";
 import { Shell } from "@/components/shell";
 import { signOut } from "@/app/login/actions";
+import { FeedbackButton } from "@/components/feedback-button";
+import { Suspense } from "react";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const ctx = await getContext();
@@ -16,6 +18,8 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   if (areas.includes("faturas")) allowed.push("/conta");
   if (areas.includes("visao-geral")) allowed.push("/simulacoes");
   if (areas.includes("analise")) allowed.push("/mercado", "/mercado/carteiras");
+  const { data: platformAdmin } = await ctx.supabase.rpc("is_platform_admin");
+  if (platformAdmin) allowed.push("/admin");
   let pending = 0;
   if (admin) {
     const { count } = await ctx.supabase.from("household_members").select("user_id", { count: "exact", head: true }).eq("household_id", household.id).eq("status", "pendente");
@@ -23,6 +27,12 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   }
   return (
     <>
+      {ctx.support && (
+        <div className="sticky top-0 z-40 flex flex-wrap items-center gap-3 bg-sky-700 px-4 py-2 text-sm text-white">
+          <span>🛟 Modo suporte em <b>{household.name}</b> — só leitura, liberado pela família{ctx.support.until ? ` até ${new Date(ctx.support.until).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}` : ""}.</span>
+          <a href="/suporte/sair" className="ml-auto rounded-lg bg-white/15 px-3 py-1 text-xs font-medium hover:bg-white/25">Sair do modo suporte</a>
+        </div>
+      )}
       {viewer.simulated && (
         <div className="sticky top-0 z-40 flex flex-wrap items-center gap-3 bg-violet-600 px-4 py-2 text-sm text-white">
           <span>👁 Você está vendo a plataforma como <b>{viewer.name}</b> ({ROLE_LABEL[viewer.role]}{viewer.txScope === "proprios" ? ", só os próprios lançamentos" : ""}). Nada pode ser alterado neste modo.</span>
@@ -34,6 +44,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         initialCollapsed={jar.get("alvvo_nav")?.value === "min"} initialPrivacy={jar.get("alvvo_priv")?.value === "1"}>
         {children}
       </Shell>
+      {!ctx.support && <Suspense fallback={null}><FeedbackButton /></Suspense>}
     </>
   );
 }

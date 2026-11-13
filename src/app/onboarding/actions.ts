@@ -25,8 +25,8 @@ export async function onboard(_: OnbState, formData: FormData): Promise<OnbState
   }
 
   const template = (String(formData.get("template") ?? "familia") as Template);
-  const { data: hh, error } = await supabase.rpc("create_household", { p_name: String(formData.get("household_name") ?? ""), p_display_name: displayName });
-  if (error || !hh) return { error: error?.message ?? "Não foi possível criar a conta." };
+  const { data: hh, error } = await supabase.rpc("create_household_beta", { p_code: String(formData.get("beta_code") ?? ""), p_name: String(formData.get("household_name") ?? ""), p_display_name: displayName });
+  if (error || !hh) return { error: error?.message?.includes("Código de acesso") ? "Código de acesso inválido, vencido ou já usado. Peça um código a quem te convidou para o beta." : error?.message ?? "Não foi possível criar a conta." };
   await supabase.from("households").update({ template }).eq("id", hh as string);
 
   const rows = templateCategories(template).map((c, i) => ({ household_id: hh as string, sort: i, ...c }));

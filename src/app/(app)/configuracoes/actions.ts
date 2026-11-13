@@ -73,3 +73,16 @@ export async function saveAiKey(formData: FormData) {
   await logAction(ctx, "Salvou uma chave de API do Claude");
   done();
 }
+
+/** Acesso de suporte: o administrador da plataforma ganha "Só leitura" por alguns dias, com registro, e perde sozinho. */
+export async function grantSupport(formData: FormData) {
+  const ctx = await requireAdmin();
+  const days = Math.max(1, Math.min(30, Number(formData.get("days") ?? 7) || 7));
+  await ctx.supabase.rpc("grant_support", { hh: ctx.household.id, p_days: days });
+  done();
+}
+export async function revokeSupport() {
+  const ctx = await requireAdmin();
+  await ctx.supabase.rpc("revoke_support", { hh: ctx.household.id });
+  done();
+}

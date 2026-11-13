@@ -46,11 +46,15 @@ async function loadContext() {
 
   const { data: memberships } = await supabase
     .from("household_members")
-    .select("household_id, user_id, display_name, role, status, areas, tx_scope, households(id, name, invite_code, invite_expires_at, cycle_start_day, template, ai_mode, ai_included)")
+    .select("household_id, user_id, display_name, role, status, areas, tx_scope, support, expires_at, households(id, name, invite_code, invite_expires_at, cycle_start_day, template, ai_mode, ai_included)")
     .eq("user_id", user.id);
 
-  const list = (memberships ?? []) as (Member & { households: Household | Household[] | null })[];
-  const m = list.find((x) => x.status === "ativo") ?? list[0];
+  const all = (memberships ?? []) as (Member & { support?: boolean; expires_at?: string | null; households: Household | Household[] | null })[];
+  // Acesso de suporte (temporário, só leitura) só vale quando o administrador da plataforma entra nele de propósito
+  const supportHh = (await cookies()).get(SUPPORT_COOKIE)?.value;
+  const sup = supportHh ? all.find((x) => x.support && x.household_id === supportHh && x.status === "ativo" && (!x.expires_at || Date.parse(x.expires_at) > Date.now())) : undefined;
+  const list = all.filter((x) => !x.support);
+  const m = sup ?? list.find((x) => x.status === "ativo") ?? list[0];
   if (!m) redirect("/onboarding");
   if (m.status !== "ativo") redirect("/aguardando");
   const household = (Array.isArray(m.households) ? m.households[0] : m.households) as Household;
@@ -64,9 +68,10 @@ async function loadContext() {
     if (other && other.status === "ativo") viewer = { userId: other.user_id, name: other.display_name, role: other.role, areas: other.areas ?? {}, txScope: other.tx_scope, simulated: true };
   }
 
-  return { supabase, user, household, member, viewer };
+  return { supabase, user, household, member, viewer, support: sup ? { until: sup.expires_at ?? null } : null };
 }
 
+export const SUPPORT_COOKIE = "alvvo_suporte";
 export type Ctx = Awaited<ReturnType<typeof getContext>>;
 
 export const isAdminRole = (r: Role) => r === "dono" || r === "admin";

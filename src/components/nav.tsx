@@ -25,7 +25,7 @@ const SECTIONS: { title: string; items: { href: string; label: string; icon: str
     { href: "/mercado/carteiras", label: "Carteiras de avaliação", icon: "briefcase" },
     { href: "/analise", label: "Análise técnica", icon: "candle" },
   ] },
-  { title: "", items: [{ href: "/acessos", label: "Membros e acessos", icon: "users" }, { href: "/configuracoes", label: "Configurações", icon: "cog" }] },
+  { title: "", items: [{ href: "/acessos", label: "Membros e acessos", icon: "users" }, { href: "/configuracoes", label: "Configurações", icon: "cog" }, { href: "/admin", label: "Administração do beta", icon: "sliders" }] },
 ];
 
 /** `allowed`: hrefs liberados para quem está vendo; `badges`: contadores (ex.: pedidos pendentes). */
