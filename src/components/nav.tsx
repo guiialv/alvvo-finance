@@ -20,6 +20,7 @@ const SECTIONS: { title: string; items: { href: string; label: string; icon: str
   { title: "Patrimônio", items: [
     { href: "/investimentos", label: "Investimentos", icon: "trend" },
     { href: "/objetivos", label: "Objetivos", icon: "target" },
+    { href: "/simulacoes", label: "Simulações", icon: "sliders" },
     { href: "/mercado", label: "Mercado", icon: "globe2" },
     { href: "/mercado/carteiras", label: "Carteiras de avaliação", icon: "briefcase" },
     { href: "/analise", label: "Análise técnica", icon: "candle" },
