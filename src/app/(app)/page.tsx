@@ -9,6 +9,7 @@ import { groupColor } from "@/lib/theme";
 import { Bar, cycleLong, CycleNav, Delta, Donut, Empty, Kpi, PageHeader } from "@/components/ui";
 import { Icon } from "@/components/icons";
 import { buildFlow } from "@/lib/flow";
+import { toCashView } from "@/lib/cash-flow";
 import { Sankey } from "@/components/sankey";
 import { CatIcon } from "@/components/cat-icon";
 import { EvolutionChart, type DayPoint } from "@/components/evolution-chart";
@@ -48,7 +49,9 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
   ]);
   const { byId } = categoryIndex(cats);
   const curTx = txs.filter((t) => t.cycle === cycle);
-  const flow = buildFlow(curTx, cats, "grupo", 6);
+  // Mesmo critério da página Fluxo de dinheiro: caixa do ciclo, com cada fatura paga aberta nas categorias das compras
+  const cash = await toCashView(ctx, txs, cats, [cycle]);
+  const flow = buildFlow(cash.txs.filter((t) => t.cycle === cycle), cats, "grupo", 8);
   const s = summarize(curTx, cats);
   const p = summarize(txs.filter((t) => t.cycle === prevC), cats);
   const hist = history.map((c) => ({ c, ...summarize(txs.filter((t) => t.cycle === c), cats) }));
