@@ -9,4 +9,9 @@ export interface SimData {
   patrimonio: number; renda: number; aporte: number; // R$ (renda e aporte: média mensal recente)
   credit: CreditRates;
   reference: { key: string; label: string; monthly: number; note: string; requires: string }[];
+  sobra: number; despesas: number; // média mensal recente (critério de caixa)
+  tesouro: { pre: number | null; ipca: number | null }; // % a.a. (IPCA+: taxa real)
+  goals: { id: string; name: string; type: string; target: number; deadline: string | null; balance: number }[];
+  carteira: Record<string, number>; // R$ por classe do simulador (pos, lci, ipca, pre, acoes, fii, exterior, cripto)
+  hoje: string; // ciclo atual (AAAA-MM)
 }

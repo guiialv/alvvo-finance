@@ -2,6 +2,7 @@ export interface SimInfo { slug: string; name: string; q: string; uses: string }
 export const GROUPS: { title: string; desc: string; dark?: boolean; items: SimInfo[] }[] = [
   { title: "Investir", desc: "Quanto, por quanto tempo e onde o dinheiro rende mais — líquido de IR e custos.", items: [
     { slug: "meta", name: "Meta e prazo", q: "Em quanto tempo chego a R$ X? Quanto aportar? Quanto terei?", uses: "Usa: seu patrimônio · aportes do orçamento · CDI e IPCA" },
+    { slug: "carteira", name: "Carteira por objetivos", q: "Como dividir o aporte de cada mês entre os meus objetivos? Compare carteiras pela chance de chegar lá.", uses: "Usa: seus objetivos · sobra média · carteira atual · CDI, IPCA e Tesouro" },
     { slug: "investimentos", name: "Comparador de investimentos", q: "CDB, LCI, Tesouro, poupança, bolsa — qual rende mais no meu prazo?", uses: "Usa: curva do Focus · taxas do Tesouro" },
   ] },
   { title: "Decidir uma compra", desc: "O custo real de cada caminho, incluindo o que o dinheiro deixaria de render.", items: [

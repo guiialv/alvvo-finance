@@ -11,6 +11,7 @@ import { CaptacaoSim } from "../sims/captacao";
 import { AlavancagemSim } from "../sims/alavancagem";
 import { AlugarSim } from "../sims/alugar";
 import { ConsorcioSim } from "../sims/consorcio";
+import { CarteiraSim } from "../sims/carteira";
 
 export default async function SimPage({ params, searchParams }: { params: Promise<{ slug: string }>; searchParams: Promise<Record<string, string | undefined>> }) {
   const ctx = await requireArea("visao-geral");
@@ -30,6 +31,7 @@ export default async function SimPage({ params, searchParams }: { params: Promis
         </div>
       </PageHeader>
       {slug === "meta" && <MetaSim d={data} />}
+      {slug === "carteira" && <CarteiraSim d={data} />}
       {slug === "investimentos" && <InvestSim d={data} tesouro={tesouro} />}
       {slug === "captacao" && <CaptacaoSim d={data} />}
       {slug === "alavancagem" && <AlavancagemSim d={data} init={{ valor: num(sp.valor), prazo: num(sp.prazo), taxa: num(sp.taxa) }} />}
