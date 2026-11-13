@@ -4,6 +4,7 @@ import { analyzeTicker, type Watch } from "@/lib/analise";
 import { getQuotes } from "@/lib/market/read";
 import { loadHistory } from "@/lib/market/history";
 import { ensureNewsFresh } from "@/lib/market/refresh";
+import { companyQueryName } from "@/lib/market/sources";
 import { after } from "next/server";
 import { yahooSymbol } from "@/lib/market/sources";
 import { formatCompact, formatMoney } from "@/lib/format";
@@ -47,8 +48,24 @@ export default async function TickerPage({ params, searchParams }: { params: Pro
   const u = uniRow as UniverseRow | null;
   const myItems = (evalItems ?? []) as EvalItem[];
   const portfolios = (pfs ?? []) as { id: string; name: string }[];
-  after(() => ensureNewsFresh([sym]).catch(() => undefined));
-  const { data: news } = await ctx.supabase.from("market_news").select("*").eq("symbol", sym).order("published_at", { ascending: false }).limit(12);
+  // Notícias do ativo: Google Notícias/Yahoo (cache em market_news) + itens do radar que citam o ticker ou a empresa
+  const loadNews = () => ctx.supabase.from("market_news").select("*").eq("symbol", sym).order("published_at", { ascending: false }).limit(12);
+  let { data: news } = await loadNews();
+  if (!(news ?? []).length) { // primeira visita: busca agora (com limite de tempo) para não abrir vazio
+    await Promise.race([ensureNewsFresh([sym]).catch(() => undefined), new Promise((r) => setTimeout(r, 7000))]);
+    ({ data: news } = await loadNews());
+  } else after(() => ensureNewsFresh([sym]).catch(() => undefined));
+  const shortName = companyQueryName(u?.name);
+  const since = new Date(Date.now() - 45 * 86400000).toISOString();
+  const { data: feedHits } = await ctx.supabase.from("market_feed").select("id, title, url, source, published_at")
+    .gte("published_at", since)
+    .or([`tickers.cs.{${ticker}}`, `title.ilike.%${ticker}%`, ...(shortName && shortName.length >= 3 ? [`title.ilike.%${shortName.replace(/[,%()]/g, "")}%`] : [])].join(","))
+    .order("published_at", { ascending: false }).limit(10);
+  type NewsRow = { id: string; title: string; url: string; source: string | null; published_at: string | null };
+  const seenNews = new Set<string>();
+  const newsList = ([...((news ?? []) as NewsRow[]), ...((feedHits ?? []) as NewsRow[])])
+    .filter((n) => { const k = n.title.toLowerCase().slice(0, 70); if (seenNews.has(k)) return false; seenNews.add(k); return true; })
+    .sort((a, b) => (b.published_at ?? "").localeCompare(a.published_at ?? "")).slice(0, 15);
   const w: Watch = wl ? { ...(wl as Watch), buy: wl.buy == null ? null : Number(wl.buy), sell: wl.sell == null ? null : Number(wl.sell), fund: (wl.fund ?? {}) as Watch["fund"] } : { ticker, buy: null, sell: null, note: null, fund: {} };
   // Fundamentos: os informados por você têm prioridade; o resto vem do scanner de mercado
   if (u) {
@@ -150,10 +167,10 @@ export default async function TickerPage({ params, searchParams }: { params: Pro
             </div>
           </section>
           <AnalysisChart ticker={ticker} candles={candles} drawings={(dr?.drawings as unknown[]) ?? []} buy={w.buy} sell={w.sell} readOnly={!edit} />
-          <section className="card"><div className="mb-3 flex items-center justify-between"><h2>Notícias</h2><span className="text-xs text-ink/45">Yahoo Finance</span></div>
-            {(news ?? []).length ? <div className="divide-y divide-ink/5">{(news as { id: string; title: string; url: string; source: string | null; published_at: string | null }[]).map((n) => (
+          <section className="card"><div className="mb-3 flex items-center justify-between"><h2>Notícias</h2><span className="text-xs text-ink/45">Google Notícias · Yahoo · radar ALVVO</span></div>
+            {newsList.length ? <div className="divide-y divide-ink/5">{newsList.map((n) => (
               <a key={n.id} href={n.url} target="_blank" rel="noreferrer" className="flex items-start gap-3 py-2.5 hover:bg-ink/[0.02]"><span className="flex-1 text-sm">{n.title}<span className="block text-xs text-ink/45">{n.source}{n.published_at ? ` · ${new Date(n.published_at).toLocaleDateString("pt-BR")}` : ""}</span></span><span className="text-ink/30">↗</span></a>))}</div>
-              : <Empty>Sem notícias recentes para esta ação.</Empty>}
+              : <Empty>Sem notícias nos últimos 30 dias para {ticker}.</Empty>}
           </section>
         </div>
         <aside className="space-y-4">

@@ -54,16 +54,47 @@ export async function fetchHistory(symbol: string): Promise<Candle[]> {
 }
 
 export interface NewsItem { id: string; symbol: string; title: string; url: string; source: string | null; published_at: string | null }
-export async function fetchNews(symbol: string): Promise<NewsItem[]> {
-  const res = await fetch(`https://feeds.finance.yahoo.com/rss/2.0/headline?s=${encodeURIComponent(symbol)}&region=BR&lang=pt-BR`, { headers: UA, cache: "no-store", signal: AbortSignal.timeout(8000) });
-  if (!res.ok) return [];
-  const xml = await res.text();
-  const tag = (s: string, t: string) => s.match(new RegExp(`<${t}>(?:<!\\[CDATA\\[)?([\\s\\S]*?)(?:\\]\\]>)?</${t}>`))?.[1]?.trim() ?? null;
+const rssTag = (s: string, t: string) => s.match(new RegExp(`<${t}(?:\\s[^>]*)?>(?:<!\\[CDATA\\[)?([\\s\\S]*?)(?:\\]\\]>)?</${t}>`))?.[1]?.trim() ?? null;
+const unescapeXml = (s: string) => s.replace(/&amp;/g, "&").replace(/&quot;/g, '"').replace(/&#39;|&apos;/g, "'").replace(/&lt;/g, "<").replace(/&gt;/g, ">");
+function parseRss(xml: string, symbol: string, fallbackSource: string): NewsItem[] {
   return [...xml.matchAll(/<item>([\s\S]*?)<\/item>/g)].slice(0, 15).map(([, it]) => {
-    const url = tag(it, "link") ?? "", title = tag(it, "title") ?? "";
-    const pub = tag(it, "pubDate");
-    return { id: `${symbol}|${url}`.slice(0, 500), symbol, title, url, source: tag(it, "source") ?? "Yahoo Finance", published_at: pub ? new Date(pub).toISOString() : null };
+    const url = unescapeXml(rssTag(it, "link") ?? "");
+    let title = unescapeXml(rssTag(it, "title") ?? "");
+    let source = rssTag(it, "source");
+    // Google Notícias: "Título - Veículo"
+    const m = title.match(/^(.*) - ([^-]{2,60})$/);
+    if (m && (!source || source === m[2].trim())) { title = m[1].trim(); source = source ?? m[2].trim(); }
+    const pub = rssTag(it, "pubDate");
+    return { id: `${symbol}|${url}`.slice(0, 500), symbol, title, url, source: source ? unescapeXml(source) : fallbackSource, published_at: pub ? new Date(pub).toISOString() : null };
   }).filter((n) => n.title && n.url.startsWith("http"));
+}
+
+/** Nome curto da empresa para busca: "WEG ON NM" -> "WEG" */
+export function companyQueryName(name?: string | null) {
+  if (!name) return null;
+  const n = name.replace(/\b(ON|PN|PNA|PNB|UNT|NM|N1|N2|EJ|ED|EDJ|MA|MB|S\.?A\.?|SA|CIA|INC\.?|CORP\.?|LTD\.?|HOLDING|PARTICIPACOES|PARTICIPAÇÕES)\b/gi, " ").replace(/\s+/g, " ").trim();
+  return n.length >= 2 ? n : null;
+}
+
+/** Notícias de um ativo: Yahoo Finance (quase vazio para a B3) e, como reforço, Google Notícias em português. */
+export async function fetchNews(symbol: string, name?: string | null): Promise<NewsItem[]> {
+  const out: NewsItem[] = [];
+  try {
+    const res = await fetch(`https://feeds.finance.yahoo.com/rss/2.0/headline?s=${encodeURIComponent(symbol)}&region=BR&lang=pt-BR`, { headers: UA, cache: "no-store", signal: AbortSignal.timeout(6000) });
+    if (res.ok) out.push(...parseRss(await res.text(), symbol, "Yahoo Finance"));
+  } catch { /* segue para o Google */ }
+  if (out.length < 5) {
+    const base = symbol.replace(/\.SA$/, ""), short = companyQueryName(name);
+    const q = `("${base}"${short && short.toUpperCase() !== base ? ` OR "${short}"` : ""}) when:30d`;
+    const br = symbol.endsWith(".SA") || !symbol.includes(".");
+    const url = `https://news.google.com/rss/search?q=${encodeURIComponent(q)}&hl=pt-BR&gl=BR&ceid=BR:pt-419`;
+    try {
+      const res = await fetch(url, { headers: UA, cache: "no-store", signal: AbortSignal.timeout(8000) });
+      if (res.ok) out.push(...parseRss(await res.text(), symbol, "Google Notícias").slice(0, br ? 12 : 8));
+    } catch { /* sem notícias */ }
+  }
+  const seen = new Set<string>();
+  return out.filter((n) => { const k = n.title.toLowerCase().slice(0, 80); if (seen.has(k)) return false; seen.add(k); return true; });
 }
 
 /** Selic meta (SGS 432) e CDI anualizado (SGS 4389), em % a.a. */

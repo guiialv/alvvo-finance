@@ -44,9 +44,13 @@ export async function ensureQuotesFresh(symbols: string[], maxMinutes = 15) {
 }
 
 export async function refreshNews(symbols: string[]) {
+  if (!symbols.length) return;
   const db = createAdminClient();
-  const items = (await Promise.all(symbols.map((s) => safe(fetchNews(s))))).flat().filter(Boolean) as Awaited<ReturnType<typeof fetchNews>>;
-  if (items.length) await db.from("market_news").upsert(items, { onConflict: "id", ignoreDuplicates: true });
+  const { data: uni } = await db.from("market_universe").select("yahoo, name").in("yahoo", symbols);
+  const names = new Map((uni ?? []).map((u) => [u.yahoo as string, u.name as string | null]));
+  const items = (await Promise.all(symbols.map((s) => safe(fetchNews(s, names.get(s)))))).flat().filter(Boolean) as Awaited<ReturnType<typeof fetchNews>>;
+  const now = new Date().toISOString();
+  if (items.length) await db.from("market_news").upsert(items.map((i) => ({ ...i, fetched_at: now })), { onConflict: "id" });
 }
 export async function ensureNewsFresh(symbols: string[], maxMinutes = 180) {
   if (!symbols.length) return;
