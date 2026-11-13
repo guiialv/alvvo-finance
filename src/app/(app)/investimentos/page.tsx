@@ -10,6 +10,10 @@ import { Bar, Donut, Empty, Kpi, PageHeader, Seg } from "@/components/ui";
 import { RefreshButton } from "@/components/refresh-button";
 import { addDividend, addFixed, addOp, delDividend, delFixed, delOp, saveManualQuote, saveTargets } from "./actions";
 import { BrokerNote } from "./broker-note";
+import { NewsBrief } from "./news-brief";
+import { refreshFeeds } from "@/lib/news/feeds";
+import { after } from "next/server";
+import { rankStories, selectRelevant, type FeedItem, type Story } from "@/lib/news/rank";
 
 const TABS: [string, string][] = [["carteira", "Carteira"], ["operacoes", "Operações"], ["renda-fixa", "Renda fixa"], ["proventos", "Proventos"], ["noticias", "Notícias"], ["historico", "Histórico"]];
 const pctS = (v: number) => `${v >= 0 ? "+" : ""}${formatPct(v)}`;
@@ -148,19 +152,89 @@ export default async function InvestPage({ searchParams }: { searchParams: Promi
   if (tab === "noticias") {
     const { data: wl } = await ctx.supabase.from("watchlist").select("ticker").eq("household_id", hh);
     const all = [...new Set([...tickers, ...((wl ?? []) as { ticker: string }[]).map((w) => w.ticker)])], syms = all.map(symOf);
-    try { await ensureNewsFresh(syms); } catch { /* segue com o cache */ }
-    const filt = sp.ativo && all.includes(sp.ativo) ? sp.ativo : "";
-    const { data: news } = syms.length ? await ctx.supabase.from("market_news").select("*").in("symbol", filt ? [symOf(filt)] : syms).order("published_at", { ascending: false }).limit(60) : { data: [] };
+    // Fontes: com cache, a página abre na hora e a atualização roda em segundo plano
+    const { data: feedMeta } = await ctx.supabase.from("market_macro").select("updated_at").eq("key", "feed").maybeSingle();
+    const feedAge = feedMeta?.updated_at ? (Date.now() - Date.parse(feedMeta.updated_at as string)) / 60000 : Infinity;
+    if (feedAge === Infinity) await refreshFeeds().catch(() => null);
+    else if (feedAge > 20) after(() => refreshFeeds().then(() => undefined).catch(() => undefined));
+    if (syms.length) await ensureNewsFresh(syms).catch(() => null);
+    const [{ data: feedD }, { data: uni }, { data: newsD }] = await Promise.all([
+      ctx.supabase.from("market_feed").select("id, url, title, summary, source, source_key, kind, tickers, published_at").gte("published_at", new Date(Date.now() - 7 * 86400000).toISOString()).order("published_at", { ascending: false }).limit(1000),
+      all.length ? ctx.supabase.from("market_universe").select("symbol, name").in("symbol", all) : Promise.resolve({ data: [] }),
+      syms.length ? ctx.supabase.from("market_news").select("*").in("symbol", syms).order("published_at", { ascending: false }).limit(40) : Promise.resolve({ data: [] }),
+    ]);
+    const names = Object.fromEntries(((uni ?? []) as { symbol: string; name: string | null }[]).map((u) => [u.symbol, (u.name ?? "").replace(/\s+(S\.?A\.?|ON|PN|UNT|N[12M]|NM|EJ|ED|ATZ).*$/i, "").trim()]));
+    const feed = (feedD ?? []) as FeedItem[];
+    const stories = rankStories(feed, { mine: all, names });
+    const top = selectRelevant(stories.filter((s) => s.kind === "noticia" || s.mine.length), 12);
+    const topIds = new Set(top.map((s) => s.id));
+    const bc = stories.filter((s) => s.kind === "banco_central" && s.score >= 2 && !topIds.has(s.id)).slice(0, 5);
+    const fatos = stories.filter((s) => (s.kind === "fato_relevante" || (s.kind === "comunicado" && s.mine.length)) && !topIds.has(s.id))
+      .sort((x, y) => y.mine.length - x.mine.length || y.score - x.score).slice(0, 8);
+    const mineNews = ((newsD ?? []) as { id: string; symbol: string; title: string; url: string; source: string | null; published_at: string | null }[]).slice(0, 12);
     const tOf = (s: string) => all.find((t) => symOf(t) === s) ?? s;
+    const ago = (iso: string | null) => {
+      if (!iso) return "";
+      const m = Math.round((Date.now() - Date.parse(iso)) / 60000);
+      return m < 60 ? `há ${Math.max(1, m)} min` : m < 1440 ? `há ${Math.round(m / 60)} h` : new Date(iso).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", timeZone: "America/Sao_Paulo" });
+    };
+    const liteMap = Object.fromEntries(stories.slice(0, 60).map((s) => [s.id, { title: s.lead.title, url: s.lead.url, source: s.lead.source }]));
+    const StoryRow = ({ s }: { s: Story }) => (
+      <article className="py-3.5">
+        <div className="mb-1 flex flex-wrap items-center gap-1.5 text-[11px]">
+          {s.mine.map((t) => <span key={t} className="rounded-full bg-[#b8955a]/15 px-2 py-0.5 font-semibold text-[#8a6a34]">sua carteira · {t}</span>)}
+          {s.topics.map((t) => <span key={t} className="rounded-full bg-ink/[0.05] px-2 py-0.5 text-ink/55">{t}</span>)}
+        </div>
+        <a href={s.lead.url} target="_blank" rel="noreferrer" className="text-[15.5px] font-medium leading-snug hover:underline">{s.lead.title}</a>
+        {s.lead.summary && <p className="mt-1 line-clamp-2 text-[13px] text-ink/55">{s.lead.summary}</p>}
+        <div className="mt-1.5 text-xs text-ink/45">
+          {s.lead.source} · {ago(s.published_at)}
+          {s.others.length > 0 && (
+            <details className="inline">
+              <summary className="ml-1 inline cursor-pointer list-none text-ink/55 hover:text-ink">· também em {s.sources.filter((x) => x !== s.lead.source).slice(0, 3).join(", ")}{s.sources.length > 4 ? "…" : ""} ▾</summary>
+              <ul className="mt-1 space-y-0.5 pl-3">{s.others.slice(0, 6).map((o) => <li key={o.id}><a className="hover:underline" href={o.url} target="_blank" rel="noreferrer">{o.source}: {o.title}</a></li>)}</ul>
+            </details>
+          )}
+        </div>
+      </article>
+    );
     return (
       <div>{head}
-        <section className="card mt-5">
-          <div className="mb-3 flex flex-wrap items-center justify-between gap-2"><h2>Notícias das suas ações</h2>{all.length > 0 && <Seg options={[["", "Todas"], ...all.map((t) => [t, t] as [string, string])]} current={filt} hrefFor={(v) => `/investimentos?aba=noticias${v ? `&ativo=${v}` : ""}`} />}</div>
-          {(news ?? []).length ? <div className="divide-y divide-ink/5">{(news as { id: string; symbol: string; title: string; url: string; source: string | null; published_at: string | null }[]).map((n) => (
-            <a key={n.id} href={n.url} target="_blank" rel="noreferrer" className="flex items-start gap-3 py-3 hover:bg-ink/[0.02]"><span className="w-16 shrink-0 font-semibold">{tOf(n.symbol)}</span><span className="flex-1 text-sm">{n.title}<span className="block text-xs text-ink/45">{n.source}{n.published_at ? ` · ${new Date(n.published_at).toLocaleDateString("pt-BR")}` : ""}</span></span><span className="text-ink/30">↗</span></a>
-          ))}</div> : <Empty>Sem notícias ainda. Elas aparecem para as ações que você tem, já teve ou acompanha no monitor de Análise.</Empty>}
-          <p className="mt-3 text-[11px] text-ink/45">Fonte: Yahoo Finance (links para as matérias originais). Atualiza a cada poucas horas.</p>
-        </section>
+        <div className="mt-5 grid gap-5 xl:grid-cols-[1fr_360px]">
+          <div className="min-w-0">
+            <NewsBrief stories={liteMap} />
+            <section className="card">
+              <div className="mb-1 flex flex-wrap items-baseline justify-between gap-2"><h2>Destaques do mercado</h2><span className="text-[11px] text-ink/40">{feed.length} notícias lidas · {top.length} passaram no filtro</span></div>
+              <p className="mb-1 text-xs text-ink/45">Só entra o que mexe com juros, câmbio, bolsa, renda fixa, resultados ou a sua carteira — e a mesma notícia em várias fontes aparece uma vez só.</p>
+              {top.length ? <div className="divide-y divide-ink/5">{top.map((s) => <StoryRow key={s.id} s={s} />)}</div>
+                : <Empty>Nada relevante no momento. As notícias são filtradas — aparecem aqui só quando importam.</Empty>}
+            </section>
+          </div>
+          <aside className="space-y-5">
+            <section className="card">
+              <h2 className="mb-2">Fatos relevantes</h2>
+              <p className="mb-2 text-xs text-ink/45">Documentos entregues à CVM{all.length ? " — primeiro os das suas ações" : ""}.</p>
+              {fatos.length ? <div className="divide-y divide-ink/5">{fatos.map((s) => (
+                <a key={s.id} href={s.lead.url} target="_blank" rel="noreferrer" className="block py-2 text-sm hover:bg-ink/[0.02]">
+                  <span className={s.mine.length ? "font-semibold" : ""}>{s.lead.title}</span>
+                  <span className="block text-[11px] text-ink/45">{s.kind === "fato_relevante" ? "Fato relevante" : "Comunicado"} · {ago(s.published_at)}{s.mine.length ? " · sua carteira" : ""}</span>
+                </a>))}</div> : <p className="text-sm text-ink/45">Nenhum fato relevante importante nos últimos dias.</p>}
+            </section>
+            <section className="card">
+              <h2 className="mb-2">Banco Central</h2>
+              {bc.length ? <div className="divide-y divide-ink/5">{bc.map((s) => (
+                <a key={s.id} href={s.lead.url} target="_blank" rel="noreferrer" className="block py-2 text-sm hover:bg-ink/[0.02]">{s.lead.title}<span className="block text-[11px] text-ink/45">{s.lead.source} · {ago(s.published_at)}</span></a>
+              ))}</div> : <p className="text-sm text-ink/45">Sem comunicados relevantes do BC nos últimos dias.</p>}
+            </section>
+            <section className="card">
+              <div className="mb-2 flex items-baseline justify-between"><h2>Suas ações</h2>{all.length > 0 && <span className="text-[11px] text-ink/40">Yahoo Finance</span>}</div>
+              {mineNews.length ? <div className="divide-y divide-ink/5">{mineNews.map((n) => (
+                <a key={n.id} href={n.url} target="_blank" rel="noreferrer" className="flex gap-2 py-2 text-sm hover:bg-ink/[0.02]"><span className="w-14 shrink-0 text-xs font-semibold">{tOf(n.symbol)}</span><span>{n.title}<span className="block text-[11px] text-ink/45">{n.source}{n.published_at ? ` · ${ago(n.published_at)}` : ""}</span></span></a>
+              ))}</div> : <p className="text-sm text-ink/45">Notícias das ações que você tem ou acompanha aparecem aqui.</p>}
+            </section>
+          </aside>
+        </div>
+        <p className="mt-4 text-[11px] text-ink/40">Fontes: Banco Central, Valor Econômico, Bloomberg, Bloomberg Línea, InfoMoney, Investing.com, Estadão, g1, Exame, Money Times, Suno, Forbes, Yahoo Finance e fatos relevantes da CVM (via Fundamentus). Links levam às matérias originais.{feedMeta?.updated_at ? ` Atualizado ${ago(feedMeta.updated_at as string)}.` : ""}</p>
       </div>
     );
   }

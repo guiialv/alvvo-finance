@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { ensureFeedsFresh } from "@/lib/news/feeds";
-import { rankStories, RELEVANT, type FeedItem } from "@/lib/news/rank";
+import { rankStories, selectRelevant, type FeedItem } from "@/lib/news/rank";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 export const maxDuration = 60;
@@ -14,7 +14,7 @@ export async function GET(req: Request) {
     .gte("published_at", new Date(Date.now() - 4 * 86400000).toISOString()).limit(1000);
   const st = rankStories((data ?? []) as FeedItem[], { mine: [] });
   return NextResponse.json({
-    total: data?.length, stories: st.length, relevant: st.filter((s) => s.score >= RELEVANT).length,
+    total: data?.length, stories: st.length, relevant: selectRelevant(st.filter((s) => s.kind === "noticia"), 12).map((s) => `${s.score.toFixed(1)} [${s.sources.length}] ${s.lead.source}: ${s.lead.title.slice(0, 110)}`),
     top: st.slice(0, 40).map((s) => `${s.score.toFixed(1)} [${s.sources.length}] ${s.kind.slice(0, 5)} ${s.lead.source}: ${s.lead.title.slice(0, 110)} | ${s.topics.join("/")}`),
   });
 }
