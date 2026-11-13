@@ -45,7 +45,7 @@ function kindOf(market: "BR" | "US", type: string, subtype: string, symbol: stri
 
 async function scan(market: "brazil" | "america", filter: unknown[], range = 6000, sortBy = "market_cap_basic") {
   const res = await fetch(`https://scanner.tradingview.com/${market}/scan`, {
-    method: "POST", headers: { ...UA, "content-type": "application/json" }, cache: "no-store",
+    method: "POST", headers: { ...UA, "content-type": "application/json" }, cache: "no-store", signal: AbortSignal.timeout(12000),
     body: JSON.stringify({ columns: COLS, filter, range: [0, range], sort: { sortBy, sortOrder: "desc" } }),
   });
   if (!res.ok) throw new Error(`TradingView ${market}: ${res.status}`);
@@ -104,7 +104,7 @@ async function spark(symbols: string[]) {
   for (let i = 0; i < symbols.length; i += 15) {
     const part = symbols.slice(i, i + 15);
     try {
-      const res = await fetch(`https://query1.finance.yahoo.com/v8/finance/spark?symbols=${part.map(encodeURIComponent).join(",")}&range=1d&interval=1d`, { headers: UA, cache: "no-store" });
+      const res = await fetch(`https://query1.finance.yahoo.com/v8/finance/spark?symbols=${part.map(encodeURIComponent).join(",")}&range=1d&interval=1d`, { headers: UA, cache: "no-store", signal: AbortSignal.timeout(12000) });
       if (!res.ok) continue;
       const j = (await res.json()) as Record<string, { close?: (number | null)[]; chartPreviousClose?: number | null }>;
       for (const [k, v] of Object.entries(j)) out.set(k, { price: v.close?.filter((x) => x != null).pop() ?? null, prev: v.chartPreviousClose ?? null });
@@ -132,12 +132,12 @@ async function refreshIndices(db: ReturnType<typeof createAdminClient>, now: str
     try {
       if (ix.market === "BR") {
         const q = Buffer.from(JSON.stringify({ language: "pt-br", pageNumber: 1, pageSize: 400, index: ix.code, segment: "1" })).toString("base64");
-        const res = await fetch(`https://sistemaswebb3-listados.b3.com.br/indexProxy/indexCall/GetPortfolioDay/${q}`, { headers: UA, cache: "no-store" });
+        const res = await fetch(`https://sistemaswebb3-listados.b3.com.br/indexProxy/indexCall/GetPortfolioDay/${q}`, { headers: UA, cache: "no-store", signal: AbortSignal.timeout(12000) });
         if (!res.ok) return null;
         const j = (await res.json()) as { results?: { cod: string; part: string }[] };
         return Object.fromEntries((j.results ?? []).map((r) => [r.cod.trim(), Number(r.part.replace(/\./g, "").replace(",", "."))]));
       }
-      const res = await fetch("https://scanner.tradingview.com/america/scan", { method: "POST", headers: { ...UA, "content-type": "application/json" }, cache: "no-store",
+      const res = await fetch("https://scanner.tradingview.com/america/scan", { method: "POST", headers: { ...UA, "content-type": "application/json" }, cache: "no-store", signal: AbortSignal.timeout(12000),
         body: JSON.stringify({ columns: ["name"], symbols: { symbolset: [ix.tv] }, range: [0, 1000] }) });
       if (!res.ok) return null;
       const j = (await res.json()) as { data?: { d: unknown[] }[] };
@@ -197,7 +197,12 @@ export async function ensureUniverseFresh(maxMinutes = 20) {
   const db = createAdminClient();
   const { data } = await db.from("market_macro").select("updated_at").eq("key", "universe").maybeSingle();
   const age = data?.updated_at ? (Date.now() - Date.parse(data.updated_at as string)) / 60000 : Infinity;
-  if (age > maxMinutes) { try { await refreshUniverse(); } catch (e) { console.error("[universo]", (e as Error).message); } }
+  if (age === Infinity) { try { await refreshUniverse(); } catch (e) { console.error("[universo]", (e as Error).message); } }
+  else if (age > maxMinutes) {
+    // Já há dados: a página abre com eles e a atualização roda em segundo plano
+    const { later } = await import("./read");
+    later(() => refreshUniverse());
+  }
   return age;
 }
 

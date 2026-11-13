@@ -4,6 +4,7 @@ import { analyzeTicker, type Watch } from "@/lib/analise";
 import { getQuotes } from "@/lib/market/read";
 import { loadHistory } from "@/lib/market/history";
 import { ensureNewsFresh } from "@/lib/market/refresh";
+import { after } from "next/server";
 import { yahooSymbol } from "@/lib/market/sources";
 import { formatCompact, formatMoney } from "@/lib/format";
 import type { UniverseRow } from "@/lib/market/universe";
@@ -46,7 +47,7 @@ export default async function TickerPage({ params, searchParams }: { params: Pro
   const u = uniRow as UniverseRow | null;
   const myItems = (evalItems ?? []) as EvalItem[];
   const portfolios = (pfs ?? []) as { id: string; name: string }[];
-  try { await ensureNewsFresh([sym]); } catch { /* cache */ }
+  after(() => ensureNewsFresh([sym]).catch(() => undefined));
   const { data: news } = await ctx.supabase.from("market_news").select("*").eq("symbol", sym).order("published_at", { ascending: false }).limit(12);
   const w: Watch = wl ? { ...(wl as Watch), buy: wl.buy == null ? null : Number(wl.buy), sell: wl.sell == null ? null : Number(wl.sell), fund: (wl.fund ?? {}) as Watch["fund"] } : { ticker, buy: null, sell: null, note: null, fund: {} };
   // Fundamentos: os informados por você têm prioridade; o resto vem do scanner de mercado

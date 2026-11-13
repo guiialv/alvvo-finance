@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
@@ -29,10 +30,18 @@ export interface Viewer { userId: string; name: string; role: Role; areas: Parti
 
 export const VIEW_AS_COOKIE = "alvvo_view_as";
 
-/** Carrega usuário, conta e permissões. Redireciona para /login, /onboarding ou /aguardando quando necessário. */
-export async function getContext() {
+/**
+ * Carrega usuário, conta e permissões. Redireciona para /login, /onboarding ou /aguardando quando necessário.
+ * Memorizado por requisição: layout e página compartilham a mesma leitura (antes eram duas).
+ */
+export const getContext = cache(loadContext);
+async function loadContext() {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  // O middleware já validou a sessão com o servidor de autenticação nesta mesma requisição (getUser);
+  // aqui lemos do cookie para não repetir a viagem. Os dados continuam protegidos: o banco confere a
+  // assinatura do token em toda consulta (RLS), então um cookie adulterado não acessa nada.
+  const { data: { session } } = await supabase.auth.getSession();
+  const user = session?.user;
   if (!user) redirect("/login");
 
   const { data: memberships } = await supabase

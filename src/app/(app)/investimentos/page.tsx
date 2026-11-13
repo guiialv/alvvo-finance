@@ -157,7 +157,7 @@ export default async function InvestPage({ searchParams }: { searchParams: Promi
     const feedAge = feedMeta?.updated_at ? (Date.now() - Date.parse(feedMeta.updated_at as string)) / 60000 : Infinity;
     if (feedAge === Infinity) await refreshFeeds().catch(() => null);
     else if (feedAge > 20) after(() => refreshFeeds().then(() => undefined).catch(() => undefined));
-    if (syms.length) await ensureNewsFresh(syms).catch(() => null);
+    if (syms.length) after(() => ensureNewsFresh(syms).catch(() => undefined));
     const [{ data: feedD }, { data: uni }, { data: newsD }] = await Promise.all([
       ctx.supabase.from("market_feed").select("id, url, title, summary, source, source_key, kind, tickers, published_at").gte("published_at", new Date(Date.now() - 7 * 86400000).toISOString()).order("published_at", { ascending: false }).limit(1000),
       all.length ? ctx.supabase.from("market_universe").select("symbol, name").in("symbol", all) : Promise.resolve({ data: [] }),
