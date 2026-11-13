@@ -80,16 +80,21 @@ export function rankStories(items: FeedItem[], opts: { mine: string[]; names?: R
   }).sort((a, b) => b.score - a.score);
 }
 
-const WRAP = /^(ibovespa (hoje|futuro|ao vivo|abre|fecha|sobe|cai|opera)|dolar (hoje|abre|fecha|sobe|cai|tem|opera|recua|avanca)|juros futuros|agenda do dia|manha no mercado|fechamento|abertura|mercados? (hoje|agora|reage)|o que (move|movimenta|pesou)|bolsas? (da|de|hoje)|dow jones futures|premarket|futures (edge|rise|fall|slip))|ao vivo/;
+const WRAP = /^(ibovespa (hoje|futuro|ao vivo|abre|fecha|sobe|cai|opera)|dolar (e juros|hoje|abre|fecha|sobe|cai|tem|opera|recua|avanca|dispara)|juros futuros|agenda do dia|manha no mercado|fechamento|abertura|mercados? (hoje|agora|reage)|o que (move|movimenta|pesou)|bolsas? hoje|dow jones futures|premarket|futures (edge|rise|fall|slip))|ao vivo/;
 
 /** Seleção final: acima do corte, no máximo `wraps` resumos de mercado, até `max` histórias. */
 export function selectRelevant(stories: Story[], max = 12, wraps = 2): Story[] {
   const out: Story[] = [];
+  const perTopic = new Map<string, number>();
   let w = 0;
   for (const s of stories) {
     if (s.score < RELEVANT || out.length >= max) continue;
     if (s.kind === "comunicado" && !s.mine.length) continue;
+    // Variedade: no máximo 3 histórias puxadas pelo mesmo tema (a carteira sempre entra)
+    const t = s.topics[0] ?? "_";
+    if (!s.mine.length && (perTopic.get(t) ?? 0) >= 3) continue;
     if (s.wrap) { if (w >= wraps) continue; w++; }
+    perTopic.set(t, (perTopic.get(t) ?? 0) + 1);
     out.push(s);
   }
   return out;
