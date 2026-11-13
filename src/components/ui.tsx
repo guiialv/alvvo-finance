@@ -37,7 +37,7 @@ export function CycleNav({ cycle, startDay, basePath, params = {}, today }: {
     <div className="inline-flex items-center rounded-full border border-ink/10 bg-surface">
       <Link className="grid h-10 w-9 place-items-center text-ink/50 hover:text-ink" href={href(shiftCycle(cycle, -1))} aria-label="Ciclo anterior"><Icon name="left" /></Link>
       <div className="min-w-[124px] border-x border-ink/5 px-3 py-1 text-center">
-        <div className="font-serif text-[17px] leading-tight">{cycleLong(cycle)}</div>
+        <div className="text-[17px] font-semibold tracking-[-0.02em] leading-tight">{cycleLong(cycle)}</div>
         <div className="text-[11px] text-ink/45">{cycleRangeLabel(cycle, startDay)}</div>
       </div>
       <Link className="grid h-10 w-9 place-items-center text-ink/50 hover:text-ink" href={href(shiftCycle(cycle, 1))} aria-label="Próximo ciclo"><Icon name="right" /></Link>
@@ -72,7 +72,7 @@ export function ScopeTabs({ scope, basePath, params = {} }: { scope: string; bas
   return <Seg options={[["pessoal", "Pessoal"], ["pj", "PJ"]]} current={scope} hrefFor={(s) => `${basePath}?${qs({ ...params, escopo: s })}`} />;
 }
 
-export function Kpi({ label, value, sub, accent = "#7d5f36", tone }: { label: string; value: number; sub?: React.ReactNode; accent?: string; tone?: "auto" }) {
+export function Kpi({ label, value, sub, accent = "#7a5c32", tone }: { label: string; value: number; sub?: React.ReactNode; accent?: string; tone?: "auto" }) {
   return (
     <div className="card relative overflow-hidden">
       <div className="flex items-center gap-2"><span className="h-1.5 w-1.5 rounded-full" style={{ background: accent }} /><div className="label !mb-0">{label}</div></div>
@@ -94,7 +94,7 @@ export function Delta({ cur, prev, invert, prevLabel }: { cur: number; prev: num
   );
 }
 
-export function Bar({ value, max, color = "#7d5f36" }: { value: number; max: number; color?: string }) {
+export function Bar({ value, max, color = "#7a5c32" }: { value: number; max: number; color?: string }) {
   const pct = max > 0 ? Math.max(0, Math.min(100, (value / max) * 100)) : 0;
   return <div className="h-1.5 w-full overflow-hidden rounded-full bg-ink/[0.06]"><div className="h-full rounded-full" style={{ width: `${pct}%`, background: color }} /></div>;
 }
@@ -133,15 +133,15 @@ export function Donut({ parts, total, center }: { parts: { label: string; v: num
   let off = 0;
   return (
     <svg viewBox="0 0 128 128" className="h-36 w-36 shrink-0">
-      <circle cx="64" cy="64" r={R} fill="none" stroke="#1f1b170d" strokeWidth="14" />
+      <circle cx="64" cy="64" r={R} fill="none" stroke="#1d19150d" strokeWidth="14" />
       {parts.filter((p) => p.v > 0).map((p) => {
         const len = total ? (p.v / total) * C : 0;
         const el = <circle key={p.label} cx="64" cy="64" r={R} fill="none" stroke={p.color} strokeWidth="14" strokeDasharray={`${Math.max(0, len - 2)} ${C}`} strokeDashoffset={-off} transform="rotate(-90 64 64)"><title>{`${p.label}: ${formatBRL(p.v)}`}</title></circle>;
         off += len;
         return el;
       })}
-      <text x="64" y="60" textAnchor="middle" fill="#1f1b1773" style={{ fontSize: 9 }}>{center[0]}</text>
-      <text x="64" y="76" textAnchor="middle" fill="#1f1b17" style={{ fontSize: 14, fontWeight: 600 }}>{center[1]}</text>
+      <text x="64" y="60" textAnchor="middle" fill="#1d191573" style={{ fontSize: 9 }}>{center[0]}</text>
+      <text x="64" y="76" textAnchor="middle" fill="#1d1915" style={{ fontSize: 14, fontWeight: 600 }}>{center[1]}</text>
     </svg>
   );
 }

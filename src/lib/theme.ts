@@ -7,5 +7,5 @@ const PALETTE = ["#4a5a73", "#8b6b4a", "#7b5c7e", "#5f7f5c", "#a8834f", "#b0703f
 /** Cor do grupo: a cor escolhida pelo usuário, a padrão, ou uma cor estável derivada do nome. */
 export const groupColor = (g: string | null | undefined, custom?: string | null) =>
   custom || (g ? GROUP_COLOR[g] ?? PALETTE[[...g].reduce((a, ch) => (a * 31 + ch.charCodeAt(0)) >>> 0, 7) % PALETTE.length] : "#8c8579");
-export const MEMBER_COLORS = ["#7d5f36", "#7b5c7e", "#4a5a73", "#5f7f5c"];
+export const MEMBER_COLORS = ["#7a5c32", "#7b5c7e", "#4a5a73", "#5f7f5c"];
 export const AGENDA_COLOR = { cartao: "#b0703f", conta: "#9a3b32", receita: "#4f7a52" } as const;

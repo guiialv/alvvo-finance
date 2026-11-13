@@ -227,9 +227,9 @@ export default async function MercadoPage({ searchParams }: { searchParams: Prom
 
         <aside className="space-y-4 min-[1800px]:sticky min-[1800px]:top-16 min-[1800px]:self-start">
           <section className="card overflow-hidden !p-0">
-            <div className="flex items-center gap-3 bg-gradient-to-br from-[#2a241e] to-[#191613] px-4 py-3.5 text-[#f3eadb]">
+            <div className="flex items-center gap-3 bg-gradient-to-br from-[#2a241e] to-[#15120f] px-4 py-3.5 text-[#f4f1ea]">
               <Seal size={38} id="seal-radar" />
-              <div><div className="font-serif text-[19px] leading-tight">Radar ALVVO</div><div className="text-[11px] text-[#efe7da]/55">Ações para ficar de olho · {rad.pool} líquidas analisadas</div></div>
+              <div><div className="text-[19px] font-semibold tracking-[-0.02em] leading-tight">Radar ALVVO</div><div className="text-[11px] text-[#f4f1ea]/55">Ações para ficar de olho · {rad.pool} líquidas analisadas</div></div>
             </div>
             <div className="grid gap-x-6 gap-y-4 p-4 md:grid-cols-2 xl:grid-cols-4 min-[1800px]:grid-cols-1">
               {rad.pool === 0 ? <p className="text-sm text-ink/50">O radar aparece depois da primeira atualização das cotações.</p> : (<>

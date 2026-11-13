@@ -66,7 +66,7 @@ export function CaptacaoSim({ d }: { d: SimData }) {
   const noData = !Object.keys(d.credit.mods).length;
 
   const chip = (on: boolean, set: (v: boolean) => void, label: string) => (
-    <button type="button" onClick={() => set(!on)} aria-pressed={on} className={`min-h-[36px] rounded-full px-3 text-[13px] font-medium ${on ? "border border-[#7d5f36] bg-brand-soft text-[#5c4526]" : "border border-ink/12 bg-white text-ink/55"}`}>{on ? "✓ " : ""}{label}</button>
+    <button type="button" onClick={() => set(!on)} aria-pressed={on} className={`min-h-[36px] rounded-full px-3 text-[13px] font-medium ${on ? "border border-[#7a5c32] bg-brand-soft text-[#5c4526]" : "border border-ink/12 bg-white text-ink/55"}`}>{on ? "✓ " : ""}{label}</button>
   );
 
   return (
@@ -108,7 +108,7 @@ export function CaptacaoSim({ d }: { d: SimData }) {
               <td className="num">{pct(r.monthly, 2)}</td>
               <td className="num font-semibold">{pct(r.annual, 1)}</td>
               <td className="num">{brl(r.pmt)}</td>
-              <td><div className="flex items-center gap-2"><div className="h-2 flex-1 rounded-full bg-ink/[0.06]"><div className="h-2 rounded-full" style={{ width: `${Math.max(2, (r.juros / max) * 100)}%`, background: r.source === "proprio" ? "#4f7a52" : r.tone === "bad" ? "#a33f30" : "#b8955a" }} /></div><span className="w-24 text-right tabular-nums">{compact(r.juros)}</span></div></td>
+              <td><div className="flex items-center gap-2"><div className="h-2 flex-1 rounded-full bg-ink/[0.06]"><div className="h-2 rounded-full" style={{ width: `${Math.max(2, (r.juros / max) * 100)}%`, background: r.source === "proprio" ? "#4f7a52" : r.tone === "bad" ? "#a33f30" : "#c9973f" }} /></div><span className="w-24 text-right tabular-nums">{compact(r.juros)}</span></div></td>
               <td className="!pr-5 text-[12.5px] text-ink/60">{r.requires}</td>
             </tr>
           ))}</tbody>

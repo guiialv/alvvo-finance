@@ -62,8 +62,8 @@ export default async function ParcelamentosPage({ searchParams }: { searchParams
       </PageHeader>
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <Kpi label={`Neste ciclo (${cycleLabel(current)})`} value={curTotal} accent="#7d5f36" sub="parcelas na fatura atual" />
-        <Kpi label={`Próximo ciclo (${cycleLabel(shiftCycle(current, 1))})`} value={nextTotal} accent="#b8955a" sub="já comprometido" />
+        <Kpi label={`Neste ciclo (${cycleLabel(current)})`} value={curTotal} accent="#7a5c32" sub="parcelas na fatura atual" />
+        <Kpi label={`Próximo ciclo (${cycleLabel(shiftCycle(current, 1))})`} value={nextTotal} accent="#c9973f" sub="já comprometido" />
         <Kpi label="Total a vencer" value={future} accent="#a33f30" sub={`${open.length} compras em aberto`} />
         <div className="card relative overflow-hidden"><div className="absolute inset-x-0 top-0 h-0.5 bg-[#4a5a73]" /><div className="label">Cartão livre de parcelas em</div><div className="mt-1 text-[26px] font-semibold tracking-tight">{open.length ? cycleLong(shiftCycle(lastCycle, 1)) : "—"}</div><div className="mt-1 text-xs text-ink/45">se nenhuma compra nova for parcelada</div></div>
       </div>

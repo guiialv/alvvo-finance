@@ -1,13 +1,13 @@
-export const metadata = { title: "Política de Privacidade — ALVVO Finance" };
+export const metadata = { title: "Política de Privacidade — alvvo finance" };
 
 export default function PrivacyPage() {
   return (
     <main className="mx-auto max-w-2xl px-6 py-12 text-sm leading-relaxed text-ink/80">
-      <a href="/login" className="text-brand">← ALVVO Finance</a>
+      <a href="/login" className="text-brand">← alvvo finance</a>
       <h1 className="mb-1 mt-4">Política de Privacidade</h1>
       <p className="mb-6 text-xs text-ink/50">Versão beta · atualizada em novembro de 2026</p>
       <h2 className="mt-6">Quem somos</h2>
-      <p>O ALVVO Finance é uma plataforma de gestão financeira pessoal e familiar, em fase de testes fechada (beta), operada pela ALVVO. Contato: guii.alv7@gmail.com.</p>
+      <p>O alvvo finance é uma plataforma de gestão financeira pessoal e familiar, em fase de testes fechada (beta), operada pela alvvo. Contato: guii.alv7@gmail.com.</p>
       <h2 className="mt-6">Quais dados coletamos</h2>
       <ul className="list-disc pl-5">
         <li>Dados de cadastro: nome e e-mail. Se você entrar com o Google, recebemos só o nome, o e-mail e a foto do perfil.</li>

@@ -12,7 +12,7 @@ export default async function SimulacoesPage() {
         {GROUPS.map((g) => (
           <section key={g.title} className={`flex flex-col gap-3 rounded-[22px] p-5 ${g.dark ? "bg-espresso text-[#f6efe2]" : "border border-ink/[0.07] bg-surface"}`}>
             <div className="flex items-baseline justify-between gap-2">
-              <h2 className="font-serif text-[28px] font-normal">{g.title}</h2>
+              <h2 className="text-[28px] font-semibold tracking-[-0.02em]">{g.title}</h2>
               {g.dark && <span className="text-[10.5px] font-semibold uppercase tracking-[0.16em] text-[#d9b77e]">novo</span>}
             </div>
             <p className={`text-sm ${g.dark ? "text-[#cfc3b0]" : "text-ink/60"}`}>{g.desc}</p>

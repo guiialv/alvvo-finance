@@ -49,7 +49,7 @@ export function ConsorcioSim({ d }: { d: SimData }) {
           <div key={o.k} className={`card flex flex-col gap-2 ${o.k === cheapest.k ? "ring-2 ring-[#4f7a52]/40" : ""}`}>
             <div className="flex items-baseline justify-between gap-2"><h3 className="text-[16px] font-semibold">{o.label}</h3>{o.k === cheapest.k && <span className="text-[11px] font-semibold uppercase tracking-wider text-gain">mais barato</span>}</div>
             <div className="display text-[30px] leading-none">{isFinite(o.total) ? compact(o.total) : "—"}</div>
-            <div className="h-2 rounded-full bg-ink/[0.06]"><div className="h-2 rounded-full bg-[#b8955a]" style={{ width: `${isFinite(o.total) ? (o.total / max) * 100 : 0}%` }} /></div>
+            <div className="h-2 rounded-full bg-ink/[0.06]"><div className="h-2 rounded-full bg-[#c9973f]" style={{ width: `${isFinite(o.total) ? (o.total / max) * 100 : 0}%` }} /></div>
             <div className="text-sm"><b>Tem o bem:</b> {o.have}</div>
             <div className="text-sm text-ink/65">{o.pmt}</div>
             <div className="text-[12px] text-ink/50">{o.extra}</div>

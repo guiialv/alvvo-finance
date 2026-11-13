@@ -35,7 +35,7 @@ export default async function CarteirasPage() {
             const st = portfolioStats(its, price);
             return (
               <Link key={p.id} href={`/mercado/carteiras/${p.id}`} className="card group flex flex-col gap-3 transition hover:border-gold/40">
-                <div><div className="eyebrow">{its.length} ativo(s)</div><h2 className="mt-1 font-serif text-[24px] font-normal leading-tight group-hover:underline">{p.name}</h2>
+                <div><div className="eyebrow">{its.length} ativo(s)</div><h2 className="mt-1 text-[24px] font-semibold tracking-[-0.02em] leading-tight group-hover:underline">{p.name}</h2>
                   {p.description && <p className="mt-1 line-clamp-2 text-sm text-ink/55">{p.description}</p>}</div>
                 <div className="mt-auto flex items-end justify-between border-t border-ink/[0.06] pt-3">
                   <div><div className="label !mb-0">Desde a inclusão</div><div className={`display text-[26px] ${st.ret == null ? "text-ink/30" : st.ret >= 0 ? "text-gain" : "text-loss"}`}>{st.ret == null ? "—" : `${st.ret >= 0 ? "+" : ""}${(st.ret * 100).toFixed(1).replace(".", ",")}%`}</div></div>

@@ -81,7 +81,7 @@ export function AlavancagemSim({ d, init }: { d: SimData; init: { valor?: number
       <section className="card">
         <h2 className="mb-3">{cur.x.label}: com dívida × sem dívida</h2>
         <LineChart xLabel={(i) => `${Math.round((pts[i]?.m ?? 0))}m`} series={[
-          { label: "Com dívida (investe tudo hoje, paga as parcelas)", color: "#7d5f36", values: pts.map((p) => p.withDebt), area: true },
+          { label: "Com dívida (investe tudo hoje, paga as parcelas)", color: "#7a5c32", values: pts.map((p) => p.withDebt), area: true },
           { label: "Sem dívida (investe a parcela todo mês)", color: "#8a9a7b", values: pts.map((p) => p.without) },
         ]} />
         <Note>Os dois caminhos têm o mesmo esforço mensal (a parcela). Retornos esperados são premissas suas, não garantia: a parcela é fixa, o retorno não — por isso a faixa pessimista importa.</Note>

@@ -152,7 +152,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
         <Kpi label="Receitas" value={s.receitas} accent="#4f7a52" sub={<Delta cur={s.receitas} prev={p.receitas} prevLabel={cycleLabel(prevC)} />} />
         <Kpi label="Despesas" value={s.despesas} accent="#a33f30" sub={<Delta cur={s.despesas} prev={p.despesas} invert prevLabel={cycleLabel(prevC)} />} />
         <Kpi label="Investido" value={s.investimentos} accent="#4a5a73" sub={s.receitas ? `${formatPct(s.investimentos / s.receitas)} da receita` : "—"} />
-        <Kpi label="Sobra do ciclo" value={s.saldo} accent={s.saldo >= 0 ? "#7d5f36" : "#a33f30"} sub={s.receitas ? `${formatPct(s.saldo / s.receitas)} da receita` : "—"} />
+        <Kpi label="Sobra do ciclo" value={s.saldo} accent={s.saldo >= 0 ? "#7a5c32" : "#a33f30"} sub={s.receitas ? `${formatPct(s.saldo / s.receitas)} da receita` : "—"} />
       </div>
 
       <section className="card mt-4 grid grid-cols-2 gap-4 !py-4 md:grid-cols-[1fr_1fr_1fr_1.2fr] md:gap-5 md:divide-x md:divide-ink/[0.06]">
@@ -160,7 +160,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
         <div className="md:pl-5"><div className="label">Pago</div><div className="display text-[22px] leading-tight">{formatBRL(pago)}</div><div className="text-xs text-ink/45">despesas e aportes do ciclo</div></div>
         <div className="md:pl-5"><div className="label">Falta pagar</div><div className={`display text-[22px] leading-tight ${aPagar ? "text-[#b0703f]" : ""}`}>{formatBRL(aPagar)}</div><div className="text-xs text-ink/45">contas da agenda em aberto</div></div>
         <div className="col-span-2 md:col-span-1 md:pl-5"><div className="label flex items-center gap-1.5">Saldo previsto no fim do ciclo</div><div className={`display text-[28px] leading-tight ${saldoPrev >= 0 ? "text-gain" : "text-loss"}`}>{formatBRL(saldoPrev)}</div>
-          <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-ink/[0.06]"><div className="h-full rounded-full bg-[#7d5f36]" style={{ width: `${Math.min(100, ((pago) / Math.max(1, pago + aPagar)) * 100)}%` }} /></div>
+          <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-ink/[0.06]"><div className="h-full rounded-full bg-[#7a5c32]" style={{ width: `${Math.min(100, ((pago) / Math.max(1, pago + aPagar)) * 100)}%` }} /></div>
           <div className="mt-1 text-[11px] text-ink/45">{pago + aPagar ? `${Math.round((pago / (pago + aPagar)) * 100)}% dos compromissos já pagos` : ""}</div></div>
       </section>
 
@@ -204,7 +204,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
       {flow && flow.receitas > 0 && (
         <section className="card mt-5 px-6">
           <div className="mb-2 flex flex-wrap items-baseline justify-between gap-2">
-            <div><div className="eyebrow">Fluxo de {cycleLong(cycle).toLowerCase()}</div><h2 className="mt-1 font-serif text-[24px] font-normal">Para onde foi sua renda</h2></div>
+            <div><div className="eyebrow">Fluxo de {cycleLong(cycle).toLowerCase()}</div><h2 className="mt-1 text-[24px] font-semibold tracking-[-0.02em]">Para onde foi sua renda</h2></div>
             <Link href={`/fluxo?ciclo=${cycle}`} className="text-sm text-brand hover:underline">Ver fluxo completo →</Link>
           </div>
           <Sankey data={flow} compact />
@@ -217,12 +217,12 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
             <section className="card">
               <div className="mb-3 flex items-baseline justify-between"><div><h2>Seus cartões</h2><p className="text-xs text-ink/45">Fatura deste ciclo e a próxima</p></div><Link href="/faturas" className="text-sm text-brand hover:underline">Faturas →</Link></div>
               <div className="space-y-3">{cards.slice(0, 4).map((c) => (
-                <div key={c.id} className="rounded-2xl bg-gradient-to-br from-[#2a241e] to-[#191613] p-3.5 text-[#efe7da]">
-                  <div className="flex items-center justify-between text-xs"><span className="font-medium">{c.name}</span><span className="tracking-[0.2em] text-[#efe7da]/50">•••• {c.last4 ?? ""}</span></div>
+                <div key={c.id} className="rounded-2xl bg-gradient-to-br from-[#2a241e] to-[#15120f] p-3.5 text-[#f4f1ea]">
+                  <div className="flex items-center justify-between text-xs"><span className="font-medium">{c.name}</span><span className="tracking-[0.2em] text-[#f4f1ea]/50">•••• {c.last4 ?? ""}</span></div>
                   <div className="mt-2 flex items-end justify-between"><div><div className="text-[10px] uppercase tracking-[0.16em] text-gold/80">Fatura do ciclo</div><div className="display text-[22px] text-[#f6efe2]">{formatBRL(c.fat)}</div></div>
-                    {c.next > 0 && <div className="text-right text-[11px] text-[#efe7da]/55">próxima<div className="tabular-nums text-[#efe7da]/80">{formatBRL(c.next)}</div></div>}</div>
+                    {c.next > 0 && <div className="text-right text-[11px] text-[#f4f1ea]/55">próxima<div className="tabular-nums text-[#f4f1ea]/80">{formatBRL(c.next)}</div></div>}</div>
                   <div className="mt-2 h-1 overflow-hidden rounded-full bg-white/10"><div className="h-full rounded-full bg-gold" style={{ width: `${((c.fat + c.next) / maxFat) * 100}%` }} /></div>
-                  {(c.closing || c.due) && <div className="mt-1.5 flex justify-between text-[10.5px] text-[#efe7da]/45">{c.closing ? <span>Fecha dia {c.closing}</span> : <span />}{c.due ? <span>Vence dia {c.due}</span> : null}</div>}
+                  {(c.closing || c.due) && <div className="mt-1.5 flex justify-between text-[10.5px] text-[#f4f1ea]/45">{c.closing ? <span>Fecha dia {c.closing}</span> : <span />}{c.due ? <span>Vence dia {c.due}</span> : null}</div>}
                 </div>))}</div>
             </section>)}
           {seeGoals && (
@@ -236,7 +236,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
                       <div className="flex items-center gap-3"><CatIcon name={g.name} grp="Investimentos" size="h-8 w-8 text-[15px]" />
                         <div className="min-w-0 flex-1"><div className="truncate text-sm font-medium">{g.name}</div><div className="text-xs text-ink/45">{tgt ? `${Math.round(pc * 100)}% do objetivo` : "sem meta definida"}</div></div>
                         <div className="text-right"><div className="text-sm font-medium tabular-nums">{formatBRL(bal)}</div>{tgt ? <div className="text-[11px] tabular-nums text-ink/40">de {formatBRL(tgt).replace(/,\d{2}$/, "")}</div> : null}</div></div>
-                      <div className="ml-11 mt-1.5 h-1.5 overflow-hidden rounded-full bg-ink/[0.06]"><div className="h-full rounded-full" style={{ width: `${pc * 100}%`, background: pc >= 1 ? "#4f7a52" : "#b8955a" }} /></div>
+                      <div className="ml-11 mt-1.5 h-1.5 overflow-hidden rounded-full bg-ink/[0.06]"><div className="h-full rounded-full" style={{ width: `${pc * 100}%`, background: pc >= 1 ? "#4f7a52" : "#c9973f" }} /></div>
                     </div>);
                 })}</div>)}
             </section>)}
@@ -257,15 +257,15 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
           <div className="mb-2 flex items-center justify-between"><h2>Receitas × despesas</h2>
             <div className="flex gap-3 text-xs text-ink/55"><span className="flex items-center gap-1"><span className="h-2 w-2 rounded-sm bg-[#4f7a52]" />Receitas</span><span className="flex items-center gap-1"><span className="h-2 w-2 rounded-sm bg-[#a33f30]" />Despesas</span></div></div>
           <svg viewBox={`0 0 ${W} ${H}`} className="w-full">
-            {[0, 0.5, 1].map((f) => <line key={f} x1="0" x2={W} y1={150 - f * 130} y2={150 - f * 130} stroke="#1f1b17" strokeOpacity=".06" />)}
+            {[0, 0.5, 1].map((f) => <line key={f} x1="0" x2={W} y1={150 - f * 130} y2={150 - f * 130} stroke="#1d1915" strokeOpacity=".06" />)}
             {hist.map((x, i) => {
               const cx = gap * i + gap / 2, hr = (x.receitas / max) * 130, hd = (x.despesas / max) * 130, act = x.c === cycle;
               return (
                 <a key={x.c} href={`/?ciclo=${x.c}`}>
-                  <rect x={cx - gap / 2 + 4} y="0" width={gap - 8} height={H} rx="10" fill={act ? "#7d5f360d" : "transparent"} />
+                  <rect x={cx - gap / 2 + 4} y="0" width={gap - 8} height={H} rx="10" fill={act ? "#7a5c320d" : "transparent"} />
                   <rect x={cx - bw - 2} y={150 - hr} width={bw} height={Math.max(hr, 1)} rx="5" fill="#4f7a52" opacity={(act ? 1 : 0.55) * (x.est ? 0.45 : 1)}><title>{`Receitas ${formatBRL(x.receitas)}`}</title></rect>
                   <rect x={cx + 2} y={150 - hd} width={bw} height={Math.max(hd, 1)} rx="5" fill="#a33f30" opacity={(act ? 1 : 0.5) * (x.est ? 0.45 : 1)} strokeDasharray={x.est ? "3 3" : undefined} stroke={x.est ? "#a33f30" : undefined}><title>{`Despesas ${formatBRL(x.despesas)}${x.est ? " · sem extrato: compras do cartão (competência)" : ""}`}</title></rect>
-                  <text x={cx} y="170" textAnchor="middle" style={{ fontSize: 11, fontWeight: act ? 600 : 400 }} fill={act ? "#1f1b17" : "#1f1b1780"}>{cycleLabel(x.c).slice(0, 3)}</text>
+                  <text x={cx} y="170" textAnchor="middle" style={{ fontSize: 11, fontWeight: act ? 600 : 400 }} fill={act ? "#1d1915" : "#1d191580"}>{cycleLabel(x.c).slice(0, 3)}</text>
                   <text x={cx} y="185" textAnchor="middle" style={{ fontSize: 10 }} fill={x.saldo >= 0 ? "#4f7a52" : "#a33f30"}>{x.receitas || x.despesas ? `${x.saldo >= 0 ? "+" : "−"}${kfmt(Math.abs(x.saldo))}` : ""}</text>
                 </a>
               );
@@ -315,7 +315,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
               {limits.slice(0, 6).map((a) => (
                 <div key={a.cat!.id}>
                   <div className="mb-1 flex justify-between text-sm"><span>{a.cat!.name}</span><span className={`tabular-nums ${a.real > a.planned ? "font-medium text-rose-700" : "text-ink/60"}`}>{formatBRL(a.real)} <span className="text-ink/35">/ {formatBRL(a.planned)}</span></span></div>
-                  <Bar value={a.real} max={a.planned} color={a.real > a.planned ? "#a33f30" : "#b8955a"} />
+                  <Bar value={a.real} max={a.planned} color={a.real > a.planned ? "#a33f30" : "#c9973f"} />
                 </div>
               ))}
             </div>

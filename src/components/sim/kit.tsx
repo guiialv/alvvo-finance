@@ -39,7 +39,7 @@ export function Field({ label, value, onChange, kind = "money", min = 0, max, st
           onChange={(e) => setText(e.target.value)} onBlur={(e) => commit(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") commit((e.target as HTMLInputElement).value); }} />
         {suffix && <span className="text-sm text-ink/40">{suffix}</span>}
       </div>
-      <input aria-label={`${label} (controle deslizante)`} type="range" min={min} max={max} step={st} value={Math.min(max, Math.max(min, value))} onChange={(e) => onChange(Number(e.target.value))} className="w-full accent-[#7d5f36]" />
+      <input aria-label={`${label} (controle deslizante)`} type="range" min={min} max={max} step={st} value={Math.min(max, Math.max(min, value))} onChange={(e) => onChange(Number(e.target.value))} className="w-full accent-[#7a5c32]" />
     </div>
   );
 }
@@ -70,7 +70,7 @@ export function Answer({ children, sub }: { children: React.ReactNode; sub?: Rea
   return (
     <section className="rounded-[22px] bg-espresso px-6 py-5 text-[#f6efe2]">
       <div className="eyebrow !text-[#d9b77e]">Resposta</div>
-      <p className="mt-2 font-serif text-[26px] leading-snug sm:text-[30px]">{children}</p>
+      <p className="mt-2 text-[24px] font-light leading-snug tracking-[-0.02em] sm:text-[28px]">{children}</p>
       {sub && <p className="mt-2 text-sm leading-relaxed text-[#cfc3b0]">{sub}</p>}
     </section>
   );
@@ -97,8 +97,8 @@ export function LineChart({ series, xLabel, marker, height = 260 }: { series: Se
       <svg viewBox={`0 0 ${W} ${H}`} className="h-auto w-full" role="img" aria-label="Gráfico da simulação ao longo do tempo"
         onMouseMove={(e) => { const r = (e.currentTarget as SVGSVGElement).getBoundingClientRect(); const px = ((e.clientX - r.left) / r.width) * W; setHover(Math.max(0, Math.min(n - 1, Math.round(((px - P.l) / (W - P.l - P.r)) * (n - 1))))); }}
         onMouseLeave={() => setHover(null)}>
-        {ticks.map((t, k) => <g key={k}><line x1={P.l} x2={W - P.r} y1={y(t)} y2={y(t)} stroke="#1f1b17" strokeOpacity={0.06} /><text x={P.l - 8} y={y(t) + 4} textAnchor="end" fontSize="11" fill="#6b6459">{compact(t)}</text></g>)}
-        {lo < 0 && <line x1={P.l} x2={W - P.r} y1={y(0)} y2={y(0)} stroke="#1f1b17" strokeOpacity={0.3} />}
+        {ticks.map((t, k) => <g key={k}><line x1={P.l} x2={W - P.r} y1={y(t)} y2={y(t)} stroke="#1d1915" strokeOpacity={0.06} /><text x={P.l - 8} y={y(t) + 4} textAnchor="end" fontSize="11" fill="#6b6459">{compact(t)}</text></g>)}
+        {lo < 0 && <line x1={P.l} x2={W - P.r} y1={y(0)} y2={y(0)} stroke="#1d1915" strokeOpacity={0.3} />}
         {xt.map((i) => <text key={i} x={x(i)} y={H - 8} textAnchor="middle" fontSize="11" fill="#6b6459">{xLabel(i)}</text>)}
         {series.map((s) => {
           const d = s.values.map((v, i) => `${i ? "L" : "M"}${x(i).toFixed(1)},${y(v).toFixed(1)}`).join("");
@@ -107,8 +107,8 @@ export function LineChart({ series, xLabel, marker, height = 260 }: { series: Se
             <path d={d} fill="none" stroke={s.color} strokeWidth={2.2} strokeDasharray={s.dashed ? "5 5" : undefined} />
           </g>;
         })}
-        {marker && marker.index < n && <g><line x1={x(marker.index)} x2={x(marker.index)} y1={P.t} y2={H - P.b} stroke="#7d5f36" strokeDasharray="3 4" /><text x={x(marker.index) + 6} y={P.t + 12} fontSize="11" fill="#7d5f36">{marker.label}</text></g>}
-        {hover !== null && <line x1={x(hover)} x2={x(hover)} y1={P.t} y2={H - P.b} stroke="#1f1b17" strokeOpacity={0.25} />}
+        {marker && marker.index < n && <g><line x1={x(marker.index)} x2={x(marker.index)} y1={P.t} y2={H - P.b} stroke="#7a5c32" strokeDasharray="3 4" /><text x={x(marker.index) + 6} y={P.t + 12} fontSize="11" fill="#7a5c32">{marker.label}</text></g>}
+        {hover !== null && <line x1={x(hover)} x2={x(hover)} y1={P.t} y2={H - P.b} stroke="#1d1915" strokeOpacity={0.25} />}
       </svg>
       <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[12px] text-ink/60">
         {series.map((s) => <span key={s.label} className="inline-flex items-center gap-1.5"><span className="h-[3px] w-4 rounded" style={{ background: s.color }} />{s.label}{hover !== null && s.values[hover] !== undefined && <b className="tabular-nums text-ink/80">{compact(s.values[hover])}</b>}</span>)}

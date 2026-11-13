@@ -25,7 +25,7 @@ export default async function ConfigPage() {
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="max-w-2xl">
             <h2 className="mb-1">Acesso de suporte</h2>
-            <p className="text-sm text-ink/60">Se algo não estiver certo (uma fatura lida errado, um número que não bate), você pode liberar temporariamente o suporte do ALVVO para olhar a sua conta. É <b>só leitura</b>, expira sozinho, aparece em Membros e acessos e fica no registro de atividades. Sem a sua liberação, ninguém do suporte vê seus dados na plataforma.</p>
+            <p className="text-sm text-ink/60">Se algo não estiver certo (uma fatura lida errado, um número que não bate), você pode liberar temporariamente o suporte da alvvo para olhar a sua conta. É <b>só leitura</b>, expira sozinho, aparece em Membros e acessos e fica no registro de atividades. Sem a sua liberação, ninguém do suporte vê seus dados na plataforma.</p>
           </div>
           {supportUntil ? (
             <div className="flex flex-col items-end gap-2">

@@ -1,52 +1,52 @@
 /**
- * Identidade ALVVO.
- * Marca: linhas verticais que desenham um “A” — o topo sobe como um gráfico em alta e a abertura da letra fica no centro.
+ * Identidade alvvo (holding) · área finance.
+ * Símbolo: forma da área (moeda) + corte em A — dois cortes diagonais saindo do centro do topo, 19° da vertical,
+ * espessura 6,5% da largura (mais grossa em tamanhos pequenos). Assinatura: "alvvo" em Outfit 500, minúsculas,
+ * espaço −0,035em; a área ("finance") logo abaixo, Outfit 400, 30% do tamanho, na cor da área.
  */
-// Linhas verticais que desenham um “A”: o topo sobe até um pico e a abertura da letra fica embaixo, no centro.
-// [topo, base] de cada linha num quadro de 40 × 40.
-const LINES: [number, number][] = [[28, 36], [22, 36], [15, 36], [8, 25], [4, 22], [8, 25], [15, 36], [22, 36], [28, 36]];
-const X0 = 4.4, STEP = 3.9, BW = 2.2;
+import { useId } from "react";
 
-export function BrandMark({ className = "h-8 w-8", color = "currentColor", animated = false, size }: { className?: string; color?: string; animated?: boolean; size?: number }) {
+export const FINANCE = { dark: "#E2A64B", light: "#8F5E13" } as const;
+const COIN = "M50 0A50 50 0 1 1 49.99 0Z";
+
+/** Símbolo (moeda com corte em A). `color` = cor da forma; o corte é transparente. */
+export function BrandMark({ className = "h-8 w-8", color = FINANCE.dark, size, animated = false }: { className?: string; color?: string; size?: number; animated?: boolean }) {
+  const id = useId().replace(/:/g, "");
+  const px = size ?? 32;
+  const stroke = px <= 16 ? 9 : px <= 24 ? 8 : 6.5;
   return (
-    <svg viewBox="0 0 40 40" className={className} width={size} height={size} aria-hidden fill={color}>
-      {LINES.map(([top, bottom], i) => {
-        const x = X0 + i * STEP;
-        const style = animated ? { animation: `alvvo-rise 1s cubic-bezier(.2,.7,.2,1) ${Math.abs(i - 4) * 90}ms infinite alternate`, transformOrigin: `${x + BW / 2}px ${bottom}px` } : undefined;
-        return <rect key={i} x={x} y={top} width={BW} height={bottom - top} rx={BW / 2} style={style} />;
-      })}
+    <svg viewBox="-4 -4 108 108" className={className} width={size} height={size} aria-hidden
+      style={animated ? { animation: "alvvo-pulse 1.4s cubic-bezier(.4,0,.2,1) infinite alternate" } : undefined}>
+      <mask id={`am${id}`}>
+        <rect x="-4" y="-4" width="108" height="108" fill="#fff" />
+        <g stroke="#000" strokeWidth={stroke}><line x1="50" y1="-10" x2="9" y2="112" /><line x1="50" y1="-10" x2="91" y2="112" /></g>
+      </mask>
+      <path fill={color} mask={`url(#am${id})`} d={COIN} />
     </svg>
   );
 }
 
-/** Marca + nome em serifa. */
-export function Wordmark({ className = "", markClass = "h-8 w-8", tone = "light" }: { className?: string; markClass?: string; tone?: "light" | "dark" }) {
-  const c = tone === "light" ? "#d8bf8f" : "#1f1b17";
+/** Assinatura: símbolo + "alvvo" + área. `size` = altura do "alvvo" em px. */
+export function Wordmark({ className = "", size = 26, tone = "light", area = "finance", markClass }: { className?: string; size?: number; tone?: "light" | "dark"; area?: string | null; markClass?: string }) {
+  const name = tone === "light" ? "#F4F1EA" : "#1D1915";
+  const accent = tone === "light" ? FINANCE.dark : FINANCE.light;
+  const markPx = Math.round(size * (area ? 1.3 : 1.05));
   return (
-    <span className={`inline-flex items-center gap-2.5 ${className}`}>
-      <BrandMark className={markClass} color={c} />
-      <span className="font-serif text-[24px] leading-none tracking-[0.14em]" style={{ color: tone === "light" ? "#f3eadb" : "#1f1b17" }}>ALVVO</span>
+    <span className={`inline-flex items-center ${className}`} style={{ gap: Math.round(size * 0.28) }}>
+      <BrandMark className={markClass ?? ""} size={markClass ? undefined : markPx} color={accent} />
+      <span className="flex flex-col" style={{ gap: Math.max(3, Math.round(size * 0.15)) }}>
+        <span style={{ fontWeight: 500, fontSize: size, letterSpacing: "-0.035em", lineHeight: 0.82, color: name }}>alvvo</span>
+        {area && <span style={{ fontWeight: 400, fontSize: Math.max(11, Math.round(size * 0.3)), lineHeight: 1, color: accent, paddingLeft: 1 }}>{area}</span>}
+      </span>
     </span>
   );
 }
 
-/** Selo-medalha em ouro escovado, usado em destaques da plataforma (ex.: “Leitura ALVVO” de um ativo). */
-export function Seal({ size = 64, id = "seal" }: { size?: number; id?: string }) {
+/** Selo "Leitura alvvo": moeda escura sobre disco dourado. */
+export function Seal({ size = 64 }: { size?: number; id?: string }) {
   return (
-    <svg viewBox="0 0 64 64" width={size} height={size} aria-hidden>
-      <defs>
-        <radialGradient id={`${id}-g`} cx="35%" cy="30%" r="80%">
-          <stop offset="0" stopColor="#f3e3bf" /><stop offset=".45" stopColor="#cfb07a" /><stop offset=".8" stopColor="#a8834f" /><stop offset="1" stopColor="#7d5f36" />
-        </radialGradient>
-        <linearGradient id={`${id}-r`} x1="0" y1="0" x2="1" y2="1"><stop offset="0" stopColor="#fff6e2" stopOpacity=".9" /><stop offset="1" stopColor="#6b4f2c" stopOpacity=".8" /></linearGradient>
-      </defs>
-      <circle cx="32" cy="32" r="31" fill={`url(#${id}-g)`} />
-      <circle cx="32" cy="32" r="27.5" fill="none" stroke={`url(#${id}-r)`} strokeWidth="1.2" />
-      <circle cx="32" cy="32" r="25" fill="none" stroke="#6b4f2c" strokeOpacity=".25" strokeWidth=".6" strokeDasharray="1 1.6" />
-      <g transform="translate(14 13)">
-        <g transform="translate(.7 .8)" opacity=".4"><BrandMark className="" size={36} color="#4a3519" /></g>
-        <BrandMark className="" size={36} color="#fbf1dc" />
-      </g>
-    </svg>
+    <span className="inline-grid shrink-0 place-items-center rounded-full" style={{ width: size, height: size, background: FINANCE.dark, boxShadow: `inset 0 0 0 ${Math.round(size * 0.04)}px ${FINANCE.dark}, inset 0 0 0 ${Math.round(size * 0.04) + 1}px #7A5C32` }}>
+      <BrandMark size={Math.round(size * 0.56)} color="#0E0C0A" />
+    </span>
   );
 }

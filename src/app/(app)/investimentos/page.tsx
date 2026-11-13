@@ -50,7 +50,7 @@ export default async function InvestPage({ searchParams }: { searchParams: Promi
           <Kpi label="Custo de aquisição" value={sm.invested} accent="#6b6459" />
           <Kpi label="Resultado em aberto" value={sm.total - sm.invested} tone="auto" accent={sm.total - sm.invested >= 0 ? "#4f7a52" : "#a33f30"} sub={sm.invested ? pctS((sm.total - sm.invested) / sm.invested) : undefined} />
           <Kpi label="Resultado realizado" value={sm.realized} accent="#4a5a73" sub="todas as vendas, já descontados custos" />
-          <Kpi label="Proventos 12 meses" value={sm.divs12} accent="#b8955a" />
+          <Kpi label="Proventos 12 meses" value={sm.divs12} accent="#c9973f" />
         </div>
       )}
       <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-ink/50">
@@ -182,7 +182,7 @@ export default async function InvestPage({ searchParams }: { searchParams: Promi
     const StoryRow = ({ s }: { s: Story }) => (
       <article className="py-3.5">
         <div className="mb-1 flex flex-wrap items-center gap-1.5 text-[11px]">
-          {s.mine.map((t) => <span key={t} className="rounded-full bg-[#b8955a]/15 px-2 py-0.5 font-semibold text-[#8a6a34]">sua carteira · {t}</span>)}
+          {s.mine.map((t) => <span key={t} className="rounded-full bg-[#c9973f]/15 px-2 py-0.5 font-semibold text-[#8a6a34]">sua carteira · {t}</span>)}
           {s.topics.map((t) => <span key={t} className="rounded-full bg-ink/[0.05] px-2 py-0.5 text-ink/55">{t}</span>)}
         </div>
         <a href={s.lead.url} target="_blank" rel="noreferrer" className="text-[15.5px] font-medium leading-snug hover:underline">{s.lead.title}</a>

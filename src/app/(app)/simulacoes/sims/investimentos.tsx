@@ -5,7 +5,7 @@ import { irRate, ratePathFrom, simulateProduct, type Product, type ProductKind }
 import { Answer, brl, compact, Field, Hi, Layout, LineChart, Note, pct, years } from "@/components/sim/kit";
 import type { SimData } from "./types";
 
-const COLORS = ["#7d5f36", "#8a9a7b", "#4a5a73", "#b8955a", "#a36b4f", "#6b6459", "#3d7a74"];
+const COLORS = ["#7a5c32", "#8a9a7b", "#4a5a73", "#c9973f", "#a36b4f", "#6b6459", "#3d7a74"];
 const KIND_LABEL: Record<ProductKind, string> = { cdb: "% do CDI", lci: "% do CDI (isento)", selic: "Selic +", pre: "% a.a.", ipca: "IPCA +", poupanca: "regra da poupança", acoes: "% a.a. (premissa)" };
 
 export function InvestSim({ d, tesouro }: { d: SimData; tesouro: { pre: number | null; ipca: number | null } }) {

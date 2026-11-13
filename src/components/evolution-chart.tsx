@@ -23,14 +23,14 @@ export function EvolutionChart({ points, width = 720, height = 210 }: { points: 
   return (
     <svg viewBox={`0 0 ${width} ${height}`} className="h-auto w-full" role="img" aria-label="Evolução do saldo no ciclo">
       <defs>
-        <linearGradient id="evo-pos" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#7d5f36" stopOpacity=".22" /><stop offset="1" stopColor="#7d5f36" stopOpacity="0" /></linearGradient>
+        <linearGradient id="evo-pos" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#7a5c32" stopOpacity=".22" /><stop offset="1" stopColor="#7a5c32" stopOpacity="0" /></linearGradient>
       </defs>
-      {ticks.map((v, i) => <g key={i}><line x1={padL} x2={width - padR} y1={Y(v)} y2={Y(v)} stroke="#1f1b17" strokeOpacity=".05" strokeDasharray="2 4" />
+      {ticks.map((v, i) => <g key={i}><line x1={padL} x2={width - padR} y1={Y(v)} y2={Y(v)} stroke="#1d1915" strokeOpacity=".05" strokeDasharray="2 4" />
         <text x={padL - 8} y={Y(v) + 3.5} textAnchor="end" className="fill-ink/35 money-t" style={{ fontSize: 10 }}>{k(v)}</text></g>)}
-      <line x1={padL} x2={width - padR} y1={y0} y2={y0} stroke="#1f1b17" strokeOpacity=".15" />
+      <line x1={padL} x2={width - padR} y1={y0} y2={y0} stroke="#1d1915" strokeOpacity=".15" />
       {real.length > 1 && <path d={`${line(real)}L${X(last.i)},${y0}L${X(real[0].i)},${y0}Z`} fill="url(#evo-pos)" />}
-      {real.length > 1 && <path d={line(real)} fill="none" stroke="#7d5f36" strokeWidth={2} strokeLinejoin="round" />}
-      {proj.length > 1 && <path d={line(proj)} fill="none" stroke="#7d5f36" strokeOpacity=".55" strokeWidth={1.6} strokeDasharray="4 4" />}
+      {real.length > 1 && <path d={line(real)} fill="none" stroke="#7a5c32" strokeWidth={2} strokeLinejoin="round" />}
+      {proj.length > 1 && <path d={line(proj)} fill="none" stroke="#7a5c32" strokeOpacity=".55" strokeWidth={1.6} strokeDasharray="4 4" />}
       {points.map((p, i) => ((i % every === 0 && points.length - 1 - i >= every * 0.6) || i === points.length - 1) && (
         <text key={p.date} x={X(i)} y={height - 6} textAnchor={i === 0 ? "start" : i === points.length - 1 ? "end" : "middle"} className="fill-ink/35" style={{ fontSize: 10 }}>{p.date.slice(8, 10)}/{p.date.slice(5, 7)}</text>
       ))}
@@ -40,8 +40,8 @@ export function EvolutionChart({ points, width = 720, height = 210 }: { points: 
           <title>{`${p.date.slice(8, 10)}/${p.date.slice(5, 7)}${p.projected ? " (previsto)" : ""}\nEntradas: ${formatBRL(p.entrou)}\nSaídas: ${formatBRL(p.saiu)}\nSaldo: ${formatBRL(p.saldo)}`}</title>
         </rect>
       ))}
-      {last && <circle cx={X(last.i)} cy={Y(last.saldo)} r={4} fill="#7d5f36" stroke="#fffdf9" strokeWidth={2} />}
-      {end.projected && <circle cx={X(points.length - 1)} cy={Y(end.saldo)} r={3} fill="#fffdf9" stroke="#7d5f36" strokeWidth={1.5} />}
+      {last && <circle cx={X(last.i)} cy={Y(last.saldo)} r={4} fill="#7a5c32" stroke="#fffdf9" strokeWidth={2} />}
+      {end.projected && <circle cx={X(points.length - 1)} cy={Y(end.saldo)} r={3} fill="#fffdf9" stroke="#7a5c32" strokeWidth={1.5} />}
     </svg>
   );
 }

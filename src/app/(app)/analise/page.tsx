@@ -14,7 +14,7 @@ import { RendaFixa } from "./renda-fixa";
 const VERD_C: Record<string, string> = { "Compra forte": "#4f7a52", Compra: "#7d9a72", Neutro: "#8c8579", Venda: "#c0784a", "Venda forte": "#a33f30" };
 const ACT_C: Record<string, string> = { Compra: "bg-emerald-600 text-white", Neutro: "bg-ink/10 text-ink/70", Venda: "bg-rose-600 text-white" };
 const pct = (v: number | null) => (v == null ? "—" : `${v >= 0 ? "+" : ""}${(v * 100).toFixed(2).replace(".", ",")}%`);
-const perfStyle = (v: number | null) => { if (v == null) return { color: "#1f1b1755" }; const a = Math.min(1, Math.abs(v) / 0.5) * 0.28 + 0.04; return v >= 0 ? { background: `rgba(21,128,61,${a})`, color: "#14532d" } : { background: `rgba(225,29,72,${a})`, color: "#881337" }; };
+const perfStyle = (v: number | null) => { if (v == null) return { color: "#1d191555" }; const a = Math.min(1, Math.abs(v) / 0.5) * 0.28 + 0.04; return v >= 0 ? { background: `rgba(21,128,61,${a})`, color: "#14532d" } : { background: `rgba(225,29,72,${a})`, color: "#881337" }; };
 const money = (v: number | null) => (v == null ? "" : v.toLocaleString("pt-BR", { minimumFractionDigits: 2 }));
 
 export default async function AnalysisPage({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {

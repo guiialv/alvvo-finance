@@ -27,10 +27,10 @@ const STEPS = ["Venda forte", "Venda", "Neutro", "Compra", "Compra forte"];
 const pct = (v: number) => `${v >= 0 ? "+" : ""}${(v * 100).toFixed(2).replace(".", ",")}%`;
 function Gauge({ verdict, label }: { verdict: string; label: string }) {
   const i = STEPS.indexOf(verdict);
-  return <div><div className="mb-1 text-[11px] font-semibold uppercase tracking-wider text-ink/40">{label}</div><div className="flex gap-0.5">{STEPS.map((s, k) => <div key={s} className="h-2 flex-1 rounded-sm" style={{ background: k === i ? VERD_C[s] : "#1f1b1712" }} />)}</div><div className="mt-1 text-sm font-semibold" style={{ color: VERD_C[verdict] }}>{verdict}</div></div>;
+  return <div><div className="mb-1 text-[11px] font-semibold uppercase tracking-wider text-ink/40">{label}</div><div className="flex gap-0.5">{STEPS.map((s, k) => <div key={s} className="h-2 flex-1 rounded-sm" style={{ background: k === i ? VERD_C[s] : "#1d191512" }} />)}</div><div className="mt-1 text-sm font-semibold" style={{ color: VERD_C[verdict] }}>{verdict}</div></div>;
 }
 
-const SERIES_COLORS = ["#4a5a73", "#5f7f5c", "#b8955a"];
+const SERIES_COLORS = ["#4a5a73", "#5f7f5c", "#c9973f"];
 const CLASSE: Record<string, string> = { BR: "Renda variável", US: "Renda variável (EUA)", FX: "Câmbio", CMD: "Commodity", IDX: "Índice" };
 
 export default async function TickerPage({ params, searchParams }: { params: Promise<{ ticker: string }>; searchParams: Promise<{ periodo?: string; vs?: string; add?: string }> }) {
@@ -99,7 +99,7 @@ export default async function TickerPage({ params, searchParams }: { params: Pro
   const firstPrice = candles.find((c) => c.date >= start)?.close ?? null;
   const b0 = benchSeries.find((b) => b.points.length);
   const b0Ret = b0 ? b0.points[b0.points.length - 1].v : null;
-  const series: Series[] = [{ label: ticker, color: "#1f1b17", points: assetPts, strong: true }, ...benchSeries.map((b) => ({ label: b.label, color: b.color, points: b.points }))];
+  const series: Series[] = [{ label: ticker, color: "#1d1915", points: assetPts, strong: true }, ...benchSeries.map((b) => ({ label: b.label, color: b.color, points: b.points }))];
   const perfHref = (p: { periodo?: string; vs?: string[] }) => `?periodo=${p.periodo ?? periodo}&vs=${encodeURIComponent((p.vs ?? vsList).join(","))}`;
 
   // ---------- Risco, pontos de atenção e pares ----------
@@ -191,9 +191,9 @@ export default async function TickerPage({ params, searchParams }: { params: Pro
               <div className="mt-3 flex justify-between text-xs text-ink/55"><span>Suporte (60d): <b>{formatBRL(r.tech.support)}</b></span><span>Resistência: <b>{formatBRL(r.tech.resistance)}</b></span></div></section>)}
           {r.sug && (
             <section className="card overflow-hidden !p-0">
-              <div className="flex items-center gap-3 bg-gradient-to-br from-[#2a241e] to-[#191613] px-5 py-4 text-[#f3eadb]">
+              <div className="flex items-center gap-3 bg-gradient-to-br from-[#2a241e] to-[#15120f] px-5 py-4 text-[#f4f1ea]">
                 <Seal size={44} id={`seal-${ticker}`} />
-                <div><div className="font-serif text-[20px] leading-tight">Leitura ALVVO</div><div className="text-xs text-[#efe7da]/60">Sinal: <b className={r.sug.action === "Compra" ? "text-[#a9c39f]" : r.sug.action === "Venda" ? "text-[#e3a597]" : "text-[#efe7da]"}>{r.sug.action}</b> · técnico + fundamentos</div></div>
+                <div><div className="text-[20px] font-semibold tracking-[-0.02em] leading-tight">Leitura ALVVO</div><div className="text-xs text-[#f4f1ea]/60">Sinal: <b className={r.sug.action === "Compra" ? "text-[#a9c39f]" : r.sug.action === "Venda" ? "text-[#e3a597]" : "text-[#f4f1ea]"}>{r.sug.action}</b> · técnico + fundamentos</div></div>
               </div>
               <div className="p-5"><h2 className="mb-2">Por que “{r.sug.action}”?</h2>
               <ul className="space-y-1.5 text-sm text-ink/70">{r.sug.reasons.map((x, i) => <li key={i} className="flex gap-2"><span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-ink/30" />{x}</li>)}</ul>

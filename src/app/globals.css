@@ -1,24 +1,28 @@
 @import "tailwindcss";
 
 /*
- * ALVVO — identidade "luxo de entrada": marfim, espresso, bronze e sálvia.
+ * alvvo finance — base comum da holding (espresso, marfim, tinta, pedra) + cor da área finance (dourado #E2A64B / #8F5E13).
+ * Tipografia única: Outfit (títulos 600 com espaço apertado, texto 400, números grandes 300).
  * As escalas emerald/rose/amber/sky/violet/orange são retonalizadas para a mesma paleta,
  * assim todos os avisos e etiquetas seguem o visual sem cores saturadas.
  */
 @theme {
-  --font-sans: var(--font-inter), ui-sans-serif, system-ui, -apple-system, sans-serif;
-  --font-serif: var(--font-display), "Iowan Old Style", Georgia, serif;
+  --font-sans: var(--font-outfit), ui-sans-serif, system-ui, -apple-system, sans-serif;
+  /* "serif" virou o mesmo Outfit: a marca não usa serifa (classes antigas seguem funcionando) */
+  --font-serif: var(--font-outfit), ui-sans-serif, system-ui, sans-serif;
 
-  --color-ink: #1f1b17;
-  --color-paper: #f4f1eb;
-  --color-surface: #fffdf9;
-  --color-espresso: #191613;
-  --color-brand: #7d5f36;
-  --color-brand-soft: #efe5d3;
-  --color-gold: #b8955a;
+  --color-ink: #1d1915;        /* tinta */
+  --color-paper: #f4f1ea;      /* marfim */
+  --color-surface: #fffdf8;
+  --color-espresso: #15120f;   /* sidebar (base #0e0c0a) */
+  --color-stone: #6e6458;      /* pedra */
+  --color-brand: #7a5c32;      /* bronze de texto/destaque */
+  --color-brand-soft: #f1e6d2;
+  --color-gold: #e2a64b;       /* finance · sobre fundo escuro */
+  --color-finance: #8f5e13;    /* finance · sobre fundo claro (texto ok, 4,5:1+) */
   --color-sage: #8a9a7b;
-  --color-gain: #4f7a52;
-  --color-loss: #a33f30;
+  --color-gain: #4e6a47;
+  --color-loss: #a2412f;
 
   /* sálvia */
   --color-emerald-50: #f1f4ee; --color-emerald-100: #e2e9dc; --color-emerald-200: #c9d6c0; --color-emerald-500: #6f8f68;
@@ -40,29 +44,30 @@
 }
 
 @layer base {
-  body { @apply bg-paper text-ink antialiased; font-feature-settings: "cv11", "ss01"; }
-  h1 { @apply font-serif text-[28px] sm:text-[34px] font-normal leading-[1.1] tracking-[-0.01em]; }
-  h2 { @apply text-[15px] font-semibold tracking-tight; }
-  ::selection { background: #e8d9bd; }
+  body { @apply bg-paper text-ink antialiased; }
+  h1 { @apply text-[26px] sm:text-[32px] font-semibold leading-[1.08] tracking-[-0.02em]; }
+  h2 { @apply text-[15px] font-semibold tracking-[-0.01em]; }
+  ::selection { background: #f0d9ad; }
 }
 
 @layer components {
-  .card { @apply rounded-[20px] border border-ink/[0.07] bg-surface p-4 sm:p-5 shadow-[0_1px_0_rgba(31,27,23,.02),0_10px_30px_-18px_rgba(60,45,30,.18)]; }
-  .btn { @apply inline-flex items-center justify-center gap-2 rounded-full bg-ink px-5 py-2 text-sm font-medium text-[#f6efe2] transition hover:bg-[#3a322b] disabled:opacity-50; }
+  .card { @apply rounded-2xl border border-[#e2d8c6] bg-surface p-4 sm:p-5 shadow-[0_1px_0_rgba(29,25,21,.02),0_10px_30px_-20px_rgba(60,45,30,.16)]; }
+  .btn { @apply inline-flex items-center justify-center gap-2 rounded-full bg-espresso px-5 py-2 text-sm font-medium text-[#f6f2ea] transition hover:bg-[#2a241e] disabled:opacity-50; }
   .btn-ghost { @apply inline-flex items-center justify-center gap-2 rounded-full border border-ink/12 bg-surface px-4 py-2 text-sm font-medium text-ink transition hover:border-ink/25 hover:bg-white; }
-  .input { @apply w-full rounded-xl border border-ink/10 bg-surface px-3 py-2 text-sm outline-none transition focus:border-gold focus:ring-4 focus:ring-gold/15 disabled:bg-ink/[0.03] disabled:text-ink/40; }
-  .label { @apply mb-1 block text-[10.5px] font-medium uppercase tracking-[0.14em] text-ink/45; }
+  .input { @apply w-full rounded-2xl border border-[#d9cdb8] bg-surface px-3 py-2 text-sm outline-none transition focus:border-gold focus:ring-4 focus:ring-gold/15 disabled:bg-ink/[0.03] disabled:text-ink/40; }
+  .label { @apply mb-1 block text-[10.5px] font-medium uppercase tracking-[0.22em] text-stone; }
   .table { @apply w-full text-sm; }
-  .table th { @apply border-b border-ink/[0.08] px-4 py-3 text-left text-[10.5px] font-medium uppercase tracking-[0.12em] text-ink/40; }
+  .table th { @apply border-b border-ink/[0.08] px-4 py-3 text-left text-[10.5px] font-medium uppercase tracking-[0.2em] text-stone/80; }
   .table td { @apply border-b border-ink/[0.05] px-4 py-2.5 align-middle; }
   .num { @apply text-right tabular-nums whitespace-nowrap; }
   .chip { @apply inline-flex items-center gap-1 rounded-md bg-ink/[0.05] px-1.5 py-0.5 text-[11px] text-ink/55; }
-  /* Números de destaque em serifa, como em extratos de private banking */
-  .display { @apply font-serif font-normal tracking-[-0.01em] tabular-nums; }
-  .eyebrow { @apply text-[10.5px] font-medium uppercase tracking-[0.18em] text-gold; }
+  /* Números de destaque: Outfit leve, como no guia da marca */
+  .display { @apply font-light tracking-[-0.02em] tabular-nums; }
+  .eyebrow { @apply text-[10.5px] font-medium uppercase tracking-[0.28em] text-brand; }
 }
 
 /* ---------- Fluidez ---------- */
+@keyframes alvvo-pulse { from { transform: scale(.92); opacity: .55; } to { transform: scale(1); opacity: 1; } }
 @keyframes alvvo-rise { from { transform: scaleY(.35); opacity: .45; } to { transform: scaleY(1); opacity: 1; } }
 @keyframes alvvo-enter { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 @keyframes alvvo-shimmer { from { background-position: -400px 0; } to { background-position: 400px 0; } }

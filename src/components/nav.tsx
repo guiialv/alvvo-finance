@@ -36,18 +36,17 @@ export function Nav({ allowed, badges = {}, collapsed = false }: { allowed: stri
     <nav className={`flex flex-1 flex-col overflow-y-auto px-3 ${collapsed ? "md:px-2" : ""}`}>
       {sections.map((s, i) => (
         <div key={i} className={s.title ? "" : "mt-auto pt-2"}>
-          {s.title && <div className={`px-3 pb-1 pt-4 text-[9.5px] font-medium uppercase tracking-[0.22em] text-gold/55 ${collapsed ? "md:hidden" : ""}`}>{s.title}</div>}
+          {s.title && <div className={`px-3 pb-1 pt-4 text-[9.5px] font-medium uppercase tracking-[0.22em] text-[#b9ad9b]/70 ${collapsed ? "md:hidden" : ""}`}>{s.title}</div>}
           {s.title && collapsed && <div className="mx-3 mb-2 mt-4 hidden h-px bg-white/[0.06] md:block" />}
           {s.items.map((it) => {
             const active = it.href === "/" ? path === "/" : path.startsWith(it.href) && !(it.href === "/mercado" && path.startsWith("/mercado/carteiras"));
             return (
               <Link key={it.href} href={it.href} title={collapsed ? it.label : undefined}
-                className={`relative flex shrink-0 items-center gap-3 rounded-lg px-3 py-2 text-sm transition ${collapsed ? "md:justify-center md:px-0" : ""} ${active ? "bg-white/[0.07] font-medium text-[#f6efe2]" : "text-[#efe7da]/55 hover:bg-white/[0.04] hover:text-[#f6efe2]"}`}>
-                {active && <span className="absolute bottom-2 left-0 top-2 w-0.5 rounded-full bg-gold" />}
+                className={`relative flex shrink-0 items-center gap-3 rounded-2xl px-3 py-2 text-sm transition ${collapsed ? "md:justify-center md:px-0" : ""} ${active ? "bg-[#2a241e] font-semibold text-[#f6f2ea] shadow-[inset_2px_0_0_#e2a64b]" : "text-[#b9ad9b] hover:bg-white/[0.04] hover:text-[#f6f2ea]"}`}>
                 <Icon name={it.icon} className="h-[18px] w-[18px] shrink-0" />
                 <span className={`flex-1 whitespace-nowrap ${collapsed ? "md:hidden" : ""}`}>{it.label}</span>
                 {it.soon && <span className="hidden rounded bg-white/10 px-1.5 py-0.5 text-[9px] text-white/40 md:inline">{it.soon}</span>}
-                {badges[it.href] ? <span className={`rounded-full bg-gold px-1.5 text-[10px] font-semibold text-white ${collapsed ? "md:absolute md:right-1 md:top-1" : ""}`}>{badges[it.href]}</span> : null}
+                {badges[it.href] ? <span className={`rounded-full bg-gold px-1.5 text-[10px] font-semibold text-espresso ${collapsed ? "md:absolute md:right-1 md:top-1" : ""}`}>{badges[it.href]}</span> : null}
               </Link>
             );
           })}

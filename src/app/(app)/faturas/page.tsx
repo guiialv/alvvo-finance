@@ -134,21 +134,21 @@ function CardColumn({ s, edit, today, hrefFor, others }: { s: CardSummary; edit:
   const row = (l: string, v: number, neg = false) => v > 0.004 && <div className="flex justify-between py-0.5"><span className="text-ink/60">{l}</span><span className={`tabular-nums ${neg ? "text-gain" : ""}`}>{neg ? "− " : ""}{formatBRL(v)}</span></div>;
   return (
     <section className="card overflow-hidden !p-0">
-      <div className="relative overflow-hidden px-5 pb-4 pt-4 text-[#f3eadb]" style={{ background: `linear-gradient(135deg, ${color} 0%, #191613 140%)` }}>
-        <div className="pointer-events-none absolute -right-6 -top-6 opacity-[0.12]"><BrandMark size={120} color="#f3e3bf" /></div>
+      <div className="relative overflow-hidden px-5 pb-4 pt-4 text-[#f4f1ea]" style={{ background: `linear-gradient(135deg, ${color} 0%, #15120f 140%)` }}>
+        <div className="pointer-events-none absolute -right-6 -top-6 opacity-[0.12]"><BrandMark size={120} color="#E2A64B" /></div>
         <div className="relative flex items-start justify-between gap-3">
-          <div className="min-w-0"><div className="truncate font-serif text-[21px] leading-tight">{c.name}</div>
-            <div className="mt-0.5 text-[11.5px] text-[#efe7da]/60">{c.purpose ?? (edit ? "Defina o propósito deste cartão em ⚙" : "")}</div></div>
-          <div className="text-right text-[11px] uppercase tracking-[0.18em] text-[#efe7da]/70">{c.brand ?? ""}<div className="mt-1 tracking-[0.2em] text-[#efe7da]/45">•••• {(c.last4 ?? c.statement_key ?? "").slice(-4)}</div></div>
+          <div className="min-w-0"><div className="truncate text-[21px] font-semibold tracking-[-0.02em] leading-tight">{c.name}</div>
+            <div className="mt-0.5 text-[11.5px] text-[#f4f1ea]/60">{c.purpose ?? (edit ? "Defina o propósito deste cartão em ⚙" : "")}</div></div>
+          <div className="text-right text-[11px] uppercase tracking-[0.18em] text-[#f4f1ea]/70">{c.brand ?? ""}<div className="mt-1 tracking-[0.2em] text-[#f4f1ea]/45">•••• {(c.last4 ?? c.statement_key ?? "").slice(-4)}</div></div>
         </div>
-        {limitUse != null && <div className="relative mt-3"><div className="h-1 overflow-hidden rounded-full bg-white/15"><div className="h-full rounded-full bg-[#d8bf8f]" style={{ width: `${limitUse * 100}%` }} /></div><div className="mt-1 text-[10.5px] text-[#efe7da]/55">{Math.round(limitUse * 100)}% do limite de {formatBRL(Number(c.credit_limit)).replace(/,\d{2}$/, "")}</div></div>}
+        {limitUse != null && <div className="relative mt-3"><div className="h-1 overflow-hidden rounded-full bg-white/15"><div className="h-full rounded-full bg-[#e2a64b]" style={{ width: `${limitUse * 100}%` }} /></div><div className="mt-1 text-[10.5px] text-[#f4f1ea]/55">{Math.round(limitUse * 100)}% do limite de {formatBRL(Number(c.credit_limit)).replace(/,\d{2}$/, "")}</div></div>}
       </div>
 
       <div className="space-y-4 p-4">
-        <CardMonths months={s.months} selected={sel?.cycle ?? null} hrefFor={hrefFor} color={color === "#1f1b17" ? "#7d5f36" : color} />
+        <CardMonths months={s.months} selected={sel?.cycle ?? null} hrefFor={hrefFor} color={color === "#1d1915" ? "#7a5c32" : color} />
         {sel ? (<>
           <div>
-            <div className="flex items-baseline justify-between gap-2"><span className="font-serif text-[20px]">Fatura de {mesNome(sel.cycle)}</span><span className="display text-[26px]">{formatBRL(sel.total)}</span></div>
+            <div className="flex items-baseline justify-between gap-2"><span className="text-[20px] font-semibold tracking-[-0.02em]">Fatura de {mesNome(sel.cycle)}</span><span className="display text-[26px]">{formatBRL(sel.total)}</span></div>
             <div className={`text-[12px] ${statusCls}`}>{status}{vsAvg != null && Math.abs(vsAvg) >= 0.05 ? <span className="text-ink/45"> · {vsAvg > 0 ? "+" : ""}{Math.round(vsAvg * 100)}% vs. média</span> : null}</div>
             <div className="mt-3 divide-y divide-ink/[0.06] text-[13px]">
               <div className="flex justify-between py-1.5"><span className="text-ink/60">Melhor data de compra</span><span className="font-medium" title={best?.estimated ? "Estimado pelo vencimento; informe o fechamento em Configurar cartão" : undefined}>{best ? `dia ${String(best.day).padStart(2, "0")}${best.estimated ? " (estimado)" : ""}` : "—"}</span></div>

@@ -16,7 +16,7 @@ export function NewsBrief({ stories }: { stories: Record<string, Lite> }) {
   }, []);
   if (state === "off") return null;
   return (
-    <section className="card mb-5 border border-[#b8955a]/25 bg-gradient-to-br from-[#fbf6ec] to-white">
+    <section className="card mb-5 border border-[#c9973f]/25 bg-gradient-to-br from-[#fbf6ec] to-white">
       <div className="mb-2 flex items-center justify-between gap-2">
         <div className="eyebrow text-[#9a7a44]">Leitura ALVVO · o que importa agora</div>
         {typeof state === "object" && <span className="text-[11px] text-ink/40">às {new Date(state.at).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", timeZone: "America/Sao_Paulo" })}</span>}

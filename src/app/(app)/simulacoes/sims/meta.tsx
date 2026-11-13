@@ -62,9 +62,9 @@ export function MetaSim({ d }: { d: SimData }) {
         <LineChart xLabel={(i) => `${(pts[i].month / 12).toFixed(pts[i].month % 12 ? 1 : 0).replace(".", ",")}a`}
           marker={hitIdx > 0 ? { index: hitIdx, label: "meta" } : null}
           series={[
-            { label: isReal ? "Patrimônio (dinheiro de hoje)" : "Patrimônio", color: "#7d5f36", values: pts.map(val), area: true },
+            { label: isReal ? "Patrimônio (dinheiro de hoje)" : "Patrimônio", color: "#7a5c32", values: pts.map(val), area: true },
             { label: "Total aportado", color: "#8a9a7b", values: pts.map((p) => p.invested * (isReal ? p.real / p.nominal : 1)), dashed: true },
-            ...(ask !== "valor" ? [{ label: "Meta", color: "#1f1b17", values: pts.map(() => target), dashed: true }] : []),
+            ...(ask !== "valor" ? [{ label: "Meta", color: "#1d1915", values: pts.map(() => target), dashed: true }] : []),
           ]} />
       </section>
       <section className="card overflow-x-auto">

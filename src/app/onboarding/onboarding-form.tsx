@@ -18,7 +18,7 @@ export function OnboardingForm({ code }: { code: string }) {
       <div className="w-full max-w-md">
         <div className="mb-6 text-center">
           <div className="mx-auto mb-3 grid h-11 w-11 place-items-center rounded-xl bg-brand text-lg font-bold text-white">A</div>
-          <h1>Bem-vindo ao ALVVO Finance</h1>
+          <h1>Bem-vindo ao alvvo finance</h1>
           <p className="mt-1 text-sm text-ink/50">Crie a sua conta ou peça para entrar numa conta existente.</p>
         </div>
         <div className="mb-4 grid grid-cols-2 gap-2 rounded-xl bg-ink/5 p-1">
@@ -34,7 +34,7 @@ export function OnboardingForm({ code }: { code: string }) {
           {mode === "criar" ? (
             <>
               <div><label className="label">Código de acesso ao beta</label><input className="input font-mono uppercase" name="beta_code" placeholder="EX.: ALVVO-7K2Q" autoComplete="off" />
-                <p className="mt-1 text-xs text-ink/45">O ALVVO está em beta fechado: para criar uma família nova, use o código que você recebeu.</p></div>
+                <p className="mt-1 text-xs text-ink/45">O alvvo finance está em beta fechado: para criar uma família nova, use o código que você recebeu.</p></div>
               <div><label className="label">Nome da conta</label><input className="input" name="household_name" placeholder="Ex.: Casa Silva" /></div>
               <div><label className="label">Comece com o modelo</label>
                 <div className="space-y-2">{TEMPLATES.map(([v, l, d], i) => (

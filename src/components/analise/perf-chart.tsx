@@ -31,8 +31,8 @@ export function PerfChart({ series, width = 860, height = 300 }: { series: Serie
 
   return (
     <svg viewBox={`0 0 ${width} ${height}`} className="h-auto w-full" role="img" aria-label="Desempenho no período">
-      <defs><linearGradient id="perf-fill" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor={main?.color ?? "#7d5f36"} stopOpacity=".16" /><stop offset="1" stopColor={main?.color ?? "#7d5f36"} stopOpacity="0" /></linearGradient></defs>
-      {ticks.map((v) => <g key={v}><line x1={padL} x2={width - padR} y1={Y(v)} y2={Y(v)} stroke="#1f1b17" strokeOpacity={Math.abs(v) < 1e-9 ? 0.18 : 0.05} strokeDasharray={Math.abs(v) < 1e-9 ? "" : "2 4"} />
+      <defs><linearGradient id="perf-fill" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor={main?.color ?? "#7a5c32"} stopOpacity=".16" /><stop offset="1" stopColor={main?.color ?? "#7a5c32"} stopOpacity="0" /></linearGradient></defs>
+      {ticks.map((v) => <g key={v}><line x1={padL} x2={width - padR} y1={Y(v)} y2={Y(v)} stroke="#1d1915" strokeOpacity={Math.abs(v) < 1e-9 ? 0.18 : 0.05} strokeDasharray={Math.abs(v) < 1e-9 ? "" : "2 4"} />
         <text x={padL - 8} y={Y(v) + 3.5} textAnchor="end" className="fill-ink/35" style={{ fontSize: 10 }}>{pct(v)}</text></g>)}
       {xticks.map((x, i) => <text key={i} x={x.x} y={height - 6} textAnchor={i === 0 ? "start" : i === 5 ? "end" : "middle"} className="fill-ink/35" style={{ fontSize: 10 }}>{x.l}</text>)}
       {main && main.points.length > 1 && <path d={`${path(main.points)}L${X(main.points[main.points.length - 1].date)},${Y(Math.max(lo, Math.min(0, hi)))}L${X(main.points[0].date)},${Y(Math.max(lo, Math.min(0, hi)))}Z`} fill="url(#perf-fill)" />}

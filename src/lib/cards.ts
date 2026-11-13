@@ -35,9 +35,9 @@ export function statementKey(fileName: string, bank: string, cardLast4s: string[
   return main ? `${b}-${main}` : b;
 }
 
-export const CARD_COLORS: [string, string][] = [["#1f1b17", "Grafite"], ["#2b3445", "Azul-noite"], ["#3b2a1f", "Café"], ["#4a3b5c", "Ameixa"], ["#24433a", "Verde-inglês"], ["#7d5f36", "Bronze"], ["#5b1f24", "Bordô"]];
+export const CARD_COLORS: [string, string][] = [["#1d1915", "Grafite"], ["#2b3445", "Azul-noite"], ["#3b2a1f", "Café"], ["#4a3b5c", "Ameixa"], ["#24433a", "Verde-inglês"], ["#7a5c32", "Bronze"], ["#5b1f24", "Bordô"]];
 export const defaultCardColor = (c: Pick<CardAccount, "color" | "brand" | "name">) =>
-  c.color ?? (/black|infinite|the essential|personnalit/i.test(c.name) ? "#1f1b17" : c.brand === "Visa" ? "#2b3445" : "#3b2a1f");
+  c.color ?? (/black|infinite|the essential|personnalit/i.test(c.name) ? "#1d1915" : c.brand === "Visa" ? "#2b3445" : "#3b2a1f");
 
 const FEES = /\bIOF\b|ANUIDADE|JUROS|ENCARGO|MULTA|MORA|TARIFA|SEGURO CART|AVAL EMERG/i;
 

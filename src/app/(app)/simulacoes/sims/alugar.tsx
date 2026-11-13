@@ -52,7 +52,7 @@ export function AlugarSim({ d }: { d: SimData }) {
       <section className="card">
         <h2 className="mb-3">Patrimônio ano a ano</h2>
         <LineChart xLabel={(i) => `${r.years[i]?.year ?? i}a`} marker={r.breakEven !== null ? { index: r.breakEven, label: "comprar passa a valer" } : null} series={[
-          { label: "Comprando (imóvel − saldo devedor + sobras investidas)", color: "#7d5f36", values: r.years.map((y) => y.buy), area: true },
+          { label: "Comprando (imóvel − saldo devedor + sobras investidas)", color: "#7a5c32", values: r.years.map((y) => y.buy), area: true },
           { label: "Alugando e investindo a diferença", color: "#8a9a7b", values: r.years.map((y) => y.rent) },
         ]} />
         <Note>Quem compra paga entrada, custos e parcelas; quem aluga investe a entrada e os custos, e todo mês investe o que gastaria a mais como dono (ou o contrário, se o aluguel for maior). Condomínio e IPTU ficam fora por pesarem nos dois casos. Não considera FGTS nem o valor de não precisar mudar.</Note>

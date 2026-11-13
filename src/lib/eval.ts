@@ -7,7 +7,7 @@ export interface EvalNote { id: string; item_id: string; author_name: string | n
 
 export const RATING: Record<string, { l: string; c: string }> = {
   comprar: { l: "Comprar", c: "#4f7a52" }, acumular: { l: "Acumular", c: "#7d9a72" }, manter: { l: "Manter", c: "#8c8579" },
-  reduzir: { l: "Reduzir", c: "#c0784a" }, vender: { l: "Vender", c: "#a33f30" }, observar: { l: "Observar", c: "#b8955a" },
+  reduzir: { l: "Reduzir", c: "#c0784a" }, vender: { l: "Vender", c: "#a33f30" }, observar: { l: "Observar", c: "#c9973f" },
 };
 
 export const itemReturn = (i: EvalItem, price?: number | null) => (i.added_price && price ? price / Number(i.added_price) - 1 : null);

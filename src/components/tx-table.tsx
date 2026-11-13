@@ -174,7 +174,7 @@ export function TxDrawer({ tx, cats, byId, members, cycleStartDay, onClose }: {
             <div><label className="label">Observação</label><input className="input" value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Ex.: presente de aniversário da mãe" /></div>
             {tx.merchant_key && (
               <label className="flex items-start gap-2 rounded-xl bg-brand/[0.06] p-3 text-sm">
-                <input type="checkbox" className="mt-0.5 accent-[#7d5f36]" checked={learn} onChange={(e) => setLearn(e.target.checked)} />
+                <input type="checkbox" className="mt-0.5 accent-[#7a5c32]" checked={learn} onChange={(e) => setLearn(e.target.checked)} />
                 <span><b>Lembrar para “{tx.merchant_key}”</b><br /><span className="text-ink/55">Aplica aos {tx.same_merchant ? `${tx.same_merchant} outros lançamentos` : "próximos lançamentos"} deste estabelecimento e às próximas faturas.</span></span>
               </label>
             )}

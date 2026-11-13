@@ -135,7 +135,7 @@ export function CarteiraSim({ d }: { d: SimData }) {
                     {ASSET_KEYS.map((k, ki) => (
                       <label key={k} className="flex items-center gap-2 text-[12px]">
                         <span className="w-24 shrink-0 truncate text-ink/60" title={assumptions[ki].label}>{assumptions[ki].label.split(" (")[0].split(" /")[0]}</span>
-                        <input type="range" min={0} max={100} step={5} value={Math.round((c.custom[k] || 0) * 100)} onChange={(e) => setCart(i, { custom: { ...c.custom, [k]: Number(e.target.value) / 100 } })} className="flex-1 accent-[#7d5f36]" aria-label={`Peso de ${assumptions[ki].label}`} />
+                        <input type="range" min={0} max={100} step={5} value={Math.round((c.custom[k] || 0) * 100)} onChange={(e) => setCart(i, { custom: { ...c.custom, [k]: Number(e.target.value) / 100 } })} className="flex-1 accent-[#7a5c32]" aria-label={`Peso de ${assumptions[ki].label}`} />
                         <span className="w-10 text-right tabular-nums">{pct(normalize(c.custom)[k], 0)}</span>
                       </label>
                     ))}

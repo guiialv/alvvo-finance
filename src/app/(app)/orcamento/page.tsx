@@ -170,7 +170,7 @@ export default async function OrcamentoPage({ searchParams }: { searchParams: Pr
                                 <td className="num">{canEdit && k !== "transferencia" ? <BudgetInput categoryId={c.id} cycle={cycle} initial={p} /> : p ? formatBRL(p) : <span className="text-ink/30">—</span>}</td>
                                 <td className="num">{r ? formatBRL(r) : <span className="text-ink/30">—</span>}</td>
                                 <td className={`num ${over ? "text-loss" : "text-ink/60"}`}>{p ? formatBRL(Math.max(k === "despesa" ? -Infinity : 0, left)) : ""}</td>
-                                <td>{p > 0 && <Bar value={r} max={p} color={k !== "despesa" ? col : r > p ? "#a33f30" : r > p * 0.8 ? "#b8955a" : col} />}</td>
+                                <td>{p > 0 && <Bar value={r} max={p} color={k !== "despesa" ? col : r > p ? "#a33f30" : r > p * 0.8 ? "#c9973f" : col} />}</td>
                               </tr>
                             );
                           })

@@ -1,18 +1,17 @@
 import type { Metadata } from "next";
-import { Instrument_Serif, Inter } from "next/font/google";
+import { Outfit } from "next/font/google";
 import "./globals.css";
 
-const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
-const display = Instrument_Serif({ subsets: ["latin"], weight: "400", variable: "--font-display" });
+const outfit = Outfit({ subsets: ["latin"], weight: ["300", "400", "500", "600", "700"], variable: "--font-outfit" });
 
 export const metadata: Metadata = {
-  title: "ALVVO Finance",
+  title: "alvvo finance",
   description: "Gestão financeira, orçamento, investimentos e objetivos em um só lugar.",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="pt-BR" className={`${inter.variable} ${display.variable}`}>
+    <html lang="pt-BR" className={outfit.variable}>
       <body>{children}</body>
     </html>
   );
