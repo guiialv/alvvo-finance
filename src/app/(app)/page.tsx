@@ -50,18 +50,22 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
   const { byId } = categoryIndex(cats);
   const curTx = txs.filter((t) => t.cycle === cycle);
   // Mesmo critério da página Fluxo de dinheiro: caixa do ciclo, com cada fatura paga aberta nas categorias das compras
-  const cash = await toCashView(ctx, txs, cats, [cycle]);
-  const flow = buildFlow(cash.txs.filter((t) => t.cycle === cycle), cats, "grupo", 8);
-  const s = summarize(curTx, cats);
-  const p = summarize(txs.filter((t) => t.cycle === prevC), cats);
-  const hist = history.map((c) => ({ c, ...summarize(txs.filter((t) => t.cycle === c), cats) }));
+  // (receitas, despesas, sobra, gráfico e "para onde foi") — igual a Lançamentos e Fluxo. Ciclo sem extrato importado
+  // fica na visão por competência (compras do cartão no mês da fatura) e é sinalizado no gráfico.
+  const cash = await toCashView(ctx, txs, cats, [...new Set([...history, prevC, cycle])]);
+  const semExtrato = new Set(cash.competencia);
+  const curCash = cash.txs.filter((t) => t.cycle === cycle);
+  const flow = buildFlow(curCash, cats, "grupo", 8);
+  const s = summarize(curCash, cats);
+  const p = summarize(cash.txs.filter((t) => t.cycle === prevC), cats);
+  const hist = history.map((c) => ({ c, est: semExtrato.has(c), ...summarize(cash.txs.filter((t) => t.cycle === c), cats) }));
 
   const spent = sumByCategory(curTx);
   const alerts = (budgetsRes.data ?? [])
     .map((b: { category_id: string; planned: number }) => ({ cat: byId.get(b.category_id), planned: Number(b.planned), real: spent.get(b.category_id) ?? 0 }))
     .filter((a) => a.cat && a.cat.kind === "despesa" && a.planned > 0 && a.real >= a.planned * 0.8)
     .sort((a, b) => b.real / b.planned - a.real / a.planned);
-  const top = [...spent.entries()].map(([id, v]) => ({ cat: byId.get(id), v }))
+  const top = [...sumByCategory(curCash).entries()].map(([id, v]) => ({ cat: byId.get(id), v }))
     .filter((x) => x.cat && x.cat.kind === "despesa" && !x.cat.excluded_from_totals).sort((a, b) => b.v - a.v).slice(0, 7);
   const toClassify = curTx.filter((t) => !t.category_id || byId.get(t.category_id)?.grp === "A classificar").length;
   const groups = [...new Set(cats.filter((c) => c.kind === "despesa" && c.scope === "pessoal").map((c) => c.grp))]
@@ -84,7 +88,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
   for (let d = range.start; d <= range.end; d = addDays(d, 1)) days.push(d);
   const dayIn = new Map<string, number>(), dayOut = new Map<string, number>();
   const clamp = (d: string) => (d < range.start ? range.start : d > range.end ? range.end : d);
-  for (const t of curTx) {
+  for (const t of curCash) {
     const c = t.category_id ? byId.get(t.category_id) : undefined;
     if (c?.excluded_from_totals) continue;
     const kind = c?.kind ?? t.kind, v = Number(t.amount), d = clamp(t.date);
@@ -250,15 +254,15 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
               return (
                 <a key={x.c} href={`/?ciclo=${x.c}`}>
                   <rect x={cx - gap / 2 + 4} y="0" width={gap - 8} height={H} rx="10" fill={act ? "#7d5f360d" : "transparent"} />
-                  <rect x={cx - bw - 2} y={150 - hr} width={bw} height={Math.max(hr, 1)} rx="5" fill="#4f7a52" opacity={act ? 1 : 0.55}><title>{`Receitas ${formatBRL(x.receitas)}`}</title></rect>
-                  <rect x={cx + 2} y={150 - hd} width={bw} height={Math.max(hd, 1)} rx="5" fill="#a33f30" opacity={act ? 1 : 0.5}><title>{`Despesas ${formatBRL(x.despesas)}`}</title></rect>
+                  <rect x={cx - bw - 2} y={150 - hr} width={bw} height={Math.max(hr, 1)} rx="5" fill="#4f7a52" opacity={(act ? 1 : 0.55) * (x.est ? 0.45 : 1)}><title>{`Receitas ${formatBRL(x.receitas)}`}</title></rect>
+                  <rect x={cx + 2} y={150 - hd} width={bw} height={Math.max(hd, 1)} rx="5" fill="#a33f30" opacity={(act ? 1 : 0.5) * (x.est ? 0.45 : 1)} strokeDasharray={x.est ? "3 3" : undefined} stroke={x.est ? "#a33f30" : undefined}><title>{`Despesas ${formatBRL(x.despesas)}${x.est ? " · sem extrato: compras do cartão (competência)" : ""}`}</title></rect>
                   <text x={cx} y="170" textAnchor="middle" style={{ fontSize: 11, fontWeight: act ? 600 : 400 }} fill={act ? "#1f1b17" : "#1f1b1780"}>{cycleLabel(x.c).slice(0, 3)}</text>
                   <text x={cx} y="185" textAnchor="middle" style={{ fontSize: 10 }} fill={x.saldo >= 0 ? "#4f7a52" : "#a33f30"}>{x.receitas || x.despesas ? `${x.saldo >= 0 ? "+" : "−"}${kfmt(Math.abs(x.saldo))}` : ""}</text>
                 </a>
               );
             })}
           </svg>
-          <p className="text-xs text-ink/40">Últimos 12 ciclos. Clique em um mês para abri-lo; a janela continua no mês atual. O número abaixo de cada mês é a sobra.</p>
+          <p className="text-xs text-ink/40">Últimos 12 ciclos. Clique em um mês para abri-lo; a janela continua no mês atual. O número abaixo de cada mês é a sobra. Mesmo critério de Lançamentos e Fluxo: o que entrou e saiu da conta corrente, com cada fatura paga aberta nas categorias das compras.{hist.some((x) => x.est) && <> Meses mais claros ({hist.filter((x) => x.est).map((x) => cycleLabel(x.c).slice(0, 3)).join(", ")}) ainda não têm extrato: mostram as compras do cartão do mês.</>}</p>
         </section>
 
         <section className="card xl:col-span-2">
