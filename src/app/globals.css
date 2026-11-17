@@ -44,14 +44,24 @@
 }
 
 @layer base {
+  /* nada pode alargar a página no celular: o conteúdo se ajusta à tela, sem zoom nem rolagem lateral */
+  html, body { overflow-x: clip; max-width: 100%; }
+  html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+  /* iPhone amplia a tela ao focar campos com fonte < 16px e não volta: no celular, campos usam 16px */
+  @media (max-width: 767px), (pointer: coarse) {
+    input:not([type="checkbox"]):not([type="radio"]):not([type="range"]), select, textarea { font-size: 16px !important; }
+  }
   body { @apply bg-paper text-ink antialiased; }
+  img, video { max-width: 100%; }
+  /* itens de grid/flex podem encolher abaixo do conteúdo (evita página mais larga que o celular) */
+  .grid > *, .flex-1 { min-width: 0; }
   h1 { @apply text-[26px] sm:text-[32px] font-semibold leading-[1.08] tracking-[-0.02em]; }
   h2 { @apply text-[15px] font-semibold tracking-[-0.01em]; }
   ::selection { background: #f0d9ad; }
 }
 
 @layer components {
-  .card { @apply rounded-2xl border border-[#e2d8c6] bg-surface p-4 sm:p-5 shadow-[0_1px_0_rgba(29,25,21,.02),0_10px_30px_-20px_rgba(60,45,30,.16)]; }
+  .card { @apply min-w-0 rounded-2xl border border-[#e2d8c6] bg-surface p-4 sm:p-5 shadow-[0_1px_0_rgba(29,25,21,.02),0_10px_30px_-20px_rgba(60,45,30,.16)]; }
   .btn { @apply inline-flex items-center justify-center gap-2 rounded-full bg-espresso px-5 py-2 text-sm font-medium text-[#f6f2ea] transition hover:bg-[#2a241e] disabled:opacity-50; }
   .btn-ghost { @apply inline-flex items-center justify-center gap-2 rounded-full border border-ink/12 bg-surface px-4 py-2 text-sm font-medium text-ink transition hover:border-ink/25 hover:bg-white; }
   .input { @apply w-full rounded-2xl border border-[#d9cdb8] bg-surface px-3 py-2 text-sm outline-none transition focus:border-gold focus:ring-4 focus:ring-gold/15 disabled:bg-ink/[0.03] disabled:text-ink/40; }

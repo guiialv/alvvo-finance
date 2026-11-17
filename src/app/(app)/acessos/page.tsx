@@ -34,8 +34,8 @@ export default async function AccessPage() {
               <div className="space-y-3">{pending.map((r) => (
                 <div key={r.user_id} className="flex flex-wrap items-center gap-3 rounded-xl bg-amber-50/60 p-3">
                   <div className="grid h-9 w-9 place-items-center rounded-full bg-amber-200 text-xs font-semibold text-amber-900">{r.display_name[0]}</div>
-                  <div className="min-w-[200px] flex-1"><div className="font-medium">{r.display_name}</div>
-                    <div className="text-xs text-ink/50">{r.email}{r.provider ? ` · via ${PROV[r.provider] ?? r.provider}` : ""} · {formatDateBR(r.created_at.slice(0, 10))}{r.request_message ? ` · “${r.request_message}”` : ""}</div></div>
+                  <div className="min-w-0 flex-1 basis-[200px]"><div className="font-medium">{r.display_name}</div>
+                    <div className="[overflow-wrap:anywhere] text-xs text-ink/50">{r.email}{r.provider ? ` · via ${PROV[r.provider] ?? r.provider}` : ""} · {formatDateBR(r.created_at.slice(0, 10))}{r.request_message ? ` · “${r.request_message}”` : ""}</div></div>
                   <form action={approveMember} className="flex items-center gap-2">{hidden("user_id", r.user_id)}
                     <select name="role" defaultValue="leitura" className="rounded-lg border border-ink/10 bg-white px-2 py-1 text-xs">{ROLE_OPTS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select>
                     <button className="btn !px-3 !py-1.5 text-xs">Aprovar</button></form>
@@ -55,24 +55,25 @@ export default async function AccessPage() {
                 <div key={m.user_id} className={`rounded-2xl border border-ink/[0.07] p-4 ${off ? "bg-ink/[0.02] opacity-70" : "bg-white"}`}>
                   <div className="mb-3 flex flex-wrap items-center gap-3">
                     <Avatar name={m.display_name} index={i + 1} size="h-9 w-9 text-xs" />
-                    <div className="flex-1"><div className="font-semibold">{m.display_name} {off && <span className="chip">suspenso</span>}</div>
-                      <div className="text-xs text-ink/45">{m.email}{m.provider ? ` · entra com ${PROV[m.provider] ?? m.provider}` : ""}{m.approved_at ? ` · desde ${formatDateBR(m.approved_at.slice(0, 10))}` : ""}</div></div>
-                    {m.role !== "dono" && <form action={setRole}>{hidden("user_id", m.user_id)}<AutoSelect name="role" defaultValue={m.role} options={ROLE_OPTS} /></form>}
+                    <div className="min-w-0 flex-1 basis-[180px]"><div className="font-semibold">{m.display_name} {off && <span className="chip">suspenso</span>}</div>
+                      <div className="[overflow-wrap:anywhere] text-xs text-ink/45">{m.email}{m.provider ? ` · entra com ${PROV[m.provider] ?? m.provider}` : ""}{m.approved_at ? ` · desde ${formatDateBR(m.approved_at.slice(0, 10))}` : ""}</div></div>
+                    {m.role !== "dono" && <AutoSelect name="role" defaultValue={m.role} options={ROLE_OPTS} action={setRole} fields={{ user_id: m.user_id }} />}
                     {!off && <form action={viewAs}>{hidden("user_id", m.user_id)}<button className="btn-ghost !px-2.5 !py-1 text-xs">👁 Ver como {m.display_name.split(" ")[0]}</button></form>}
                     <form action={toggleSuspend}>{hidden("user_id", m.user_id)}{hidden("status", m.status)}<button className="btn-ghost !px-2.5 !py-1 text-xs">{off ? "Reativar" : "Suspender"}</button></form>
                     <form action={removeMember}>{hidden("user_id", m.user_id)}<ConfirmButton message={`Remover ${m.display_name} da conta?`} className="text-xs text-loss hover:underline">Remover</ConfirmButton></form>
                   </div>
-                  <form action={setScope} className="mb-3 flex flex-wrap items-center gap-2 text-xs">{hidden("user_id", m.user_id)}
+                  <div className="mb-3 flex flex-wrap items-center gap-2 text-xs">
                     <span className="font-medium text-ink/60">Lançamentos que vê:</span>
-                    <AutoSelect name="scope" defaultValue={m.tx_scope} options={[["todos", "De todos da conta"], ["proprios", "Só os próprios (seus cartões e gastos)"]]} />
-                  </form>
+                    <AutoSelect name="scope" defaultValue={m.tx_scope} options={[["todos", "De todos da conta"], ["proprios", "Só os próprios (seus cartões e gastos)"]]} action={setScope} fields={{ user_id: m.user_id }} className="max-w-full rounded-lg border border-ink/10 bg-white px-2 py-1 text-xs" />
+                  </div>
                   <div className="grid gap-x-4 gap-y-1.5 sm:grid-cols-2 lg:grid-cols-3">
                     {AREAS.map(([k, l]) => (
-                      <form key={k} action={setArea} className="flex items-center justify-between gap-2 border-b border-ink/5 py-1 text-sm">
-                        {hidden("user_id", m.user_id)}{hidden("area", k)}
+                      <div key={k} className="flex items-center justify-between gap-2 border-b border-ink/5 py-1 text-sm">
                         <span className={(m.areas[k] ?? "nada") === "nada" ? "text-ink/35" : ""}>{l}</span>
-                        <AutoSelect name="level" defaultValue={m.role === "admin" ? "editar" : (m.areas[k] ?? "nada")} options={m.role === "leitura" ? LEVEL_OPTS.filter(([v]) => v !== "editar") : LEVEL_OPTS} />
-                      </form>
+                        {m.role === "admin"
+                          ? <span className="text-xs text-ink/50">Ver e editar</span>
+                          : <AutoSelect key={`${m.user_id}-${k}-${m.role}`} name="level" defaultValue={m.areas[k] ?? "nada"} options={m.role === "leitura" ? LEVEL_OPTS.filter(([v]) => v !== "editar") : LEVEL_OPTS} action={setArea} fields={{ user_id: m.user_id, area: k }} />}
+                      </div>
                     ))}
                   </div>
                   <p className="mt-2 text-[11px] text-ink/40">{m.role === "admin" ? "Administradores veem e editam tudo, inclusive esta tela." : "Configurações e esta tela ficam só com o dono e administradores."} As mudanças valem na hora, também no banco de dados.</p>

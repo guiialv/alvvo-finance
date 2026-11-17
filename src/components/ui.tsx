@@ -60,9 +60,9 @@ export function YearNav({ year, basePath, params = {}, param = "ano" }: { year: 
 /** Abas segmentadas baseadas em links. */
 export function Seg({ options, current, hrefFor }: { options: [string, string][]; current: string; hrefFor: (v: string) => string }) {
   return (
-    <div className="inline-flex rounded-full bg-ink/[0.05] p-1 text-sm">
+    <div className="inline-flex max-w-full overflow-x-auto rounded-full bg-ink/[0.05] p-1 text-sm [scrollbar-width:none]">
       {options.map(([v, l]) => (
-        <Link key={v} href={hrefFor(v)} className={`rounded-full px-3.5 py-1.5 font-medium transition ${current === v ? "bg-ink text-[#f6efe2]" : "text-ink/55 hover:text-ink"}`}>{l}</Link>
+        <Link key={v} href={hrefFor(v)} className={`shrink-0 whitespace-nowrap rounded-full px-3.5 py-1.5 font-medium transition ${current === v ? "bg-ink text-[#f6efe2]" : "text-ink/55 hover:text-ink"}`}>{l}</Link>
       ))}
     </div>
   );

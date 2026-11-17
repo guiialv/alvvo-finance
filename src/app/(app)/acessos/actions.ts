@@ -42,11 +42,11 @@ export async function setRole(f: FormData) {
 export async function setArea(f: FormData) {
   const ctx = await requireAdmin();
   const id = str(f, "user_id"), area = str(f, "area") as Area, level = str(f, "level") as Level;
-  const { data } = await ctx.supabase.from("household_members").select("areas, display_name").eq("household_id", ctx.household.id).eq("user_id", id).maybeSingle();
-  if (!data) return;
-  const areas = { ...(data.areas as Record<string, Level>), [area]: level };
-  await ctx.supabase.from("household_members").update({ areas }).eq("household_id", ctx.household.id).eq("user_id", id);
-  await logAction(ctx, `${data.display_name} · ${AREAS.find((a) => a[0] === area)?.[1]}: ${LEVEL_LABEL[level]}`);
+  if (!AREAS.some((a) => a[0] === area) || !["nada", "ver", "editar"].includes(level)) return;
+  // Atualização atômica no banco: mexe só nesta área (mudanças seguidas não se sobrescrevem).
+  const { error } = await ctx.supabase.rpc("set_member_area", { hh: ctx.household.id, p_user: id, p_area: area, p_level: level });
+  if (error) throw new Error(error.message);
+  await logAction(ctx, `${await memberName(ctx, id)} · ${AREAS.find((a) => a[0] === area)?.[1]}: ${LEVEL_LABEL[level]}`);
   done();
 }
 
