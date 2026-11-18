@@ -173,6 +173,11 @@ async function syncCard(ctx: Ctx, link: LinkRow, dryRun: boolean): Promise<SyncL
       const due = brDate(b.dueDate);
       const txs = await listBillTransactions(link.ext_account_id, b.id);
       txs.forEach((t) => seen.add(t.id));
+      if (pdfUntil && due <= pdfUntil) {
+        // Fatura que já veio em PDF: o PDF vale; o Open Finance só é conferido contra ele
+        if (!dryRun && due >= addDays(todayIso(), -200)) await compareBill(ctx, acc, due, txs.filter((t) => (t.status ?? "POSTED") === "POSTED" && !isBillPayment(t)), fallbackL4);
+        continue;
+      }
       if (floor && due <= floor) continue;
       if (!floor && due < addDays(todayIso(), -100)) continue; // primeira vez sem PDF: últimas faturas apenas
       groups.push({ ref: `pluggy:bill:${b.id}`, due, total: b.totalAmount ?? null, txs, open: false });
@@ -247,6 +252,7 @@ async function syncConta(ctx: Ctx, link: LinkRow, dryRun: boolean): Promise<Sync
     .eq("source", "extrato").is("import_batches.external_ref", null).order("date", { ascending: false }).limit(1);
   const pdfUntil = (last?.[0]?.date as string | undefined) ?? null;
   const start = [pdfUntil ? addDays(pdfUntil, 1) : null, link.sync_from].filter(Boolean).sort().pop() ?? addDays(todayIso(), -60);
+  if (pdfUntil && !dryRun) await compareConta(ctx, link, acc, pdfUntil);
   const txs = (await listTransactions(link.ext_account_id, start, todayIso())).filter((t) => (t.status ?? "POSTED") === "POSTED" && brDate(t.date) >= start);
   // CPF do titular (para reconhecer transferências entre as próprias contas)
   const ownDoc = txs.map((t) => (t.type === "DEBIT" ? t.paymentData?.payer : t.paymentData?.receiver)?.documentNumber?.value?.replace(/\D/g, "")).find((d) => d && d.length === 11) ?? null;
@@ -294,6 +300,66 @@ async function importStatement(ctx: Ctx, st: ParsedStatement, o: { fileName: str
     accountId: o.accountId, appendToBatchId: o.appendTo ?? null, externalRef: o.externalRef, externalSig: o.externalSig ?? null,
   });
   return { rows: res.inserted ?? 0, total: round2(signed), error: res.error };
+}
+
+// ---------- Comparação PDF × Open Finance ----------
+type Item = { date: string; description: string; amount: number };
+function matchItems(pdf: Item[], of: Item[], tolDays = 3) {
+  const used = new Set<number>();
+  const onlyPdf: Item[] = [];
+  let matched = 0;
+  for (const p of [...pdf].sort((a, b) => a.date.localeCompare(b.date))) {
+    let best = -1, bestGap = Infinity;
+    of.forEach((o, i) => {
+      if (used.has(i) || Math.round(o.amount * 100) !== Math.round(p.amount * 100)) return;
+      const gap = Math.abs(Date.parse(o.date) - Date.parse(p.date)) / 86400000;
+      if (gap <= tolDays && gap < bestGap) { best = i; bestGap = gap; }
+    });
+    if (best >= 0) { used.add(best); matched++; } else onlyPdf.push(p);
+  }
+  return { matched, onlyPdf, onlyOf: of.filter((_, i) => !used.has(i)) };
+}
+const sum = (l: Item[]) => round2(l.reduce((a, x) => a + x.amount, 0));
+
+async function saveComparison(ctx: Ctx, accountId: string, kind: "fatura" | "mes", ref: string, label: string, pdf: Item[], of: Item[]) {
+  const m = matchItems(pdf, of);
+  await ctx.supabase.from("source_comparisons").upsert({
+    household_id: ctx.household.id, account_id: accountId, kind, ref, label,
+    pdf_count: pdf.length, pdf_total: sum(pdf), of_count: of.length, of_total: sum(of), matched: m.matched,
+    only_pdf: m.onlyPdf.slice(0, 60), only_of: m.onlyOf.slice(0, 60), updated_at: new Date().toISOString(),
+  }, { onConflict: "account_id,kind,ref" });
+}
+
+async function compareBill(ctx: Ctx, acc: { id: string; name: string }, due: string, txs: PluggyTransaction[], l4: string | null) {
+  const { data: b } = await ctx.supabase.from("import_batches").select("id").eq("household_id", ctx.household.id).eq("account_id", acc.id).eq("doc_type", "fatura")
+    .is("external_ref", null).gte("due_date", addDays(due, -5)).lte("due_date", addDays(due, 5)).limit(1);
+  const batch = b?.[0]?.id as string | undefined;
+  if (!batch) return;
+  const rows = (await ctx.supabase.from("transactions").select("date, description, amount").eq("import_batch_id", batch)).data ?? [];
+  const pdf = (rows as { date: string; description: string; amount: number }[]).map((r) => ({ date: r.date, description: r.description, amount: round2(Number(r.amount)) }));
+  const of = txs.map((t) => { const r = cardRow(t, l4); return { date: r.date, description: r.description, amount: r.amount }; });
+  await saveComparison(ctx, acc.id, "fatura", due, `${acc.name} · vence ${due.slice(8, 10)}/${due.slice(5, 7)}/${due.slice(0, 4)}`, pdf, of);
+}
+
+async function compareConta(ctx: Ctx, link: LinkRow, acc: { id: string; name: string }, pdfUntil: string) {
+  const from = addDays(pdfUntil, -95);
+  const { data } = await ctx.supabase.from("transactions").select("date, description, amount, flow, import_batches!inner(external_ref)").eq("household_id", ctx.household.id)
+    .eq("account_id", acc.id).eq("source", "extrato").is("import_batches.external_ref", null).gte("date", from).lte("date", pdfUntil);
+  const pdfRows = (data ?? []) as { date: string; description: string; amount: number; flow: string | null }[];
+  if (!pdfRows.length) return;
+  const signed = (flow: string | null, v: number) => round2((flow === "entrada" ? 1 : -1) * Math.abs(v));
+  const of = (await listTransactions(link.ext_account_id, pdfRows.map((r) => r.date).sort()[0], pdfUntil)).filter((t) => (t.status ?? "POSTED") === "POSTED");
+  const startDay = ctx.household.cycle_start_day;
+  const byCycle = new Map<string, { pdf: Item[]; of: Item[] }>();
+  const slot = (c: string) => byCycle.get(c) ?? byCycle.set(c, { pdf: [], of: [] }).get(c)!;
+  for (const r of pdfRows) slot(cycleOf(r.date, startDay)).pdf.push({ date: r.date, description: r.description, amount: signed(r.flow, r.amount) });
+  for (const t of of) { const d = brDate(t.date); if (d > pdfUntil) continue; slot(cycleOf(d, startDay)).of.push({ date: d, description: t.description, amount: signed(t.type === "CREDIT" ? "entrada" : "saida", t.amount) }); }
+  for (const [cycle, v] of byCycle) {
+    if (!v.pdf.length) continue;
+    // Só o trecho que o PDF cobre dentro do mês
+    const lo = v.pdf.map((x) => x.date).sort()[0], hi = v.pdf.map((x) => x.date).sort().pop()!;
+    await saveComparison(ctx, acc.id, "mes", cycle, `${acc.name} · ${cycle.slice(5, 7)}/${cycle.slice(0, 4)}`, v.pdf, v.of.filter((x) => x.date >= lo && x.date <= hi));
+  }
 }
 
 export const describeLine = (l: SyncLine) => `${l.label}: ${l.action === "erro" ? `erro — ${l.detail}` : l.action === "sem novidades" ? "sem novidades" : `${l.rows} lançamento(s), ${brl(Math.abs(l.total))}`}`;

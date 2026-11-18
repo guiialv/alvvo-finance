@@ -89,6 +89,8 @@ export interface PreviewMeta {
   replaces?: string[];
 }
 
+const shiftIso = (d: string, n: number) => new Date(Date.parse(d + "T12:00:00Z") + n * 86400000).toISOString().slice(0, 10);
+
 export async function buildPreview(ctx: Ctx, st: ParsedStatement, meta: PreviewMeta): Promise<Preview> {
   const [cats, rulesRes, accounts, members] = await Promise.all([
     loadCategories(ctx),
@@ -184,8 +186,11 @@ export async function buildPreview(ctx: Ctx, st: ParsedStatement, meta: PreviewM
     cardAccountName = acc?.name ?? null;
     const m = st.mainCard;
     st.warnings.unshift(acc ? `Cartão: ${acc.name}${m?.product ? ` (${m.product})` : ""}.` : `Cartão novo: ${st.bank}${m?.product ? ` ${m.product}` : ""}${m ? ` ••${m.last4}` : finals[0] ? ` ••${finals[0]}` : ""} — será criado ao importar.`);
+    // Mesmo cartão e vencimento; a versão do Open Finance pode ter o vencimento ajustado em alguns dias (fim de semana/feriado)
     const { data: prev } = acc && st.dueDate
-      ? await ctx.supabase.from("import_batches").select("id").eq("household_id", ctx.household.id).eq("doc_type", "fatura").eq("account_id", acc.id).eq("due_date", st.dueDate)
+      ? await ctx.supabase.from("import_batches").select("id, due_date, external_ref").eq("household_id", ctx.household.id).eq("doc_type", "fatura").eq("account_id", acc.id)
+        .gte("due_date", shiftIso(st.dueDate, -5)).lte("due_date", shiftIso(st.dueDate, 5))
+        .then((r) => ({ data: ((r.data ?? []) as { id: string; due_date: string; external_ref: string | null }[]).filter((b) => b.due_date === st.dueDate || (b.external_ref ?? "").startsWith("pluggy:")) }))
       : { data: [] };
     replacesBatchIds = [...new Set([...((prev ?? []) as { id: string }[]).map((b) => b.id), ...(meta.replaces ?? [])])];
     if (replacesBatchIds.length) st.warnings.unshift(`Esta fatura já tinha sido importada${replacesBatchIds.length > 1 ? ` (${replacesBatchIds.length} vezes)` : ""}. Ao importar, a versão anterior é substituída por esta leitura — as classificações que você já fez são mantidas.`);
@@ -351,29 +356,52 @@ export async function commitImport(ctx: Ctx, payload: ConfirmPayload): Promise<{
   }
 
   // Substituição: guarda as classificações da versão anterior e libera os identificadores
-  type OldTx = { date: string; amount: number; merchant_key: string | null; category_id: string | null; notes: string | null };
-  const oldByKey = new Map<string, OldTx[]>();
+  type OldTx = { id: string; date: string; amount: number; flow: string | null; merchant_key: string | null; category_id: string | null; notes: string | null };
+  const olds: OldTx[] = [];
   let replaceIds: string[] = [];
   if (!isExtrato && payload.replacesBatchIds?.length) {
     // Só substitui faturas do mesmo cartão; pela tela, também do mesmo vencimento (Open Finance pode trocar a provisória pela fechada)
-    let rq = ctx.supabase.from("import_batches").select("id").eq("household_id", hh).eq("doc_type", "fatura").eq("account_id", cardAccountId ?? "-").in("id", payload.replacesBatchIds);
-    if (!payload.externalRef) rq = rq.eq("due_date", payload.dueDate ?? "-");
-    const { data: ok } = await rq;
-    replaceIds = ((ok ?? []) as { id: string }[]).map((b) => b.id);
+    const { data: ok } = await ctx.supabase.from("import_batches").select("id, due_date, external_ref").eq("household_id", hh).eq("doc_type", "fatura").eq("account_id", cardAccountId ?? "-").in("id", payload.replacesBatchIds);
+    const near = (d: string | null) => !!d && !!payload.dueDate && Math.abs(Date.parse(d) - Date.parse(payload.dueDate)) <= 5 * 86400000;
+    replaceIds = ((ok ?? []) as { id: string; due_date: string | null; external_ref: string | null }[])
+      .filter((b) => payload.externalRef || b.due_date === payload.dueDate || ((b.external_ref ?? "").startsWith("pluggy:") && near(b.due_date))).map((b) => b.id);
     if (replaceIds.length) {
-      const olds = await fetchAll(() => ctx.supabase.from("transactions").select("id, date, amount, merchant_key, category_id, notes").eq("household_id", hh).in("import_batch_id", replaceIds));
-      for (const o of (olds ?? []) as OldTx[]) {
-        const k = `${o.date}|${Number(o.amount).toFixed(2)}|${o.merchant_key ?? ""}`;
-        oldByKey.set(k, [...(oldByKey.get(k) ?? []), o]);
-      }
+      olds.push(...((await fetchAll(() => ctx.supabase.from("transactions").select("id, date, amount, flow, merchant_key, category_id, notes").eq("household_id", hh).in("import_batch_id", replaceIds))) as OldTx[]));
       await ctx.supabase.from("transactions").update({ external_hash: null }).eq("household_id", hh).in("import_batch_id", replaceIds);
     }
   }
-  if (oldByKey.size) {
+  // Extrato enviado em PDF/arquivo para um período que já veio pelo Open Finance: o arquivo passa a valer
+  // (os lançamentos do Open Finance desse período saem, mantendo as classificações) e o Open Finance vira só conferência.
+  let ofEmptied: string[] = [];
+  if (isExtrato && !payload.externalRef && bankAccountId && payload.rows.length) {
+    const dates = payload.rows.map((r) => r.date).sort();
+    const { data: ofb } = await ctx.supabase.from("import_batches").select("id").eq("household_id", hh).eq("account_id", bankAccountId).like("external_ref", "pluggy:%");
+    const ofIds = ((ofb ?? []) as { id: string }[]).map((b) => b.id);
+    if (ofIds.length) {
+      const hit = (await fetchAll(() => ctx.supabase.from("transactions").select("id, date, amount, flow, merchant_key, category_id, notes").eq("household_id", hh)
+        .in("import_batch_id", ofIds).gte("date", dates[0]).lte("date", dates[dates.length - 1]))) as OldTx[];
+      if (hit.length) {
+        olds.push(...hit);
+        for (let i = 0; i < hit.length; i += 200) await ctx.supabase.from("transactions").delete().in("id", hit.slice(i, i + 200).map((t) => t.id));
+        ofEmptied = ofIds;
+      }
+    }
+  }
+  if (olds.length) {
+    // 1º: mesma data, valor e estabelecimento; 2º: mesma data e valor (descrições do banco e do PDF podem diferir)
+    const used = new Set<string>();
+    const exact = new Map<string, OldTx[]>(), loose = new Map<string, OldTx[]>();
+    const put = (m: Map<string, OldTx[]>, k: string, o: OldTx) => m.set(k, [...(m.get(k) ?? []), o]);
+    for (const o of olds) {
+      const v = Math.abs(Number(o.amount)).toFixed(2);
+      put(exact, `${o.date}|${v}|${o.merchant_key ?? ""}`, o);
+      put(loose, `${o.date}|${v}|${o.flow ?? ""}`, o);
+    }
+    const take = (m: Map<string, OldTx[]>, k: string) => { const o = (m.get(k) ?? []).find((x) => !used.has(x.id)); if (o) used.add(o.id); return o; };
     for (const r of payload.rows) {
       if (r.categoryId && r.categoryId !== r.suggestedCategoryId) continue; // mudou na prévia: vale a escolha nova
-      const k = `${r.date}|${r.amount.toFixed(2)}|${normalizeMerchant(r.description)}`;
-      const o = oldByKey.get(k)?.shift();
+      const v = Math.abs(r.amount).toFixed(2);
+      const o = take(exact, `${r.date}|${v}|${normalizeMerchant(r.description)}`) ?? take(loose, `${r.date}|${v}|${r.flow ?? ""}`);
       if (o?.category_id && byId.has(o.category_id)) { r.categoryId = o.category_id; if (o.notes && !r.note) r.note = o.notes; }
     }
   }
@@ -426,6 +454,12 @@ export async function commitImport(ctx: Ctx, payload: ConfirmPayload): Promise<{
 
   // Versão anterior desta fatura sai (os pagamentos conciliados voltam a ser conferidos abaixo)
   if (replaceIds.length) await ctx.supabase.from("import_batches").delete().eq("household_id", hh).in("id", replaceIds);
+  // Lotes do Open Finance que ficaram vazios depois que o arquivo passou a valer
+  for (const id of ofEmptied) {
+    const { count } = await ctx.supabase.from("transactions").select("id", { count: "exact", head: true }).eq("import_batch_id", id);
+    if (!count) await ctx.supabase.from("import_batches").delete().eq("id", id);
+    else await ctx.supabase.from("import_batches").update({ tx_count: count }).eq("id", id);
+  }
 
   // Fatura importada depois do extrato: converte o pagamento já lançado em transferência
   let reconciled = 0;

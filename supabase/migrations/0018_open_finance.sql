@@ -43,3 +43,23 @@ create index if not exists bank_connections_household on public.bank_connections
 alter table public.import_batches add column if not exists external_ref text;
 alter table public.import_batches add column if not exists external_sig text;
 create index if not exists import_batches_external_ref on public.import_batches(household_id, external_ref);
+
+-- Comparação PDF × Open Finance (o PDF vale nos totais; o Open Finance é só conferido contra ele)
+create table if not exists public.source_comparisons (
+  id uuid primary key default gen_random_uuid(),
+  household_id uuid not null references public.households(id) on delete cascade,
+  account_id uuid not null references public.accounts(id) on delete cascade,
+  kind text not null check (kind in ('fatura', 'mes')),
+  ref text not null,
+  label text,
+  pdf_count int, pdf_total numeric,
+  of_count int, of_total numeric,
+  matched int,
+  only_pdf jsonb not null default '[]',
+  only_of jsonb not null default '[]',
+  updated_at timestamptz not null default now(),
+  unique (account_id, kind, ref)
+);
+alter table public.source_comparisons enable row level security;
+drop policy if exists source_comparisons_admin on public.source_comparisons;
+create policy source_comparisons_admin on public.source_comparisons for all to authenticated using (public.is_admin(household_id)) with check (public.is_admin(household_id));

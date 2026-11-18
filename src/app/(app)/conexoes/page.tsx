@@ -37,6 +37,9 @@ export default async function ConexoesPage() {
   const { data: accs } = await ctx.supabase.from("accounts").select("id, name, type, active").eq("household_id", ctx.household.id).order("name");
   const accounts = ((accs ?? []) as { id: string; name: string; type: string; active: boolean }[]).filter((a) => a.active !== false);
   const C = (conns ?? []) as ConnectionRow[], L = (links ?? []) as LinkRow[];
+  const { data: cmp } = await ctx.supabase.from("source_comparisons").select("*").eq("household_id", ctx.household.id).order("ref", { ascending: false }).limit(40);
+  type Item = { date: string; description: string; amount: number };
+  const comps = (cmp ?? []) as { id: string; kind: string; ref: string; label: string; pdf_count: number; pdf_total: number; of_count: number; of_total: number; matched: number; only_pdf: Item[]; only_of: Item[]; updated_at: string }[];
   const ready = L.some((l) => l.enabled && l.account_id);
 
   return (
@@ -104,10 +107,47 @@ export default async function ConexoesPage() {
 
       {configured && C.length > 0 && <SyncPanel ready={ready} />}
 
+      {comps.length > 0 && (
+        <section className="card">
+          <h2>PDF × Open Finance</h2>
+          <p className="mt-1 text-xs text-ink/50">Faturas e meses que existem nas duas fontes. Nos totais da plataforma vale o PDF; o Open Finance aparece aqui só para comparar.</p>
+          <div className="mt-3 space-y-2">
+            {comps.map((c) => {
+              const diff = Math.round((Number(c.of_total) - Number(c.pdf_total)) * 100) / 100;
+              const ok = Math.abs(diff) < 0.01 && !c.only_pdf.length && !c.only_of.length;
+              return (
+                <details key={c.id} className="rounded-xl border border-ink/[0.07] bg-white p-3">
+                  <summary className="flex cursor-pointer flex-wrap items-baseline justify-between gap-x-3 gap-y-1 text-sm">
+                    <span className="min-w-0 font-medium [overflow-wrap:anywhere]">{c.kind === "fatura" ? "💳" : "🏦"} {c.label}</span>
+                    <span className={`text-xs ${ok ? "text-gain" : "text-bronze"}`}>{ok ? "✓ idênticos" : `diferença ${brl(diff)}`}</span>
+                  </summary>
+                  <div className="mt-2 grid grid-cols-2 gap-2 text-xs text-ink/60">
+                    <div>PDF: <b className="text-ink">{brl(c.pdf_total)}</b> · {c.pdf_count} lanç.</div>
+                    <div>Open Finance: <b className="text-ink">{brl(c.of_total)}</b> · {c.of_count} lanç.</div>
+                    <div className="col-span-2">{c.matched} lançamento(s) iguais nas duas fontes{c.only_pdf.length + c.only_of.length ? ` · ${c.only_pdf.length} só no PDF · ${c.only_of.length} só no Open Finance` : ""}</div>
+                  </div>
+                  {[["Só no PDF", c.only_pdf], ["Só no Open Finance", c.only_of]].map(([t, list]) => (list as Item[]).length > 0 && (
+                    <div key={t as string} className="mt-2">
+                      <div className="text-[11px] font-medium uppercase tracking-wide text-ink/45">{t as string}</div>
+                      {(list as Item[]).map((x, i) => (
+                        <div key={i} className="flex justify-between gap-3 border-b border-ink/5 py-0.5 text-xs">
+                          <span className="min-w-0 [overflow-wrap:anywhere]">{x.date.slice(8, 10)}/{x.date.slice(5, 7)} · {x.description}</span>
+                          <span className="shrink-0 tabular-nums">{brl(x.amount)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  ))}
+                </details>
+              );
+            })}
+          </div>
+        </section>
+      )}
+
       <section className="card text-xs leading-relaxed text-ink/55">
         <b className="text-ink/70">Como funciona.</b> A autorização é feita no app do seu banco, pelo Open Finance, e fica no Meu Pluggy (dá para revogar lá a qualquer momento).
         A plataforma só lê: não movimenta dinheiro. Cartões entram por fatura (a fatura aberta aparece como provisória e é trocada pela fechada);
-        contas entram por mês. As categorias seguem as mesmas regras e aprendizados dos PDFs, e o que você reclassificar é mantido nas próximas sincronizações.
+        contas entram por mês. Se um PDF for enviado para um período que já veio pelo Open Finance, o PDF passa a valer e as duas versões ficam comparadas acima. As categorias seguem as mesmas regras e aprendizados dos PDFs, e o que você reclassificar é mantido nas próximas sincronizações.
       </section>
     </div>
   );
