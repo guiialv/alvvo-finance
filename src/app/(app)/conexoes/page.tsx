@@ -1,9 +1,8 @@
 import { requireAdmin } from "@/lib/context";
 import { PageHeader } from "@/components/ui";
-import { AutoSelect } from "@/components/auto-submit";
 import { pluggyConfigured } from "@/lib/pluggy/client";
 import { refreshConnections, type ConnectionRow, type LinkRow } from "@/lib/pluggy/sync";
-import { refreshBank, setLinkAccount, setLinkEnabled, setSyncFrom } from "./actions";
+import { refreshBank } from "./actions";
 import { SyncPanel } from "./sync-panel";
 
 export const maxDuration = 300;
@@ -34,13 +33,13 @@ export default async function ConexoesPage() {
       ]);
     }
   }
-  const { data: accs } = await ctx.supabase.from("accounts").select("id, name, type, active").eq("household_id", ctx.household.id).order("name");
-  const accounts = ((accs ?? []) as { id: string; name: string; type: string; active: boolean }[]).filter((a) => a.active !== false);
+  const { data: accs } = await ctx.supabase.from("accounts").select("id, name").eq("household_id", ctx.household.id);
+  const accounts = (accs ?? []) as { id: string; name: string }[];
   const C = (conns ?? []) as ConnectionRow[], L = (links ?? []) as LinkRow[];
   const { data: cmp } = await ctx.supabase.from("source_comparisons").select("*").eq("household_id", ctx.household.id).order("ref", { ascending: false }).limit(40);
   type Item = { date: string; description: string; amount: number };
   const comps = (cmp ?? []) as { id: string; kind: string; ref: string; label: string; pdf_count: number; pdf_total: number; of_count: number; of_total: number; matched: number; only_pdf: Item[]; only_of: Item[]; updated_at: string }[];
-  const ready = L.some((l) => l.enabled && l.account_id);
+  const ready = L.length > 0;
 
   return (
     <div className="space-y-4">
@@ -70,7 +69,6 @@ export default async function ConexoesPage() {
             <div className="mt-3 space-y-2">
               {mine.length === 0 && <p className="text-sm text-ink/50">Nenhuma conta encontrada nesta conexão ainda.</p>}
               {mine.map((l) => {
-                const opts: [string, string][] = [["", "— escolher conta —"], ...accounts.filter((a) => (l.kind === "cartao" ? a.type === "cartao" : a.type !== "cartao")).map((a) => [a.id, a.name] as [string, string]), ["novo", "+ criar nova"]];
                 return (
                   <div key={l.id} className="rounded-xl border border-ink/[0.07] bg-white p-3">
                     <div className="flex flex-wrap items-baseline justify-between gap-x-3">
@@ -80,23 +78,9 @@ export default async function ConexoesPage() {
                       </div>
                       {l.last_sync_at && <span className="text-[11px] text-ink/40">sincronizado {when(l.last_sync_at)}</span>}
                     </div>
-                    <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
-                      <span className="text-ink/60">Na plataforma:</span>
-                      <AutoSelect key={`${l.id}-${l.account_id ?? ""}`} name="account_id" defaultValue={l.account_id ?? ""} options={opts} action={setLinkAccount} fields={{ link_id: l.id }} />
-                      {l.account_id && <>
-                        <span className="ml-2 text-ink/60">Importar:</span>
-                        <AutoSelect key={`${l.id}-on-${l.enabled}`} name="enabled" defaultValue={l.enabled ? "sim" : "nao"} options={[["nao", "Não"], ["sim", "Sim, todo dia"]]} action={setLinkEnabled} fields={{ link_id: l.id }} />
-                      </>}
+                    <div className="mt-1.5 text-xs text-ink/60">
+                      {l.account_id ? <>→ entra em <b className="text-ink/80">{accounts.find((a) => a.id === l.account_id)?.name ?? "conta da plataforma"}</b></> : l.kind === "outro" ? "Tipo de conta ainda não importado" : "Vinculando na próxima sincronização…"}
                     </div>
-                    {l.account_id && (
-                      <form action={setSyncFrom} className="mt-2 flex flex-wrap items-center gap-2 text-xs text-ink/60">
-                        <input type="hidden" name="link_id" value={l.id} />
-                        <span>{l.kind === "cartao" ? "Faturas que vencem a partir de" : "Lançamentos a partir de"}</span>
-                        <input type="date" name="sync_from" defaultValue={l.sync_from ?? ""} className="rounded-lg border border-ink/10 bg-white px-2 py-1" />
-                        <button className="btn-ghost !px-2 !py-1 text-xs">Salvar</button>
-                        <span className="basis-full text-[11px] text-ink/40">Em branco: começa logo depois do último PDF importado desta conta{l.kind === "cartao" ? " (fatura seguinte)" : ""}.</span>
-                      </form>
-                    )}
                   </div>
                 );
               })}

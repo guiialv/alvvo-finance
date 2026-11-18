@@ -19,7 +19,7 @@ export function SyncPanel({ ready }: { ready: boolean }) {
           <button disabled={!ready || pending} className="btn !px-3 !py-1.5 text-xs disabled:opacity-40">Sincronizar agora</button></form>
       </div>
       <p className="mt-1 text-xs text-ink/50">
-        {ready ? "A prévia mostra o que entraria, sem gravar nada. A sincronização também roda sozinha todo dia de manhã." : "Escolha a conta da plataforma e ative a importação de pelo menos uma conta abaixo."}
+        {ready ? "Todas as contas e cartões do banco entram sozinhos, com todos os finais de cartão. A prévia mostra o que entraria, sem gravar nada; a sincronização também roda sozinha todo dia de manhã." : "Nenhuma conta encontrada na conexão ainda."}
       </p>
       {pending && <p className="mt-3 text-sm text-ink/60">Buscando no banco… pode levar até um minuto na primeira vez.</p>}
       {state.error && <p className="mt-3 rounded-lg bg-loss/10 p-3 text-sm text-loss">{state.error}</p>}

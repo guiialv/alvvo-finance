@@ -36,13 +36,21 @@ const round2 = (n: number) => Math.round(n * 100) / 100;
 const addDays = (d: string, n: number) => new Date(Date.parse(d + "T12:00:00Z") + n * 86400000).toISOString().slice(0, 10);
 const brl = (n: number) => n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
-/** Liga as conexões das variáveis de ambiente a esta conta (família) e atualiza contas e saldos. */
-export async function refreshConnections(db: SupabaseClient, householdId: string, bindEnv: boolean) {
+/**
+ * Liga as conexões das variáveis de ambiente a esta conta (família), atualiza contas e saldos e
+ * vincula automaticamente cada conta/cartão do banco a uma conta da plataforma (criando quando não existe),
+ * do mesmo jeito que a importação de PDF faz. Tudo já fica ativo para sincronizar.
+ */
+export async function refreshConnections(db: SupabaseClient, householdId: string, bindEnv: boolean, ownerId?: string | null) {
   if (bindEnv) {
     for (const item of envItemIds()) {
       const { data } = await db.from("bank_connections").select("id").eq("item_id", item).maybeSingle();
       if (!data) await db.from("bank_connections").insert({ household_id: householdId, item_id: item });
     }
+  }
+  if (!ownerId) {
+    const { data: o } = await db.from("household_members").select("user_id").eq("household_id", householdId).eq("role", "dono").limit(1).maybeSingle();
+    ownerId = (o?.user_id as string | undefined) ?? null;
   }
   const { data: conns } = await db.from("bank_connections").select("*").eq("household_id", householdId);
   const errors: string[] = [];
@@ -54,17 +62,15 @@ export async function refreshConnections(db: SupabaseClient, householdId: string
         consent_expires_at: it.consentExpiresAt ?? null, provider_updated_at: it.lastUpdatedAt ?? it.updatedAt ?? null,
       }).eq("id", c.id);
       const accs = await listAccounts(c.item_id);
-      const { data: existing } = await db.from("bank_links").select("ext_account_id").eq("connection_id", c.id);
-      const known = new Set(((existing ?? []) as { ext_account_id: string }[]).map((x) => x.ext_account_id));
-      const { data: ours } = await db.from("accounts").select("id, type, institution, last4, known_last4, name, active").eq("household_id", householdId);
       for (const a of accs) {
         const kind = a.type === "CREDIT" ? "cartao" : a.type === "BANK" ? "conta" : "outro";
         const base = {
           name: a.marketingName || a.name || null, number: a.number ?? null, institution: guessInstitution(a, it.connector?.name),
           balance: a.balance ?? null, credit_limit: a.creditData?.creditLimit ?? null, available_limit: a.creditData?.availableCreditLimit ?? null,
         };
-        if (known.has(a.id)) await db.from("bank_links").update(base).eq("ext_account_id", a.id);
-        else await db.from("bank_links").insert({ household_id: householdId, connection_id: c.id, ext_account_id: a.id, kind, ...base, account_id: suggestAccount(a, kind, (ours ?? []) as OurAcc[]) });
+        const { data: ex } = await db.from("bank_links").select("id").eq("ext_account_id", a.id).maybeSingle();
+        if (ex) await db.from("bank_links").update(base).eq("id", ex.id);
+        else await db.from("bank_links").insert({ household_id: householdId, connection_id: c.id, ext_account_id: a.id, kind, ...base });
       }
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
@@ -72,20 +78,74 @@ export async function refreshConnections(db: SupabaseClient, householdId: string
       await db.from("bank_connections").update({ status_detail: msg }).eq("id", c.id);
     }
   }
+  try { await autoLink(db, householdId, ownerId ?? null); } catch (e) { errors.push(e instanceof Error ? e.message : String(e)); }
   return errors;
 }
 
-type OurAcc = { id: string; type: string; institution: string | null; last4: string | null; known_last4: string[] | null; name: string; active: boolean };
-function suggestAccount(a: PluggyAccount, kind: string, ours: OurAcc[]): string | null {
-  const l4 = last4(a.number);
-  if (kind === "cartao" && l4) return ours.find((o) => o.type === "cartao" && (o.last4 === l4 || (o.known_last4 ?? []).includes(l4)))?.id ?? null;
-  if (kind === "conta") {
-    const inst = norm(`${a.name ?? ""} ${a.marketingName ?? ""}`);
-    const contas = ours.filter((o) => o.type === "conta" && o.active !== false);
-    return contas.find((o) => o.institution && inst.includes(norm(o.institution).split(" ")[0]))?.id ?? (contas.length === 1 ? contas[0].id : null);
+type OurAcc = { id: string; type: string; institution: string | null; last4: string | null; known_last4: string[] | null; name: string; active: boolean; statement_key: string | null };
+
+/** Vincula cada conta do banco a uma conta da plataforma (ou cria), sem pedir nada a ninguém. */
+async function autoLink(db: SupabaseClient, householdId: string, ownerId: string | null) {
+  const { data: ls } = await db.from("bank_links").select("*").eq("household_id", householdId);
+  const links = (ls ?? []) as LinkRow[];
+  const load = async () => ((await db.from("accounts").select("id, type, institution, last4, known_last4, name, active, statement_key").eq("household_id", householdId)).data ?? []) as OurAcc[];
+  let ours = await load();
+  const byId = (id: string | null) => ours.find((o) => o.id === id);
+  const sameInst = (o: OurAcc | undefined, inst: string | null) => !!o && !!inst && !!o.institution && norm(o.institution).split(" ")[0] === norm(inst).split(" ")[0];
+
+  for (const l of links.filter((x) => x.kind !== "outro")) {
+    const cur = byId(l.account_id);
+    // Mantém o vínculo que já está certo (mesmo tipo e mesmo banco)
+    if (cur && cur.type === (l.kind === "cartao" ? "cartao" : "conta") && (sameInst(cur, l.institution) || cur.statement_key === `of:${l.ext_account_id}`)) {
+      if (!l.enabled) await db.from("bank_links").update({ enabled: true }).eq("id", l.id);
+      continue;
+    }
+    let target: OurAcc | undefined;
+    if (l.kind === "cartao") {
+      // Finais dos cartões que aparecem nas compras (titular e adicionais) + final da conta do cartão
+      const finals = new Set<string>();
+      const n = last4(l.number); if (n) finals.add(n);
+      try {
+        for (const t of await listTransactions(l.ext_account_id, addDays(todayIso(), -120), todayIso())) { const f = last4(t.creditCardMetadata?.cardNumber); if (f) finals.add(f); }
+      } catch { /* sem compras recentes */ }
+      let best = 0;
+      for (const o of ours.filter((x) => x.type === "cartao" && x.active !== false && (!x.institution || !l.institution || sameInst(x, l.institution)))) {
+        const known = new Set([...(o.known_last4 ?? []), ...(o.last4 ? [o.last4] : [])]);
+        const hit = [...finals].filter((f) => known.has(f)).length;
+        if (hit > best && !links.some((x) => x.id !== l.id && x.account_id === o.id)) { best = hit; target = o; }
+      }
+      if (target && finals.size) {
+        const merged = [...new Set([...(target.known_last4 ?? []), ...finals])];
+        if (merged.length !== (target.known_last4 ?? []).length) await db.from("accounts").update({ known_last4: merged }).eq("id", target.id);
+      }
+      if (!target) {
+        const l4 = last4(l.number) ?? [...finals][0] ?? null;
+        const { data } = await db.from("accounts").insert({
+          household_id: householdId, scope: "pessoal", type: "cartao", institution: l.institution, name: `${titleCase(l.name ?? "Cartão")}${l4 ? ` ••${l4}` : ""}`,
+          last4: l4, known_last4: [...finals], statement_key: `of:${l.ext_account_id}`, owner_user_id: ownerId,
+        }).select("id, type, institution, last4, known_last4, name, active, statement_key").single();
+        target = (data as OurAcc | null) ?? undefined;
+      }
+    } else {
+      // Conta corrente: a do mesmo banco que ainda não está ligada a outra conta do Open Finance; senão, cria
+      target = ours.find((o) => o.type === "conta" && o.active !== false && sameInst(o, l.institution) && !links.some((x) => x.id !== l.id && x.account_id === o.id));
+      if (!target) {
+        const { data } = await db.from("accounts").insert({
+          household_id: householdId, scope: "pessoal", type: "conta", institution: l.institution,
+          name: uniqueName(`${l.institution ?? titleCase(l.name ?? "Banco")} · conta${l.number ? ` ${l.number}` : ""}`, ours), statement_key: `of:${l.ext_account_id}`, owner_user_id: ownerId,
+        }).select("id, type, institution, last4, known_last4, name, active, statement_key").single();
+        target = (data as OurAcc | null) ?? undefined;
+      }
+    }
+    if (target) {
+      await db.from("bank_links").update({ account_id: target.id, enabled: true }).eq("id", l.id);
+      l.account_id = target.id;
+      ours = await load();
+    }
   }
-  return null;
 }
+const uniqueName = (n: string, ours: OurAcc[]) => { let k = n, i = 2; while (ours.some((o) => o.name === k)) k = `${n} (${i++})`; return k; };
+const titleCase = (s: string) => s.toLowerCase().replace(/(^|\s)\p{L}/gu, (c) => c.toUpperCase());
 const norm = (s: string) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toUpperCase();
 function guessInstitution(a: PluggyAccount, connector?: string | null) {
   const s = norm(`${a.name ?? ""} ${a.marketingName ?? ""}`);
@@ -179,7 +239,7 @@ async function syncCard(ctx: Ctx, link: LinkRow, dryRun: boolean): Promise<SyncL
         continue;
       }
       if (floor && due <= floor) continue;
-      if (!floor && due < addDays(todayIso(), -100)) continue; // primeira vez sem PDF: últimas faturas apenas
+      if (!floor && due < addDays(todayIso(), -370)) continue; // sem PDF: até 12 meses (o que o banco libera)
       groups.push({ ref: `pluggy:bill:${b.id}`, due, total: b.totalAmount ?? null, txs, open: false });
     }
     // Fatura aberta: lançamentos sem fatura ainda
@@ -188,7 +248,7 @@ async function syncCard(ctx: Ctx, link: LinkRow, dryRun: boolean): Promise<SyncL
     if (open.length) groups.push({ ref: `pluggy:open:${link.ext_account_id}`, due: nextDue(lastDue, acc.due_day), total: null, txs: open, open: true });
   } else {
     // Banco sem faturas na API: agrupa pelo vencimento calculado (dia de vencimento do cartão)
-    const from = floor ? addDays(floor, -35) : addDays(todayIso(), -100);
+    const from = floor ? addDays(floor, -35) : addDays(todayIso(), -370);
     const txs = await listTransactions(link.ext_account_id, from, todayIso());
     const dueDay = acc.due_day ?? 10, closeDay = acc.closing_day ?? ((dueDay + 23) % 30 || 30);
     const byDue = new Map<string, PluggyTransaction[]>();
@@ -251,7 +311,7 @@ async function syncConta(ctx: Ctx, link: LinkRow, dryRun: boolean): Promise<Sync
   const { data: last } = await ctx.supabase.from("transactions").select("date, import_batches!inner(external_ref)").eq("household_id", hh).eq("account_id", acc.id)
     .eq("source", "extrato").is("import_batches.external_ref", null).order("date", { ascending: false }).limit(1);
   const pdfUntil = (last?.[0]?.date as string | undefined) ?? null;
-  const start = [pdfUntil ? addDays(pdfUntil, 1) : null, link.sync_from].filter(Boolean).sort().pop() ?? addDays(todayIso(), -60);
+  const start = [pdfUntil ? addDays(pdfUntil, 1) : null, link.sync_from].filter(Boolean).sort().pop() ?? addDays(todayIso(), -365);
   if (pdfUntil && !dryRun) await compareConta(ctx, link, acc, pdfUntil);
   const txs = (await listTransactions(link.ext_account_id, start, todayIso())).filter((t) => (t.status ?? "POSTED") === "POSTED" && brDate(t.date) >= start);
   // CPF do titular (para reconhecer transferências entre as próprias contas)
