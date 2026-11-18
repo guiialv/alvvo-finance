@@ -23,8 +23,9 @@ export async function runSync(_: SyncState | undefined, f: FormData): Promise<Sy
   try {
     // Atualiza contas, saldos e vínculos antes (cartões novos entram sozinhos)
     const { data: platform } = await ctx.supabase.rpc("is_platform_admin");
-    await refreshConnections(ctx.supabase, ctx.household.id, !!platform, ctx.user.id);
+    const linkErrors = await refreshConnections(ctx.supabase, ctx.household.id, !!platform, ctx.user.id);
     const summary = await syncHousehold(ctx, { dryRun });
+    summary.errors.unshift(...linkErrors);
     if (!dryRun) {
       const n = summary.lines.reduce((a, l) => a + (l.action === "importar" || l.action === "atualizar" ? l.rows : 0), 0);
       await logAction(ctx, `Sincronizou o Open Finance: ${n} lançamento(s)`);

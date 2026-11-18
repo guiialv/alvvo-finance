@@ -6,7 +6,7 @@ import { buildPreview, commitImport, type Preview } from "@/lib/import-core";
 import type { ParsedCardTransaction, ParsedStatement } from "@/lib/faturas/types";
 import type { Ctx, Household } from "@/lib/context";
 import {
-  envItemIds, getItem, listAccounts, listBills, listBillTransactions, listTransactions, PluggyError,
+  envItemIds, getItem, listAccounts, listBills, listTransactions, PluggyError,
   type PluggyAccount, type PluggyBill, type PluggyTransaction,
 } from "./client";
 
@@ -93,7 +93,8 @@ async function autoLink(db: SupabaseClient, householdId: string, ownerId: string
   const byId = (id: string | null) => ours.find((o) => o.id === id);
   const sameInst = (o: OurAcc | undefined, inst: string | null) => !!o && !!inst && !!o.institution && norm(o.institution).split(" ")[0] === norm(inst).split(" ")[0];
 
-  for (const l of links.filter((x) => x.kind !== "outro")) {
+  const errors: string[] = [];
+  for (const l of links.filter((x) => x.kind !== "outro")) { try {
     const cur = byId(l.account_id);
     // Mantém o vínculo que já está certo (mesmo tipo e mesmo banco)
     if (cur && cur.type === (l.kind === "cartao" ? "cartao" : "conta") && (sameInst(cur, l.institution) || cur.statement_key === `of:${l.ext_account_id}`)) {
@@ -107,7 +108,7 @@ async function autoLink(db: SupabaseClient, householdId: string, ownerId: string
       const n = last4(l.number); if (n) finals.add(n);
       try {
         for (const t of await listTransactions(l.ext_account_id, addDays(todayIso(), -120), todayIso())) { const f = last4(t.creditCardMetadata?.cardNumber); if (f) finals.add(f); }
-      } catch { /* sem compras recentes */ }
+      } catch (e) { throw new Error(`Não consegui ler as compras de ${l.name ?? "um cartão"} para reconhecê-lo: ${e instanceof Error ? e.message : e}`); }
       let best = 0;
       for (const o of ours.filter((x) => x.type === "cartao" && x.active !== false && (!x.institution || !l.institution || sameInst(x, l.institution)))) {
         const known = new Set([...(o.known_last4 ?? []), ...(o.last4 ? [o.last4] : [])]);
@@ -142,7 +143,8 @@ async function autoLink(db: SupabaseClient, householdId: string, ownerId: string
       l.account_id = target.id;
       ours = await load();
     }
-  }
+  } catch (e) { errors.push(e instanceof Error ? e.message : String(e)); } }
+  if (errors.length) throw new Error(errors.join(" · "));
 }
 const uniqueName = (n: string, ours: OurAcc[]) => { let k = n, i = 2; while (ours.some((o) => o.name === k)) k = `${n} (${i++})`; return k; };
 const titleCase = (s: string) => s.toLowerCase().replace(/(^|\s)\p{L}/gu, (c) => c.toUpperCase());
@@ -229,9 +231,22 @@ async function syncCard(ctx: Ctx, link: LinkRow, dryRun: boolean): Promise<SyncL
   const groups: { ref: string; due: string; total: number | null; txs: PluggyTransaction[]; open: boolean }[] = [];
   if (bills.length) {
     const seen = new Set<string>();
+    // Uma busca só (desde ~45 dias antes da fatura mais antiga relevante) e separa por fatura
+    const firstDue = brDate(bills.find((b) => brDate(b.dueDate) >= addDays(todayIso(), -370))?.dueDate ?? bills[0].dueDate);
+    const all = await listTransactions(link.ext_account_id, addDays(firstDue, -50), todayIso());
+    const byBill = new Map<string, PluggyTransaction[]>();
+    for (const t of all) { const id = t.creditCardMetadata?.billId; if (id) byBill.set(id, [...(byBill.get(id) ?? []), t]); }
+    if (!byBill.size && all.length) {
+      // Banco não informa a fatura de cada compra: usa o fechamento (~8 dias antes do vencimento) de cada fatura
+      const dues = bills.map((b) => ({ id: b.id, close: addDays(brDate(b.dueDate), -8) }));
+      for (const t of all) {
+        const d = brDate(t.date), b = dues.find((x) => d <= x.close && d > addDays(x.close, -32));
+        if (b) byBill.set(b.id, [...(byBill.get(b.id) ?? []), t]);
+      }
+    }
     for (const b of bills) {
       const due = brDate(b.dueDate);
-      const txs = await listBillTransactions(link.ext_account_id, b.id);
+      const txs = byBill.get(b.id) ?? [];
       txs.forEach((t) => seen.add(t.id));
       if (pdfUntil && due <= pdfUntil) {
         // Fatura que já veio em PDF: o PDF vale; o Open Finance só é conferido contra ele
@@ -244,7 +259,7 @@ async function syncCard(ctx: Ctx, link: LinkRow, dryRun: boolean): Promise<SyncL
     }
     // Fatura aberta: lançamentos sem fatura ainda
     const lastDue = brDate(bills[bills.length - 1].dueDate);
-    const open = (await listTransactions(link.ext_account_id, addDays(lastDue, -25), todayIso())).filter((t) => !seen.has(t.id) && !t.creditCardMetadata?.billId);
+    const open = all.filter((t) => !seen.has(t.id) && !t.creditCardMetadata?.billId && brDate(t.date) >= addDays(lastDue, -25));
     if (open.length) groups.push({ ref: `pluggy:open:${link.ext_account_id}`, due: nextDue(lastDue, acc.due_day), total: null, txs: open, open: true });
   } else {
     // Banco sem faturas na API: agrupa pelo vencimento calculado (dia de vencimento do cartão)

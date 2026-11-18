@@ -135,8 +135,19 @@ async function paged<T>(path: string, params: Record<string, string | number | u
 
 export const getItem = (id: string) => get<PluggyItem>(`/items/${encodeURIComponent(id)}`);
 export const listAccounts = async (itemId: string) => (await get<{ results: PluggyAccount[] }>("/accounts", { itemId })).results ?? [];
-export const listTransactions = (accountId: string, from?: string, to?: string) => paged<PluggyTransaction>("/transactions", { accountId, from, to });
-export const listBillTransactions = (accountId: string, billId: string) => paged<PluggyTransaction>("/transactions", { accountId, billId });
+/** Lançamentos de uma conta (GET /v2/transactions, paginação por cursor). */
+export async function listTransactions(accountId: string, from?: string, to?: string): Promise<PluggyTransaction[]> {
+  const out: PluggyTransaction[] = [];
+  let j = await get<{ results: PluggyTransaction[]; next?: string | null }>("/v2/transactions", { accountId, from, to, pageSize: 500 });
+  for (let guard = 0; ; guard++) {
+    out.push(...(j.results ?? []));
+    if (!j.next || guard > 200) break;
+    // `next` vem como "?accountId=...&after=..."
+    const q = Object.fromEntries(new URLSearchParams(j.next.replace(/^[^?]*\?/, "")));
+    j = await get<{ results: PluggyTransaction[]; next?: string | null }>("/v2/transactions", { pageSize: 500, ...q });
+  }
+  return out;
+}
 export async function listBills(accountId: string): Promise<PluggyBill[]> {
   try { return (await get<{ results: PluggyBill[] }>("/bills", { accountId })).results ?? []; }
   catch (e) { if (e instanceof PluggyError && (e.status === 404 || e.status === 400)) return []; throw e; }

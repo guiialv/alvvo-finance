@@ -26,6 +26,7 @@ export function SyncPanel({ ready }: { ready: boolean }) {
       {s && !pending && (
         <div className="mt-3 space-y-1.5">
           <p className="text-xs font-medium text-ink/60">{s.dryRun ? "Prévia (nada foi gravado)" : "Sincronização concluída"}</p>
+          {s.errors.filter((e) => !s.lines.some((l) => e.endsWith(l.detail ?? "§"))).map((e, i) => <p key={i} className="rounded-lg bg-loss/10 p-2 text-xs text-loss">{e}</p>)}
           {s.lines.length === 0 && <p className="text-sm text-ink/50">Nenhuma conta ativa para sincronizar.</p>}
           {s.lines.map((l, i) => (
             <div key={i} className="flex flex-wrap items-baseline justify-between gap-x-3 border-b border-ink/5 py-1 text-sm">
