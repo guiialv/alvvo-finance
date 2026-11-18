@@ -421,12 +421,20 @@ function matchItems(pdf: Item[], of: Item[], tolDays = 3) {
     });
     if (best >= 0) { used.add(best); matched++; } else onlyPdf.push(p);
   }
+  // 2ª passada (mesma fatura): mesmo valor com data diferente — parcelas vêm com a data da compra no PDF e a da parcela no banco
+  if (tolDays >= 3) {
+    for (let k = onlyPdf.length - 1; k >= 0; k--) {
+      const p = onlyPdf[k];
+      const i = of.findIndex((o, j) => !used.has(j) && Math.round(o.amount * 100) === Math.round(p.amount * 100));
+      if (i >= 0) { used.add(i); matched++; onlyPdf.splice(k, 1); }
+    }
+  }
   return { matched, onlyPdf, onlyOf: of.filter((_, i) => !used.has(i)) };
 }
 const sum = (l: Item[]) => round2(l.reduce((a, x) => a + x.amount, 0));
 
 async function saveComparison(ctx: Ctx, accountId: string, kind: "fatura" | "mes", ref: string, label: string, pdf: Item[], of: Item[]) {
-  const m = matchItems(pdf, of);
+  const m = matchItems(pdf, of, kind === "fatura" ? 3 : 2);
   await ctx.supabase.from("source_comparisons").upsert({
     household_id: ctx.household.id, account_id: accountId, kind, ref, label,
     pdf_count: pdf.length, pdf_total: sum(pdf), of_count: of.length, of_total: sum(of), matched: m.matched,
