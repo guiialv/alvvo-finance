@@ -29,12 +29,19 @@ export function SyncPanel({ ready }: { ready: boolean }) {
           {s.errors.filter((e) => !s.lines.some((l) => e.endsWith(l.detail ?? "§"))).map((e, i) => <p key={i} className="rounded-lg bg-loss/10 p-2 text-xs text-loss">{e}</p>)}
           {s.lines.length === 0 && <p className="text-sm text-ink/50">Nenhuma conta ativa para sincronizar.</p>}
           {s.lines.map((l, i) => (
-            <div key={i} className="flex flex-wrap items-baseline justify-between gap-x-3 border-b border-ink/5 py-1 text-sm">
+            <div key={i} className="border-b border-ink/5 py-1">
+            <div className="flex flex-wrap items-baseline justify-between gap-x-3 text-sm">
               <span className="min-w-0 [overflow-wrap:anywhere]">{l.label}</span>
               <span className={`text-xs ${TONE[l.action] ?? ""}`}>
                 {l.action === "erro" ? `erro: ${l.detail}` : l.action === "sem novidades" ? "sem novidades" : `${l.action === "atualizar" ? "atualiza" : s.dryRun ? "entraria" : "entrou"} · ${l.rows} lanç. · ${brl(Math.abs(l.total))}`}
                 {l.detail && l.action !== "erro" ? ` · ${l.detail}` : ""}
               </span>
+            </div>
+            {l.cards && l.cards.length > 0 && (
+              <div className="mt-0.5 flex flex-wrap gap-1.5">
+                {l.cards.map((c) => <span key={c.last4} className="rounded-md bg-ink/[0.05] px-1.5 py-0.5 text-[11px] text-ink/60">••{c.last4} · {c.rows} · {brl(c.total)}</span>)}
+              </div>
+            )}
             </div>
           ))}
           {s.dryRun && s.lines.some((l) => l.rows > 0) && <p className="pt-1 text-xs text-ink/50">Confira os valores com as faturas e extratos. Se estiver certo, clique em “Sincronizar agora”.</p>}

@@ -27,7 +27,7 @@ export interface ConnectionRow {
   id: string; household_id: string; item_id: string; connector: string | null; status: string | null; status_detail: string | null;
   consent_expires_at: string | null; provider_updated_at: string | null; last_sync_at: string | null; last_sync_result: SyncSummary | null;
 }
-export interface SyncLine { link: string; label: string; rows: number; total: number; action: "importar" | "atualizar" | "sem novidades" | "erro"; detail?: string }
+export interface SyncLine { link: string; label: string; rows: number; total: number; action: "importar" | "atualizar" | "sem novidades" | "erro"; detail?: string; cards?: { last4: string; rows: number; total: number }[] }
 export interface SyncSummary { at: string; dryRun: boolean; lines: SyncLine[]; errors: string[] }
 
 const brDate = (iso: string) => new Date(iso).toLocaleDateString("sv-SE", { timeZone: "America/Sao_Paulo" });
@@ -288,7 +288,7 @@ async function syncCard(ctx: Ctx, link: LinkRow, dryRun: boolean): Promise<SyncL
       cardTotals: {}, futureInstallments: [], currentTotal: null, mainCard: fallbackL4 ? { last4: fallbackL4 } : null, warnings: [],
     };
     const res = await importStatement(ctx, st, { fileName: `Open Finance · ${label}`, accountId: acc.id, ownerUserId: acc.owner_user_id, externalRef: g.ref, externalSig: sig, replaceRefs: g.open ? [] : [`pluggy:open:${link.ext_account_id}`], dryRun });
-    out.push({ link: link.id, label, rows: res.rows, total: res.total, action: prev?.length ? "atualizar" : "importar", detail: res.error });
+    out.push({ link: link.id, label, rows: res.rows, total: res.total, action: prev?.length ? "atualizar" : "importar", detail: res.error, cards: res.cards });
   }
   return out;
 }
@@ -365,7 +365,11 @@ async function importStatement(ctx: Ctx, st: ParsedStatement, o: { fileName: str
   const p: Preview = await buildPreview(ctx, st, { fileName: o.fileName, source: "open_finance", accountId: o.accountId, replaces });
   const fresh = (p.rows ?? []).filter((r) => !r.duplicate);
   const signed = fresh.reduce((a, r) => a + (r.flow === "entrada" ? r.amount : r.flow === "saida" ? -r.amount : r.amount), 0);
-  if (o.dryRun || !fresh.length) return { rows: fresh.length, total: round2(signed) };
+  // Fatura: quanto de cada final de cartão (titular, adicionais e virtuais)
+  const per = new Map<string, { rows: number; total: number }>();
+  if (st.docType === "fatura") for (const r of fresh) { const k = r.cardLast4 ?? "?"; const v = per.get(k) ?? { rows: 0, total: 0 }; v.rows++; v.total = round2(v.total + r.amount); per.set(k, v); }
+  const cards = [...per.entries()].map(([last4, v]) => ({ last4, ...v })).sort((a, b) => b.total - a.total);
+  if (o.dryRun || !fresh.length) return { rows: fresh.length, total: round2(signed), cards };
   const res = await commitImport(ctx, {
     fileName: o.fileName, source: "open_finance", docType: st.docType, accountRef: null, bank: st.bank, dueDate: st.dueDate, statementTotal: st.statementTotal,
     futureTotal: null, futureItems: [], cardTotals: {}, currentTotal: null, replacesBatchIds: p.replacesBatchIds ?? [], mainCard: st.mainCard ?? null,
@@ -374,7 +378,7 @@ async function importStatement(ctx: Ctx, st: ParsedStatement, o: { fileName: str
     rows: fresh.map((r) => ({ ...r, categoryId: r.suggestedCategoryId })),
     accountId: o.accountId, appendToBatchId: o.appendTo ?? null, externalRef: o.externalRef, externalSig: o.externalSig ?? null,
   });
-  return { rows: res.inserted ?? 0, total: round2(signed), error: res.error };
+  return { rows: res.inserted ?? 0, total: round2(signed), error: res.error, cards };
 }
 
 // ---------- Comparação PDF × Open Finance ----------
