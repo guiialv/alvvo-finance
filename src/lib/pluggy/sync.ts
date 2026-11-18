@@ -196,6 +196,12 @@ export async function syncHousehold(ctx: Ctx, opts: { dryRun?: boolean; linkIds?
   return summary;
 }
 
+/** Lotes do Open Finance desta conta (para separar o que veio de PDF do que veio do banco). */
+async function ofBatchIds(ctx: Ctx, accountId: string) {
+  const { data } = await ctx.supabase.from("import_batches").select("id").eq("household_id", ctx.household.id).eq("account_id", accountId).like("external_ref", "pluggy:%");
+  return ((data ?? []) as { id: string }[]).map((b) => b.id);
+}
+
 async function accountOf(ctx: Ctx, id: string) {
   const { data } = await ctx.supabase.from("accounts").select("id, name, institution, owner_user_id, due_day, closing_day, last4").eq("id", id).single();
   return data as { id: string; name: string; institution: string | null; owner_user_id: string | null; due_day: number | null; closing_day: number | null; last4: string | null };
@@ -224,6 +230,7 @@ async function syncCard(ctx: Ctx, link: LinkRow, dryRun: boolean): Promise<SyncL
   // Até onde os PDFs já cobrem este cartão
   const { data: pdf } = await ctx.supabase.from("import_batches").select("due_date").eq("household_id", hh).eq("account_id", acc.id).eq("doc_type", "fatura").is("external_ref", null).order("due_date", { ascending: false }).limit(1);
   const pdfUntil = (pdf?.[0]?.due_date as string | undefined) ?? null;
+  const diag: Record<string, unknown> = { card: link.name, pdfUntil };
   const floor = [pdfUntil, link.sync_from ? addDays(link.sync_from, -1) : null].filter(Boolean).sort().pop() ?? null;
   const fallbackL4 = last4(link.number) ?? acc.last4;
 
@@ -236,6 +243,10 @@ async function syncCard(ctx: Ctx, link: LinkRow, dryRun: boolean): Promise<SyncL
     const all = await listTransactions(link.ext_account_id, addDays(firstDue, -50), todayIso());
     const byBill = new Map<string, PluggyTransaction[]>();
     for (const t of all) { const id = t.creditCardMetadata?.billId; if (id) byBill.set(id, [...(byBill.get(id) ?? []), t]); }
+    diag.txs = all.length; diag.withBill = all.filter((t) => t.creditCardMetadata?.billId).length;
+    diag.unknownBill = all.filter((t) => t.creditCardMetadata?.billId && !bills.some((b) => b.id === t.creditCardMetadata?.billId)).length;
+    diag.dates = all.length ? [brDate(all.map((t) => t.date).sort()[0]), brDate(all.map((t) => t.date).sort().pop()!)] : [];
+    diag.finals = [...new Set(all.map((t) => last4(t.creditCardMetadata?.cardNumber) ?? "-"))];
     if (!byBill.size && all.length) {
       // Banco não informa a fatura de cada compra: usa o fechamento (~8 dias antes do vencimento) de cada fatura
       const dues = bills.map((b) => ({ id: b.id, close: addDays(brDate(b.dueDate), -8) }));
@@ -259,7 +270,9 @@ async function syncCard(ctx: Ctx, link: LinkRow, dryRun: boolean): Promise<SyncL
     }
     // Fatura aberta: lançamentos sem fatura ainda
     const lastDue = brDate(bills[bills.length - 1].dueDate);
-    const open = all.filter((t) => !seen.has(t.id) && !t.creditCardMetadata?.billId && brDate(t.date) >= addDays(lastDue, -25));
+    // Compras sem fatura, ou de uma fatura que o banco ainda não listou (a aberta)
+    const closedIds = new Set(bills.map((b) => b.id));
+    const open = all.filter((t) => !seen.has(t.id) && (!t.creditCardMetadata?.billId || !closedIds.has(t.creditCardMetadata.billId)) && brDate(t.date) >= addDays(lastDue, -25));
     if (open.length) groups.push({ ref: `pluggy:open:${link.ext_account_id}`, due: nextDue(lastDue, acc.due_day), total: null, txs: open, open: true });
   } else {
     // Banco sem faturas na API: agrupa pelo vencimento calculado (dia de vencimento do cartão)
@@ -274,7 +287,11 @@ async function syncCard(ctx: Ctx, link: LinkRow, dryRun: boolean): Promise<SyncL
     }
   }
 
+  diag.bills = bills.map((b) => `${brDate(b.dueDate)}:${b.totalAmount}`);
+  diag.groups = groups.map((g) => `${g.ref.split(":")[1]}:${g.due}:${g.txs.length}`);
+  console.log("[openfinance:diag]", JSON.stringify(diag));
   const out: SyncLine[] = [];
+  if (!groups.length) out.push({ link: link.id, label: acc.name, rows: 0, total: 0, action: "sem novidades", detail: `faturas no banco: ${bills.length}${bills.length ? ` (última vence ${brDate(bills[bills.length - 1].dueDate).split("-").reverse().join("/")})` : ""}` });
   for (const g of groups) {
     const txs = g.txs.filter((t) => (t.status ?? "POSTED") === "POSTED" && !isBillPayment(t));
     const sig = sigOf(txs);
@@ -323,8 +340,11 @@ async function syncConta(ctx: Ctx, link: LinkRow, dryRun: boolean): Promise<Sync
   const acc = await accountOf(ctx, link.account_id!);
   const hh = ctx.household.id;
   // Até onde os extratos em PDF já cobrem esta conta (lançamentos que não vieram do Open Finance)
-  const { data: last } = await ctx.supabase.from("transactions").select("date, import_batches!inner(external_ref)").eq("household_id", hh).eq("account_id", acc.id)
-    .eq("source", "extrato").is("import_batches.external_ref", null).order("date", { ascending: false }).limit(1);
+  const ofIds = await ofBatchIds(ctx, acc.id);
+  let lq = ctx.supabase.from("transactions").select("date").eq("household_id", hh).eq("account_id", acc.id).eq("source", "extrato");
+  if (ofIds.length) lq = lq.not("import_batch_id", "in", `(${ofIds.join(",")})`);
+  const { data: last, error: lastErr } = await lq.order("date", { ascending: false }).limit(1);
+  if (lastErr) throw new Error(`Não consegui ver até onde vão os extratos em PDF: ${lastErr.message}`);
   const pdfUntil = (last?.[0]?.date as string | undefined) ?? null;
   const start = [pdfUntil ? addDays(pdfUntil, 1) : null, link.sync_from].filter(Boolean).sort().pop() ?? addDays(todayIso(), -365);
   if (pdfUntil && !dryRun) await compareConta(ctx, link, acc, pdfUntil);
@@ -422,8 +442,11 @@ async function compareBill(ctx: Ctx, acc: { id: string; name: string }, due: str
 
 async function compareConta(ctx: Ctx, link: LinkRow, acc: { id: string; name: string }, pdfUntil: string) {
   const from = addDays(pdfUntil, -95);
-  const { data } = await ctx.supabase.from("transactions").select("date, description, amount, flow, import_batches!inner(external_ref)").eq("household_id", ctx.household.id)
-    .eq("account_id", acc.id).eq("source", "extrato").is("import_batches.external_ref", null).gte("date", from).lte("date", pdfUntil);
+  const ofIds = await ofBatchIds(ctx, acc.id);
+  let q = ctx.supabase.from("transactions").select("date, description, amount, flow").eq("household_id", ctx.household.id)
+    .eq("account_id", acc.id).eq("source", "extrato").gte("date", from).lte("date", pdfUntil);
+  if (ofIds.length) q = q.not("import_batch_id", "in", `(${ofIds.join(",")})`);
+  const { data } = await q;
   const pdfRows = (data ?? []) as { date: string; description: string; amount: number; flow: string | null }[];
   if (!pdfRows.length) return;
   const signed = (flow: string | null, v: number) => round2((flow === "entrada" ? 1 : -1) * Math.abs(v));
