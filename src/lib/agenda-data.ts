@@ -7,7 +7,7 @@ export async function loadAgenda(ctx: Ctx, from: string, to: string) {
   const [itemsRes, payRes, batchRes] = await Promise.all([
     ctx.supabase.from("agenda_items").select("*").eq("household_id", hh).order("due_day"),
     ctx.supabase.from("agenda_payments").select("item_id, month, event, transaction_id").eq("household_id", hh).gte("month", from.slice(0, 7)).lte("month", to.slice(0, 7)),
-    ctx.supabase.from("import_batches").select("statement_total").eq("household_id", hh).eq("source", "fatura_pdf").order("due_date", { ascending: false }).limit(1),
+    ctx.supabase.from("import_batches").select("statement_total").eq("household_id", hh).in("source", ["fatura_pdf", "open_finance"]).order("due_date", { ascending: false }).limit(1),
   ]);
   const items = (itemsRes.data ?? []) as AgendaItem[];
   const lastStatement = batchRes.data?.[0]?.statement_total != null ? Number(batchRes.data[0].statement_total) : null;

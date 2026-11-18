@@ -13,7 +13,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const { household, member, viewer } = ctx;
   const admin = isAdminRole(member.role) && !viewer.simulated;
   const areas = visibleAreas(ctx);
-  const allowed = [...AREAS.filter(([k]) => areas.includes(k)).map(([, , href]) => href), ...(admin ? ["/acessos", "/configuracoes"] : [])];
+  const allowed = [...AREAS.filter(([k]) => areas.includes(k)).map(([, , href]) => href), ...(admin ? ["/acessos", "/conexoes", "/configuracoes"] : [])];
   if (areas.includes("orcamento") || areas.includes("visao-geral")) allowed.push("/fluxo");
   if (areas.includes("faturas")) allowed.push("/conta");
   if (areas.includes("visao-geral")) allowed.push("/simulacoes");

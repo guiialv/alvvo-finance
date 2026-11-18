@@ -35,6 +35,8 @@ export interface ParsedCardTransaction {
   flow?: "entrada" | "saida";
   /** Extratos: natureza identificada (pagamento_fatura, pix_credito, emprestimo, aplicacao_automatica, ...) */
   nature?: string | null;
+  /** Identificador do lançamento na origem (Open Finance): evita duplicar em sincronizações seguidas */
+  externalId?: string | null;
 }
 
 export interface ParsedStatement {
