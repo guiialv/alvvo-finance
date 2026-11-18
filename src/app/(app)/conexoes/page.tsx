@@ -2,7 +2,7 @@ import { requireAdmin } from "@/lib/context";
 import { PageHeader } from "@/components/ui";
 import { pluggyConfigured } from "@/lib/pluggy/client";
 import { refreshConnections, type ConnectionRow, type LinkRow } from "@/lib/pluggy/sync";
-import { refreshBank } from "./actions";
+import { adoptBankBill, refreshBank } from "./actions";
 import { SyncPanel } from "./sync-panel";
 
 export const maxDuration = 300;
@@ -110,6 +110,13 @@ export default async function ConexoesPage() {
                     <div>Open Finance: <b className="text-ink">{brl(c.of_total)}</b> · {c.of_count} lanç.</div>
                     <div className="col-span-2">{c.matched} lançamento(s) iguais nas duas fontes{c.only_pdf.length + c.only_of.length ? ` · ${c.only_pdf.length} só no PDF · ${c.only_of.length} só no Open Finance` : ""}</div>
                   </div>
+                  {c.kind === "fatura" && Math.abs(diff) >= 1 && (
+                    <form action={adoptBankBill} className="mt-2 flex flex-wrap items-center gap-2">
+                      <input type="hidden" name="id" value={c.id} />
+                      <button className="btn !px-3 !py-1.5 text-xs">Usar a versão do banco nesta fatura</button>
+                      <span className="text-[11px] text-ink/45">Troca os lançamentos do PDF pelos do banco, mantendo as categorias que batem.</span>
+                    </form>
+                  )}
                   {[["Só no PDF", c.only_pdf], ["Só no Open Finance", c.only_of]].map(([t, list]) => (list as Item[]).length > 0 && (
                     <div key={t as string} className="mt-2">
                       <div className="text-[11px] font-medium uppercase tracking-wide text-ink/45">{t as string}</div>

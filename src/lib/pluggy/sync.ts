@@ -477,6 +477,35 @@ async function compareConta(ctx: Ctx, link: LinkRow, acc: { id: string; name: st
   }
 }
 
+/**
+ * Troca uma fatura vinda de PDF pela versão do Open Finance (quando o PDF foi lido incompleto),
+ * mantendo as categorias que já existiam. A fatura passa a valer pelo banco.
+ */
+export async function adoptBill(ctx: Ctx, accountId: string, due: string) {
+  const { data: l } = await ctx.supabase.from("bank_links").select("*").eq("household_id", ctx.household.id).eq("account_id", accountId).eq("kind", "cartao").limit(1);
+  const link = (l ?? [])[0] as LinkRow | undefined;
+  if (!link) throw new Error("Cartão sem conexão do Open Finance.");
+  const acc = await accountOf(ctx, accountId);
+  const bills = await listBills(link.ext_account_id);
+  const bill = bills.find((b) => Math.abs(Date.parse(brDate(b.dueDate)) - Date.parse(due)) <= 5 * 86400000);
+  if (!bill) throw new Error("O banco não devolveu essa fatura.");
+  const bDue = brDate(bill.dueDate);
+  const all = await listTransactions(link.ext_account_id, addDays(bDue, -80), addDays(bDue, 5));
+  const txs = all.filter((t) => t.creditCardMetadata?.billId === bill.id && (t.status ?? "POSTED") === "POSTED" && !isBillPayment(t));
+  if (!txs.length) throw new Error("Sem lançamentos dessa fatura no banco.");
+  const l4 = last4(link.number) ?? acc.last4;
+  const label = `${acc.name} · vence ${bDue.slice(8, 10)}/${bDue.slice(5, 7)}`;
+  const st: ParsedStatement = {
+    docType: "fatura", bank: acc.institution ?? link.institution ?? "Cartão", holder: null, dueDate: due, closingDate: null, statementTotal: null,
+    transactions: txs.map((t) => cardRow(t, l4)), cardTotals: {}, futureInstallments: [], currentTotal: null, mainCard: l4 ? { last4: l4 } : null, warnings: [],
+  };
+  // Mesmo vencimento do PDF: a prévia encontra a fatura em PDF e a substitui (as categorias são reaproveitadas)
+  const res = await importStatement(ctx, st, { fileName: `Open Finance · ${label}`, accountId: acc.id, ownerUserId: acc.owner_user_id, externalRef: `pluggy:bill:${bill.id}`, externalSig: sigOf(txs), dryRun: false });
+  if (res.error) throw new Error(res.error);
+  await ctx.supabase.from("source_comparisons").delete().eq("account_id", acc.id).eq("kind", "fatura").eq("ref", due);
+  return res.rows;
+}
+
 // ---------- Saldo diário da conta no banco ----------
 /** Reconstrói o saldo de cada dia (12 meses) a partir do saldo atual e dos lançamentos do banco. */
 export async function recordBankHistory(db: SupabaseClient, link: LinkRow) {

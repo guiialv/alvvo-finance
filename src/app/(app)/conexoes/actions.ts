@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { logAction, requireAdmin } from "@/lib/context";
-import { refreshBalances, refreshConnections, syncHousehold, type SyncSummary } from "@/lib/pluggy/sync";
+import { adoptBill, refreshBalances, refreshConnections, syncHousehold, type SyncSummary } from "@/lib/pluggy/sync";
 import { pluggyConfigured } from "@/lib/pluggy/client";
 
 const str = (f: FormData, k: string) => String(f.get(k) ?? "");
@@ -45,4 +45,14 @@ export async function refreshBankBalances() {
   await refreshBalances(ctx.supabase, ctx.household.id, ctx.user.id);
   revalidatePath("/");
   revalidatePath("/conexoes");
+}
+
+/** Comparação: usar a versão do banco para uma fatura cujo PDF veio incompleto. */
+export async function adoptBankBill(f: FormData) {
+  const ctx = await requireAdmin();
+  const { data: c } = await ctx.supabase.from("source_comparisons").select("account_id, kind, ref, label").eq("id", str(f, "id")).eq("household_id", ctx.household.id).single();
+  if (!c || c.kind !== "fatura") return;
+  const n = await adoptBill(ctx, c.account_id as string, c.ref as string);
+  await logAction(ctx, `Fatura ${c.label} substituída pela versão do Open Finance (${n} lançamentos)`);
+  for (const p of ["/", "/lancamentos", "/conta", "/faturas", "/orcamento", "/fluxo", "/conexoes"]) revalidatePath(p);
 }
