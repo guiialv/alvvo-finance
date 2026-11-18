@@ -31,6 +31,7 @@ export async function runSync(_: SyncState | undefined, f: FormData): Promise<Sy
       await logAction(ctx, `Sincronizou o Open Finance: ${n} lançamento(s)`);
       for (const p of ["/", "/lancamentos", "/conta", "/faturas", "/orcamento", "/fluxo", "/conexoes"]) revalidatePath(p);
     }
+    revalidatePath("/conexoes"); // a comparação PDF × Open Finance é atualizada também na prévia
     return { summary };
   } catch (e) {
     return { error: e instanceof Error ? e.message : "Falha ao sincronizar." };

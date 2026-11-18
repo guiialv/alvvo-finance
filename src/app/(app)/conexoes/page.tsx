@@ -94,7 +94,7 @@ export default async function ConexoesPage() {
       {comps.length > 0 && (
         <section className="card">
           <h2>PDF × Open Finance</h2>
-          <p className="mt-1 text-xs text-ink/50">Faturas e meses que existem nas duas fontes. Nos totais da plataforma vale o PDF; o Open Finance aparece aqui só para comparar.</p>
+          <p className="mt-1 text-xs text-ink/50">Faturas e meses que existem nas duas fontes. Nos totais da plataforma vale o PDF; o Open Finance aparece aqui só para comparar (atualizado a cada prévia ou sincronização). Daqui em diante, só entra pelo Open Finance o que vem depois do último PDF de cada conta.</p>
           <div className="mt-3 space-y-2">
             {comps.map((c) => {
               const diff = Math.round((Number(c.of_total) - Number(c.pdf_total)) * 100) / 100;

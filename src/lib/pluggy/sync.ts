@@ -261,7 +261,7 @@ async function syncCard(ctx: Ctx, link: LinkRow, dryRun: boolean): Promise<SyncL
       txs.forEach((t) => seen.add(t.id));
       if (pdfUntil && due <= pdfUntil) {
         // Fatura que já veio em PDF: o PDF vale; o Open Finance só é conferido contra ele
-        if (!dryRun && due >= addDays(todayIso(), -200)) await compareBill(ctx, acc, due, txs.filter((t) => (t.status ?? "POSTED") === "POSTED" && !isBillPayment(t)), fallbackL4);
+        if (due >= addDays(todayIso(), -370)) await compareBill(ctx, acc, due, txs.filter((t) => (t.status ?? "POSTED") === "POSTED" && !isBillPayment(t)), fallbackL4);
         continue;
       }
       if (floor && due <= floor) continue;
@@ -347,7 +347,7 @@ async function syncConta(ctx: Ctx, link: LinkRow, dryRun: boolean): Promise<Sync
   if (lastErr) throw new Error(`Não consegui ver até onde vão os extratos em PDF: ${lastErr.message}`);
   const pdfUntil = (last?.[0]?.date as string | undefined) ?? null;
   const start = [pdfUntil ? addDays(pdfUntil, 1) : null, link.sync_from].filter(Boolean).sort().pop() ?? addDays(todayIso(), -365);
-  if (pdfUntil && !dryRun) await compareConta(ctx, link, acc, pdfUntil);
+  if (pdfUntil) await compareConta(ctx, link, acc, pdfUntil);
   const txs = (await listTransactions(link.ext_account_id, start, todayIso())).filter((t) => (t.status ?? "POSTED") === "POSTED" && brDate(t.date) >= start);
   // CPF do titular (para reconhecer transferências entre as próprias contas)
   const ownDoc = txs.map((t) => (t.type === "DEBIT" ? t.paymentData?.payer : t.paymentData?.receiver)?.documentNumber?.value?.replace(/\D/g, "")).find((d) => d && d.length === 11) ?? null;
@@ -441,7 +441,7 @@ async function compareBill(ctx: Ctx, acc: { id: string; name: string }, due: str
 }
 
 async function compareConta(ctx: Ctx, link: LinkRow, acc: { id: string; name: string }, pdfUntil: string) {
-  const from = addDays(pdfUntil, -95);
+  const from = addDays(pdfUntil, -370);
   const ofIds = await ofBatchIds(ctx, acc.id);
   let q = ctx.supabase.from("transactions").select("date, description, amount, flow").eq("household_id", ctx.household.id)
     .eq("account_id", acc.id).eq("source", "extrato").gte("date", from).lte("date", pdfUntil);
