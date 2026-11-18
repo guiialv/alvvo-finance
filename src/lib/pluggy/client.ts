@@ -138,13 +138,13 @@ export const listAccounts = async (itemId: string) => (await get<{ results: Plug
 /** Lançamentos de uma conta (GET /v2/transactions, paginação por cursor). */
 export async function listTransactions(accountId: string, from?: string, to?: string): Promise<PluggyTransaction[]> {
   const out: PluggyTransaction[] = [];
-  let j = await get<{ results: PluggyTransaction[]; next?: string | null }>("/v2/transactions", { accountId, from, to, pageSize: 500 });
+  let j = await get<{ results: PluggyTransaction[]; next?: string | null }>("/v2/transactions", { accountId, dateFrom: from, dateTo: to });
   for (let guard = 0; ; guard++) {
     out.push(...(j.results ?? []));
     if (!j.next || guard > 200) break;
     // `next` vem como "?accountId=...&after=..."
     const q = Object.fromEntries(new URLSearchParams(j.next.replace(/^[^?]*\?/, "")));
-    j = await get<{ results: PluggyTransaction[]; next?: string | null }>("/v2/transactions", { pageSize: 500, ...q });
+    j = await get<{ results: PluggyTransaction[]; next?: string | null }>("/v2/transactions", q);
   }
   return out;
 }
