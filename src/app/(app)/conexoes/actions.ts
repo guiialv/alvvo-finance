@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { logAction, requireAdmin } from "@/lib/context";
-import { refreshConnections, syncHousehold, type SyncSummary } from "@/lib/pluggy/sync";
+import { refreshBalances, refreshConnections, syncHousehold, type SyncSummary } from "@/lib/pluggy/sync";
 import { pluggyConfigured } from "@/lib/pluggy/client";
 
 const str = (f: FormData, k: string) => String(f.get(k) ?? "");
@@ -36,4 +36,13 @@ export async function runSync(_: SyncState | undefined, f: FormData): Promise<Sy
   } catch (e) {
     return { error: e instanceof Error ? e.message : "Falha ao sincronizar." };
   }
+}
+
+/** Visão geral: atualiza saldos, faturas atuais e o histórico diário da conta (não importa lançamentos). */
+export async function refreshBankBalances() {
+  const ctx = await requireAdmin();
+  if (!pluggyConfigured()) return;
+  await refreshBalances(ctx.supabase, ctx.household.id, ctx.user.id);
+  revalidatePath("/");
+  revalidatePath("/conexoes");
 }

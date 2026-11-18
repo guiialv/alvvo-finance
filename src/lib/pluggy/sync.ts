@@ -189,6 +189,11 @@ export async function syncHousehold(ctx: Ctx, opts: { dryRun?: boolean; linkIds?
       summary.lines.push({ link: link.id, label: link.name ?? "conta", rows: 0, total: 0, action: "erro", detail: msg });
     }
   }
+  // Saldo diário das contas (vale para prévia e sincronização: não grava lançamentos)
+  const { data: contas } = await db.from("bank_links").select("*").eq("household_id", ctx.household.id).eq("kind", "conta");
+  for (const l of (contas ?? []) as LinkRow[]) {
+    try { await recordBankHistory(db, l); } catch (e) { summary.errors.push(`Saldo de ${l.name ?? "conta"}: ${e instanceof Error ? e.message : e}`); }
+  }
   if (!opts.dryRun) {
     const conns = [...new Set(links.map((l) => l.connection_id))];
     if (conns.length) await db.from("bank_connections").update({ last_sync_at: summary.at, last_sync_result: summary }).in("id", conns);
@@ -462,6 +467,39 @@ async function compareConta(ctx: Ctx, link: LinkRow, acc: { id: string; name: st
     const lo = v.pdf.map((x) => x.date).sort()[0], hi = v.pdf.map((x) => x.date).sort().pop()!;
     await saveComparison(ctx, acc.id, "mes", cycle, `${acc.name} · ${cycle.slice(5, 7)}/${cycle.slice(0, 4)}`, v.pdf, v.of.filter((x) => x.date >= lo && x.date <= hi));
   }
+}
+
+// ---------- Saldo diário da conta no banco ----------
+/** Reconstrói o saldo de cada dia (12 meses) a partir do saldo atual e dos lançamentos do banco. */
+export async function recordBankHistory(db: SupabaseClient, link: LinkRow) {
+  if (link.kind !== "conta" || link.balance == null) return 0;
+  const today = todayIso(), from = addDays(today, -365);
+  const txs = (await listTransactions(link.ext_account_id, from, today)).filter((t) => (t.status ?? "POSTED") === "POSTED");
+  const inflow = new Map<string, number>(), outflow = new Map<string, number>();
+  for (const t of txs) {
+    const d = brDate(t.date), v = Math.abs(t.amount);
+    if (t.type === "CREDIT") inflow.set(d, (inflow.get(d) ?? 0) + v); else outflow.set(d, (outflow.get(d) ?? 0) + v);
+  }
+  const first = txs.length ? txs.map((t) => brDate(t.date)).sort()[0] : today;
+  const rows: { link_id: string; household_id: string; date: string; balance: number; inflow: number; outflow: number }[] = [];
+  let bal = Number(link.balance);
+  for (let d = today; d >= first; d = addDays(d, -1)) {
+    const i = round2(inflow.get(d) ?? 0), o = round2(outflow.get(d) ?? 0);
+    rows.push({ link_id: link.id, household_id: link.household_id, date: d, balance: round2(bal), inflow: i, outflow: o });
+    bal -= i - o; // saldo no fim do dia anterior
+  }
+  for (let i = 0; i < rows.length; i += 400) await db.from("bank_daily").upsert(rows.slice(i, i + 400), { onConflict: "link_id,date" });
+  return rows.length;
+}
+
+/** Atualiza saldos e o histórico diário de todas as contas do banco (sem importar lançamentos). */
+export async function refreshBalances(db: SupabaseClient, householdId: string, ownerId?: string | null) {
+  const errors = await refreshConnections(db, householdId, false, ownerId);
+  const { data } = await db.from("bank_links").select("*").eq("household_id", householdId).eq("kind", "conta");
+  for (const l of (data ?? []) as LinkRow[]) {
+    try { await recordBankHistory(db, l); } catch (e) { errors.push(`${l.name ?? "conta"}: ${e instanceof Error ? e.message : e}`); }
+  }
+  return errors;
 }
 
 export const describeLine = (l: SyncLine) => `${l.label}: ${l.action === "erro" ? `erro — ${l.detail}` : l.action === "sem novidades" ? "sem novidades" : `${l.rows} lançamento(s), ${brl(Math.abs(l.total))}`}`;

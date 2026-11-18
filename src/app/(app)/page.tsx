@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { requireArea, visibleAreas } from "@/lib/context";
+import { isAdminRole, requireArea, visibleAreas } from "@/lib/context";
+import { BankLive } from "@/components/bank-live";
 import { currentCycle, cycleLabel, cycleRange, isValidCycle, shiftCycle, todayIso } from "@/lib/cycle";
 import { addDays, eventLabel, occurrenceStatus } from "@/lib/agenda";
 import { loadAgenda } from "@/lib/agenda-data";
@@ -15,6 +16,8 @@ import { CatIcon } from "@/components/cat-icon";
 import { EvolutionChart, type DayPoint } from "@/components/evolution-chart";
 import { positions, type Op } from "@/lib/invest";
 import type { Goal } from "@/lib/goals";
+
+export const maxDuration = 300;
 
 const kfmt = (v: number) => (Math.abs(v) >= 1000 ? `${(v / 1000).toLocaleString("pt-BR", { maximumFractionDigits: 1 })}k` : String(Math.round(v)));
 
@@ -163,6 +166,8 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
           <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-ink/[0.06]"><div className="h-full rounded-full bg-[#7a5c32]" style={{ width: `${Math.min(100, ((pago) / Math.max(1, pago + aPagar)) * 100)}%` }} /></div>
           <div className="mt-1 text-[11px] text-ink/45">{pago + aPagar ? `${Math.round((pago / (pago + aPagar)) * 100)}% dos compromissos já pagos` : ""}</div></div>
       </section>
+
+      {cycle === nowCycle && <BankLive ctx={ctx} today={today} cycle={cycle} cycleEnd={range.end} occ={cycAgenda.occ} admin={isAdminRole(ctx.member.role) && !ctx.viewer.simulated} />}
 
       <div className="mt-5 grid gap-4 xl:grid-cols-5">
         <section className="card xl:col-span-3">
