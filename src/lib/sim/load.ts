@@ -29,6 +29,7 @@ export async function loadSimData(ctx: Ctx): Promise<{ data: SimData; tesouro: {
   const ops = (opsD ?? []) as Op[], fixed = (fixedD ?? []) as Fixed[];
   let patrimonio = 0;
   const carteira: Record<string, number> = {};
+  const holdings: { ticker: string; name: string | null; cls: string; value: number; k: string }[] = [];
   if (ops.length || fixed.length) {
     const tickers = [...new Set(ops.map((o) => o.ticker))], symOf = (t: string) => yahooSymbol(t, ops.find((o) => o.ticker === t)?.cls);
     const q = await getQuotes(ctx, tickers.map(symOf));
@@ -40,6 +41,7 @@ export async function loadSimData(ctx: Ctx): Promise<{ data: SimData; tesouro: {
       const k = r.cls === "acao" ? "acoes" : r.cls === "fii" ? "fii" : r.cls === "cripto" ? "cripto" : r.cls === "exterior" ? "exterior"
         : r.cls === "etf" ? (/^(HASH|QBTC|BITH|ETHE)/.test(r.ticker) ? "cripto" : EXT.test(r.ticker) ? "exterior" : "acoes") : "acoes";
       carteira[k] = (carteira[k] ?? 0) + r.value;
+      holdings.push({ ticker: r.ticker, name: r.name, cls: r.cls, value: r.value, k });
     }
     for (const f of sm.rf) {
       const k = /LCI|LCA/i.test(f.kind) ? "lci" : f.index === "ipca" ? "ipca" : f.index === "pre" ? "pre" : "pos";
@@ -62,7 +64,7 @@ export async function loadSimData(ctx: Ctx): Promise<{ data: SimData; tesouro: {
         const target = g.type === "independencia" ? Number(d.income ?? 0) * Number(d.multiple ?? 300) : Number(d.target ?? 0);
         return { id: g.id, name: g.name, type: g.type, target, deadline: (d.deadline as string) ?? null, balance: g.type === "patrimonio" ? 0 : Number(d.balance ?? d.initial ?? 0) };
       }).filter((g) => g.target > 0),
-      carteira, hoje: cycle,
+      carteira, hoje: cycle, holdings,
     },
     tesouro: { pre: pick("pre"), ipca: pick("ipca") },
   };

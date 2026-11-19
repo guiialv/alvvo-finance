@@ -12,6 +12,8 @@ import { AlavancagemSim } from "../sims/alavancagem";
 import { AlugarSim } from "../sims/alugar";
 import { ConsorcioSim } from "../sims/consorcio";
 import { CarteiraSim } from "../sims/carteira";
+import { AporteSim } from "../sims/aporte";
+import { loadAporteExtras } from "@/lib/sim/aporte-data";
 
 export default async function SimPage({ params, searchParams }: { params: Promise<{ slug: string }>; searchParams: Promise<Record<string, string | undefined>> }) {
   const ctx = await requireArea("visao-geral");
@@ -20,6 +22,7 @@ export default async function SimPage({ params, searchParams }: { params: Promis
   if (!info) notFound();
   const group = GROUPS.find((g) => g.items.includes(info))!;
   const { data, tesouro } = await loadSimData(ctx);
+  const extras = slug === "aporte" ? await loadAporteExtras(ctx, data) : null;
   const num = (v?: string) => (v && isFinite(Number(v)) ? Number(v) : undefined);
 
   return (
@@ -31,6 +34,7 @@ export default async function SimPage({ params, searchParams }: { params: Promis
         </div>
       </PageHeader>
       {slug === "meta" && <MetaSim d={data} />}
+      {slug === "aporte" && extras && <AporteSim d={data} x={extras} />}
       {slug === "carteira" && <CarteiraSim d={data} />}
       {slug === "investimentos" && <InvestSim d={data} tesouro={tesouro} />}
       {slug === "captacao" && <CaptacaoSim d={data} />}

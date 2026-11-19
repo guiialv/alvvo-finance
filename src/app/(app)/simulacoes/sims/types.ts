@@ -14,4 +14,5 @@ export interface SimData {
   goals: { id: string; name: string; type: string; target: number; deadline: string | null; balance: number }[];
   carteira: Record<string, number>; // R$ por classe do simulador (pos, lci, ipca, pre, acoes, fii, exterior, cripto)
   hoje: string; // ciclo atual (AAAA-MM)
+  holdings?: { ticker: string; name: string | null; cls: string; value: number; k: string }[]; // posições em renda variável (k = classe do simulador)
 }

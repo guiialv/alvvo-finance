@@ -51,5 +51,5 @@ export function radar(rows: UniverseRow[], minLiquidity: number) {
     .sort((a, b) => b.parts.v + b.parts.q - (a.parts.v + a.parts.q)).slice(0, 5);
   const dividends = items.filter((x) => (x.row.dy ?? 0) >= 6 && (x.row.dy ?? 0) <= 16 && (x.row.roe ?? 0) >= 10 && !((x.row.payout ?? 0) > 100))
     .sort((a, b) => Number(b.row.dy ?? 0) - Number(a.row.dy ?? 0)).slice(0, 5);
-  return { top, momentum, value, dividends, pool: pool.length };
+  return { top, momentum, value, dividends, pool: pool.length, all: items };
 }
