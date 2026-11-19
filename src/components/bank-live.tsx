@@ -15,7 +15,18 @@ type Pt = { date: string; bank?: number; plat?: number; proj?: number };
  * Visão geral · conta no banco em tempo real (Open Finance): saldo agora, faturas atuais, previsão até o fim do ciclo
  * com a agenda, e o cruzamento do saldo/entradas/saídas do banco com o que está lançado na plataforma.
  */
-export async function BankLive({ ctx, today, cycle, cycleEnd, occ, admin }: { ctx: Ctx; today: string; cycle: string; cycleEnd: string; occ: Occurrence[]; admin: boolean }) {
+type Props = { ctx: Ctx; today: string; cycle: string; cycleEnd: string; occ: Occurrence[]; admin: boolean };
+
+/** Nunca derruba a Visão geral: se algo falhar no quadro do banco, mostra um aviso no lugar. */
+export async function BankLive(props: Props) {
+  try { return await BankLiveInner(props); }
+  catch (e) {
+    console.error("[bank-live]", e);
+    return <section className="card mt-4 text-xs text-ink/50">Não foi possível carregar os dados do banco agora. O restante da Visão geral não foi afetado.</section>;
+  }
+}
+
+async function BankLiveInner({ ctx, today, cycle, cycleEnd, occ, admin }: Props) {
   const hh = ctx.household.id;
   const { data: ls } = await ctx.supabase.from("bank_links").select("id, kind, name, number, institution, balance, credit_limit, available_limit, account_id, connection_id").eq("household_id", hh);
   const links = (ls ?? []) as Link_[];
@@ -28,7 +39,7 @@ export async function BankLive({ ctx, today, cycle, cycleEnd, occ, admin }: { ct
   const winStart = addDays(today, -60), tableStart = addDays(today, -200);
   const contaIds = contas.map((l) => l.id), accIds = [...new Set(contas.map((l) => l.account_id).filter((x): x is string => !!x))];
   const [daily, platTx] = await Promise.all([
-    contaIds.length ? fetchAll<Daily>(() => ctx.supabase.from("bank_daily").select("link_id, date, balance, inflow, outflow").in("link_id", contaIds).gte("date", addDays(tableStart, -1)).order("date")) : Promise.resolve([] as Daily[]),
+    contaIds.length ? ctx.supabase.from("bank_daily").select("link_id, date, balance, inflow, outflow").in("link_id", contaIds).gte("date", addDays(tableStart, -1)).order("date").limit(5000).then((r) => (r.data ?? []) as Daily[]) : Promise.resolve([] as Daily[]),
     accIds.length ? fetchAll<{ date: string; amount: number; flow: string | null }>(() => ctx.supabase.from("transactions").select("id, date, amount, flow").eq("household_id", hh).in("account_id", accIds).eq("source", "extrato").gte("date", tableStart)) : Promise.resolve([]),
   ]);
 
