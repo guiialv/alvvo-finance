@@ -8,7 +8,9 @@ import { formatBRL, formatDateBR, formatPct } from "@/lib/format";
 import { todayIso } from "@/lib/cycle";
 import { Bar, Donut, Empty, Kpi, PageHeader, Seg } from "@/components/ui";
 import { RefreshButton } from "@/components/refresh-button";
-import { addDividend, addFixed, addOp, delDividend, delFixed, delOp, saveManualQuote, saveTargets } from "./actions";
+import { addDividend, addFixed, addOp, delDividend, delFixed, delOp, saveManualQuote, saveTargets, setFixedGoal, setTickerGoal } from "./actions";
+import { AutoSelect } from "@/components/auto-submit";
+import { linkGoals } from "@/lib/goal-links";
 import { BrokerNote } from "./broker-note";
 import { NewsBrief } from "./news-brief";
 import { refreshFeeds } from "@/lib/news/feeds";
@@ -23,12 +25,22 @@ export default async function InvestPage({ searchParams }: { searchParams: Promi
   const ctx = await requireArea("investimentos");
   const sp = await searchParams, tab = TABS.some(([k]) => k === sp.aba) ? sp.aba! : "carteira", edit = canEdit(ctx, "investimentos");
   const hh = ctx.household.id;
-  const [{ data: opsD }, { data: fixedD }, { data: divsD }, { data: setD }] = await Promise.all([
+  const [{ data: opsD }, { data: fixedD }, { data: divsD }, { data: setD }, { data: goalsD }, { data: linksD }] = await Promise.all([
     ctx.supabase.from("inv_ops").select("*").eq("household_id", hh).order("date", { ascending: false }),
     ctx.supabase.from("inv_fixed").select("*").eq("household_id", hh).order("date"),
     ctx.supabase.from("inv_dividends").select("*").eq("household_id", hh).order("date", { ascending: false }),
     ctx.supabase.from("inv_settings").select("*").eq("household_id", hh).maybeSingle(),
+    ctx.supabase.from("goals").select("id, name, type").eq("household_id", hh).order("sort"),
+    ctx.supabase.from("inv_goal_links").select("ticker, goal_id").eq("household_id", hh),
   ]);
+  const goals = (goalsD ?? []) as { id: string; name: string; type: string }[];
+  const tickerGoal = Object.fromEntries(((linksD ?? []) as { ticker: string; goal_id: string }[]).map((l) => [l.ticker, l.goal_id]));
+  const goalOpts: [string, string][] = [["", "Livre / longo prazo"], ...goals.map((g) => [g.id, g.name] as [string, string])];
+  const goalName = (id?: string | null) => (id ? goals.find((g) => g.id === id)?.name ?? "—" : "Livre");
+  // Seletor de objetivo (ou o nome, para quem só vê)
+  const GoalPick = ({ kind, id, value }: { kind: "rv" | "rf"; id: string; value: string | null | undefined }) => edit && goals.length
+    ? <AutoSelect key={`${kind}-${id}-${value ?? ""}`} name="goal_id" defaultValue={value ?? ""} options={goalOpts} action={kind === "rv" ? setTickerGoal : setFixedGoal} fields={kind === "rv" ? { ticker: id } : { id }} className="max-w-[170px] rounded-lg border border-ink/10 bg-white px-2 py-1 text-xs" />
+    : <span className="text-xs text-ink/55">{goalName(value)}</span>;
   const ops = (opsD ?? []) as Op[], fixed = (fixedD ?? []) as Fixed[], divs = (divsD ?? []) as Dividend[];
   const targets = (setD?.targets ?? { acao: 25, fii: 15, etf: 10, exterior: 15, cripto: 5, rf: 30 }) as Record<string, number>;
   const manual = (setD?.manual_quotes ?? {}) as Record<string, number>;
@@ -38,6 +50,7 @@ export default async function InvestPage({ searchParams }: { searchParams: Promi
   const today = todayIso(), ipca = ipcaRef(macro);
   const sm = summary(ops, fixed, divs, quotes, macro.cdi, ipca, today);
   const href = (v: string) => `/investimentos?aba=${v}`;
+  const gl = linkGoals(sm.rows, sm.rf, tickerGoal, sm.total);
 
   const head = (
     <>
@@ -74,6 +87,7 @@ export default async function InvestPage({ searchParams }: { searchParams: Promi
             <div><label className="label">Preço (R$)</label><input className="input" name="price" inputMode="decimal" required /></div>
             <div><label className="label">Custos (R$)</label><input className="input" name="costs" inputMode="decimal" placeholder="0,00" /></div>
             <div className="flex items-end"><button className="btn w-full">Adicionar</button></div>
+            {goals.length > 0 && <div className="sm:col-span-3 lg:col-span-3"><label className="label">Para qual objetivo?</label><select className="input" name="goal_id" defaultValue="">{goalOpts.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select><p className="mt-1 text-[11px] text-ink/45">Vale para toda a posição do ativo. Dá para mudar depois na Carteira.</p></div>}
           </form></section>)}
       <section className="card mt-5 overflow-x-auto p-0"><h2 className="px-5 pt-4">{ops.length} operações</h2>
         {ops.length ? <table className="table mt-2 min-w-[760px]"><thead><tr><th>Data</th><th>Tipo</th><th>Ativo</th><th>Classe</th><th className="num">Qtd</th><th className="num">Preço</th><th className="num">Total</th><th className="num">Custos</th><th /></tr></thead><tbody>
@@ -96,11 +110,12 @@ export default async function InvestPage({ searchParams }: { searchParams: Promi
             <div><label className="label">Indexador</label><select className="input" name="index"><option value="cdi">% do CDI</option><option value="selic">Selic +</option><option value="ipca">IPCA +</option><option value="pre">Prefixado</option></select></div>
             <div><label className="label">Taxa (%)</label><input className="input" name="rate" inputMode="decimal" required placeholder="110" /></div>
             <div><label className="label">Vencimento</label><input className="input" type="date" name="maturity" /></div>
+            {goals.length > 0 && <div className="sm:col-span-2 lg:col-span-3"><label className="label">Para qual objetivo?</label><select className="input" name="goal_id" defaultValue="">{goalOpts.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select></div>}
             <div className="flex items-end lg:col-start-8"><button className="btn w-full">Adicionar</button></div>
           </form></section>)}
       <section className="card mt-5 overflow-x-auto p-0"><h2 className="px-5 pt-4">Títulos</h2>
-        {sm.rf.length ? <table className="table mt-2 min-w-[820px]"><thead><tr><th>Título</th><th>Rentabilidade</th><th className="num">Aplicado</th><th className="num">Valor estimado</th><th className="num">Rendimento</th><th>Vencimento</th><th /></tr></thead><tbody>
-          {sm.rf.map((f) => <tr key={f.id}><td><div className="font-medium">{f.name}</div><div className="text-xs text-ink/45">{f.kind} · desde {formatDateBR(f.date)}</div></td><td>{rateLbl(f)}</td><td className="num">{formatBRL(f.amount)}</td><td className="num font-semibold">{formatBRL(f.value)}</td><td className="num text-gain">{formatBRL(f.pnl)}<div className="text-[11px]">{pctS(f.pnl / f.amount)}</div></td><td>{f.maturity ? formatDateBR(f.maturity) : "—"}</td>
+        {sm.rf.length ? <table className="table mt-2 min-w-[960px]"><thead><tr><th>Título</th><th>Rentabilidade</th><th className="num">Aplicado</th><th className="num">Valor estimado</th><th className="num">Rendimento</th><th>Vencimento</th><th>Objetivo</th><th /></tr></thead><tbody>
+          {sm.rf.map((f) => <tr key={f.id}><td><div className="font-medium">{f.name}</div><div className="text-xs text-ink/45">{f.kind} · desde {formatDateBR(f.date)}</div></td><td>{rateLbl(f)}</td><td className="num">{formatBRL(f.amount)}</td><td className="num font-semibold">{formatBRL(f.value)}</td><td className="num text-gain">{formatBRL(f.pnl)}<div className="text-[11px]">{pctS(f.pnl / f.amount)}</div></td><td>{f.maturity ? formatDateBR(f.maturity) : "—"}</td><td><GoalPick kind="rf" id={f.id} value={f.goal_id} /></td>
             <td>{edit && <form action={delFixed}><input type="hidden" name="id" value={f.id} /><button className="text-xs text-ink/30 hover:text-loss">Excluir</button></form>}</td></tr>)}
         </tbody></table> : <div className="p-5"><Empty>Nenhum título cadastrado.</Empty></div>}
         <p className="px-5 pb-4 text-xs text-ink/45">Valores brutos estimados (sem IR e sem marcação a mercado), com o CDI do Banco Central e o IPCA esperado do Focus. Para comparar onde aplicar, veja Análise → Renda fixa.</p>
@@ -256,7 +271,7 @@ export default async function InvestPage({ searchParams }: { searchParams: Promi
           {groups.map((g) => { const tot = g.rows.reduce((a, r) => a + r.value, 0); return (
             <section key={g.k} className="card overflow-x-auto p-0">
               <div className="flex items-center justify-between px-5 py-3"><div className="flex items-center gap-3"><span className="h-8 w-1 rounded-full" style={{ background: CLS[g.k].c }} /><h2>{CLS[g.k].l}</h2></div><div className="text-right"><div className="font-semibold tabular-nums">{formatBRL(tot)}</div><div className="text-xs text-ink/45">{sm.total ? formatPct(tot / sm.total) : ""} da carteira</div></div></div>
-              <table className="table min-w-[860px]"><thead><tr><th>Ativo</th><th className="num">Qtd</th><th className="num">Preço médio</th><th className="num">Cotação</th><th className="num">Valor</th><th className="num">Resultado</th><th className="num">Alvo +45%</th><th className="num">Peso</th></tr></thead><tbody>
+              <table className="table min-w-[1000px]"><thead><tr><th>Ativo</th><th className="num">Qtd</th><th className="num">Preço médio</th><th className="num">Cotação</th><th className="num">Valor</th><th className="num">Resultado</th><th className="num">Alvo +45%</th><th className="num">Peso</th><th>Objetivo</th></tr></thead><tbody>
                 {g.rows.map((r) => { const tgt = r.avg * 1.45, dist = r.quote ? tgt / r.quote - 1 : null, isManual = manual[r.ticker] != null; return (
                   <tr key={r.ticker}><td><div className="font-semibold">{r.ticker}</div><div className="text-xs text-ink/45">{r.name ?? q[symOf(r.ticker)]?.name ?? ""}</div></td><td className="num">{r.qty.toLocaleString("pt-BR", { maximumFractionDigits: 8 })}</td><td className="num">{formatBRL(r.avg)}</td>
                     <td className="num">{edit ? (
@@ -264,13 +279,22 @@ export default async function InvestPage({ searchParams }: { searchParams: Promi
                         <input className="w-24 rounded-lg border border-transparent bg-ink/[0.04] px-2 py-1 text-right tabular-nums outline-none hover:border-ink/10 focus:border-brand" name="price" defaultValue={r.quote != null ? r.quote.toLocaleString("pt-BR", { minimumFractionDigits: 2 }) : ""} placeholder="—" title="Deixe vazio para usar a cotação automática" />
                         <span className="text-[10px] text-ink/40">{isManual ? "manual" : r.quote != null ? "automática" : "sem cotação"}</span></form>) : (r.quote != null ? formatBRL(r.quote) : "—")}</td>
                     <td className="num font-medium">{formatBRL(r.value)}</td><td className={`num ${r.pnl >= 0 ? "text-gain" : "text-loss"}`}>{formatBRL(r.pnl)}<div className="text-[11px]">{pctS(r.pnlPct)}</div></td>
-                    <td className="num">{formatBRL(tgt)}<div className={`text-[11px] ${dist != null && dist <= 0 ? "font-semibold text-gain" : "text-ink/45"}`}>{dist == null ? "" : dist <= 0 ? "meta atingida" : `falta ${formatPct(dist)}`}</div></td><td className="num">{sm.total ? formatPct(r.value / sm.total) : ""}</td></tr>); })}
+                    <td className="num">{formatBRL(tgt)}<div className={`text-[11px] ${dist != null && dist <= 0 ? "font-semibold text-gain" : "text-ink/45"}`}>{dist == null ? "" : dist <= 0 ? "meta atingida" : `falta ${formatPct(dist)}`}</div></td><td className="num">{sm.total ? formatPct(r.value / sm.total) : ""}</td><td><GoalPick kind="rv" id={r.ticker} value={tickerGoal[r.ticker]} /></td></tr>); })}
               </tbody></table></section>); })}
           {sm.rf.length > 0 && (
             <section className="card p-0"><div className="flex items-center justify-between px-5 py-3"><div className="flex items-center gap-3"><span className="h-8 w-1 rounded-full" style={{ background: CLS.rf.c }} /><h2>Renda fixa</h2></div><Link className="text-sm font-medium text-brand" href={href("renda-fixa")}>Detalhes →</Link></div>
-              <div className="divide-y divide-ink/5 px-5 pb-3">{sm.rf.map((f) => <div key={f.id} className="flex items-center justify-between py-2 text-sm"><span>{f.name} <span className="text-ink/45">· {rateLbl(f)}</span></span><span className="font-medium tabular-nums">{formatBRL(f.value)} <span className="text-xs text-gain">+{formatBRL(f.pnl)}</span></span></div>)}</div></section>)}
+              <div className="divide-y divide-ink/5 px-5 pb-3">{sm.rf.map((f) => <div key={f.id} className="flex flex-wrap items-center justify-between gap-2 py-2 text-sm"><span className="min-w-0">{f.name} <span className="text-ink/45">· {rateLbl(f)}</span></span><span className="flex items-center gap-3"><GoalPick kind="rf" id={f.id} value={f.goal_id} /><span className="font-medium tabular-nums">{formatBRL(f.value)} <span className="text-xs text-gain">+{formatBRL(f.pnl)}</span></span></span></div>)}</div></section>)}
         </div>
         <aside className="space-y-4">
+          {goals.length > 0 && sm.total > 0 && (
+            <section className="card"><div className="mb-3 flex items-baseline justify-between"><h2>Por objetivo</h2><Link className="text-xs text-brand" href="/objetivos">Objetivos →</Link></div>
+              <div className="space-y-2">
+                {goals.filter((g) => gl.totalOf(g.id) > 0).map((g) => <div key={g.id}><div className="mb-1 flex justify-between text-sm"><span>{g.name}</span><b className="tabular-nums">{formatBRL(gl.totalOf(g.id))}</b></div><Bar value={gl.totalOf(g.id)} max={sm.total} color="#7a5c32" /></div>)}
+                <div><div className="mb-1 flex justify-between text-sm"><span className="text-ink/60">Livre / longo prazo</span><b className="tabular-nums">{formatBRL(gl.free)}</b></div><Bar value={gl.free} max={sm.total} color="#b9ae9f" /></div>
+              </div>
+              <p className="mt-2 text-[11px] text-ink/45">Escolha o objetivo de cada ativo na coluna “Objetivo”. O saldo dos objetivos passa a usar o valor atualizado desses investimentos.</p>
+            </section>
+          )}
           <section className="card"><h2 className="mb-3">Alocação</h2>
             {sm.total ? <div className="flex justify-center"><Donut parts={parts} total={sm.total} center={["patrimônio", formatBRL(sm.total).replace(/,\d\d$/, "")]} /></div> : <p className="text-sm text-ink/50">Sem posições ainda.</p>}
             <form action={saveTargets}>

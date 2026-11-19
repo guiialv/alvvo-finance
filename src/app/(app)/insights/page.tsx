@@ -1,3 +1,4 @@
+import { linkGoals } from "@/lib/goal-links";
 import Link from "next/link";
 import { canSee, requireArea } from "@/lib/context";
 import { CLS, summary, type Cls, type Fixed, type Op } from "@/lib/invest";
@@ -63,6 +64,7 @@ export default async function InsightsPage({ searchParams }: { searchParams: Pro
   // Carteira e monitor (só se quem está vendo tem acesso a essas áreas)
   let portfolio: Parameters<typeof generateInsights>[0]["portfolio"], watch: Parameters<typeof generateInsights>[0]["watch"];
   let pfTotal = 0;
+  let goalLinks: ReturnType<typeof linkGoals> | null = null;
   if (canSee(ctx, "investimentos")) {
     const [{ data: ops }, { data: fixed }, { data: st }] = await Promise.all([
       ctx.supabase.from("inv_ops").select("*").eq("household_id", ctx.household.id), ctx.supabase.from("inv_fixed").select("*").eq("household_id", ctx.household.id), ctx.supabase.from("inv_settings").select("*").eq("household_id", ctx.household.id).maybeSingle(),
@@ -72,6 +74,8 @@ export default async function InsightsPage({ searchParams }: { searchParams: Pro
     const manual = (st?.manual_quotes ?? {}) as Record<string, number>, targets = (st?.targets ?? {}) as Record<string, number>;
     const sm = summary(o, (fixed ?? []) as Fixed[], [], Object.fromEntries(tickers.map((t) => [t, manual[t] ?? q[sym(t)]?.price ?? null])), macro.cdi, ipcaRef(macro), today);
     pfTotal = sm.total;
+    const { data: lk } = await ctx.supabase.from("inv_goal_links").select("ticker, goal_id").eq("household_id", ctx.household.id);
+    goalLinks = linkGoals(sm.rows, sm.rf, Object.fromEntries(((lk ?? []) as { ticker: string; goal_id: string }[]).map((l) => [l.ticker, l.goal_id])), sm.total);
     portfolio = { total: sm.total, classes: (Object.keys(CLS) as Cls[]).map((k) => ({ key: k, label: CLS[k].l, value: sm.byCls[k] ?? 0, target: Number(targets[k] ?? 0) })),
       positions: sm.rows.map((r) => ({ ticker: r.ticker, value: r.value, pnlPct: r.pnlPct, targetHit: r.quote != null && r.quote >= r.avg * 1.45 })),
       fixedIncome: sm.rf.map((f) => ({ name: f.name, index: f.index, rate: Number(f.rate) })) };
@@ -96,7 +100,8 @@ export default async function InsightsPage({ searchParams }: { searchParams: Pro
     const reserve = reserveTarget(txs, byId as unknown as Map<string, { kind: string; grp: string; excluded_from_totals: boolean }>, cur);
     for (const g of (gl ?? []) as Goal[]) {
       if (g.type === "independencia") continue;
-      const c = goalCalc(g, cur, pfTotal, reserve);
+      const linked = goalLinks?.totalOf(g.id) ?? 0;
+      const c = goalCalc(g, cur, pfTotal, reserve, { linked, others: (goalLinks?.linkedTotal ?? 0) - linked });
       if (c.kind === "meta" && c.target && !c.onTrack) all.push({ key: `objetivo|${g.id}|${cur}`, kind: "atencao", area: "organizacao", title: `${g.name}: fora do ritmo`,
         body: `Faltam ${formatBRL(Math.max(0, c.target - c.current))} em ${c.n} meses. Para chegar no prazo, o aporte precisa ser de cerca de ${formatBRL(c.need)} por mês (${GOAL_T[g.type].l.toLowerCase()}).`,
         metric: formatBRL(c.need), link: { href: "/objetivos", label: "Ver objetivo" }, weight: 60 });

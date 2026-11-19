@@ -7,7 +7,7 @@ export const CLS: Record<Cls, { l: string; c: string }> = {
 export const RF_TYPES = ["CDB", "LCI", "LCA", "Tesouro Selic", "Tesouro Prefixado", "Tesouro IPCA+", "Debênture", "CRI", "CRA", "Outro"];
 
 export interface Op { id: string; date: string; type: "compra" | "venda"; ticker: string; name: string | null; cls: Exclude<Cls, "rf">; qty: number; price: number; costs: number }
-export interface Fixed { id: string; name: string; kind: string; amount: number; date: string; index: "cdi" | "ipca" | "pre" | "selic"; rate: number; maturity: string | null; redeemed_at: string | null }
+export interface Fixed { id: string; name: string; kind: string; amount: number; date: string; index: "cdi" | "ipca" | "pre" | "selic"; rate: number; maturity: string | null; redeemed_at: string | null; goal_id?: string | null }
 export interface Dividend { id: string; date: string; ticker: string; kind: string; amount: number }
 
 const daysBetween = (a: string, b: string) => Math.max(0, (Date.parse(b) - Date.parse(a)) / 864e5);

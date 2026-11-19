@@ -20,6 +20,9 @@ export async function loadSimData(ctx: Ctx): Promise<{ data: SimData; tesouro: {
     ctx.supabase.from("market_rf").select("index, rate, maturity").order("maturity"),
     ctx.supabase.from("goals").select("id, type, name, data, sort").eq("household_id", hh).order("sort"),
   ]);
+  const { data: linksD } = await ctx.supabase.from("inv_goal_links").select("ticker, goal_id").eq("household_id", hh);
+  const tickerGoal = Object.fromEntries(((linksD ?? []) as { ticker: string; goal_id: string }[]).map((l) => [l.ticker, l.goal_id]));
+  const linkedByGoal: Record<string, number> = {};
   // Mesmo critério de caixa das outras telas (fatura paga aberta nas categorias das compras)
   const txs = (await toCashView(ctx, rawTxs, cats, cycles)).txs;
   // renda e aporte: média dos últimos 3 ciclos fechados (só ciclos com movimento)
@@ -36,6 +39,9 @@ export async function loadSimData(ctx: Ctx): Promise<{ data: SimData; tesouro: {
     const quotes = Object.fromEntries(tickers.map((t) => [t, q[symOf(t)]?.price ?? null]));
     const sm = summary(ops, fixed, [] as Dividend[], quotes, macro.cdi, ipcaRef(macro), todayIso());
     patrimonio = sm.total;
+    // Investimentos ligados a objetivos (valor atualizado entra no saldo de cada objetivo)
+    for (const r of sm.rows) { const g = tickerGoal[r.ticker]; if (g) linkedByGoal[g] = (linkedByGoal[g] ?? 0) + r.value; }
+    for (const f of sm.rf) if (f.goal_id) linkedByGoal[f.goal_id] = (linkedByGoal[f.goal_id] ?? 0) + f.value;
     const EXT = /^(IVVB|SPXI|NASD|WRLD|BIVB|USAL|XINA|EURP|ACWI|SMAC|HASH|QBTC|BITH|ETHE)\d{2}$/;
     for (const r of sm.rows) {
       const k = r.cls === "acao" ? "acoes" : r.cls === "fii" ? "fii" : r.cls === "cripto" ? "cripto" : r.cls === "exterior" ? "exterior"
@@ -62,7 +68,8 @@ export async function loadSimData(ctx: Ctx): Promise<{ data: SimData; tesouro: {
       goals: ((goalsD ?? []) as { id: string; type: string; name: string; data: Record<string, unknown> }[]).map((g) => {
         const d = g.data ?? {};
         const target = g.type === "independencia" ? Number(d.income ?? 0) * Number(d.multiple ?? 300) : Number(d.target ?? 0);
-        return { id: g.id, name: g.name, type: g.type, target, deadline: (d.deadline as string) ?? null, balance: g.type === "patrimonio" ? 0 : Number(d.balance ?? d.initial ?? 0) };
+        const linked = linkedByGoal[g.id] ?? 0;
+        return { id: g.id, name: g.name, type: g.type, target, deadline: (d.deadline as string) ?? null, balance: (g.type === "patrimonio" ? 0 : Number(d.balance ?? d.initial ?? 0)) + linked };
       }).filter((g) => g.target > 0),
       carteira, hoje: cycle, holdings,
     },

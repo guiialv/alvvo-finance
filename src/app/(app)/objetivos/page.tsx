@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { canEdit, requireArea } from "@/lib/context";
+import { canEdit, canSee, requireArea } from "@/lib/context";
+import { linkGoals, type GoalLinks } from "@/lib/goal-links";
 import { GOAL_T, goalCalc, reserveTarget, type Goal, type GoalType } from "@/lib/goals";
 import { summary, type Dividend, type Fixed, type Op } from "@/lib/invest";
 import { getMacro, getQuotes, ipcaRef } from "@/lib/market/read";
@@ -43,14 +44,18 @@ export default async function GoalsPage({ searchParams }: { searchParams: Promis
   const goals = (goalsD ?? []) as Goal[];
   // patrimônio da carteira (se o membro puder ver investimentos; senão, só os valores informados)
   let portfolio = 0;
-  if (goals.some((g) => g.type === "patrimonio")) {
+  let gl: GoalLinks | null = null;
+  if (goals.length && canSee(ctx, "investimentos")) {
     const [{ data: ops }, { data: fixed }, { data: st }] = await Promise.all([
       ctx.supabase.from("inv_ops").select("*").eq("household_id", hh), ctx.supabase.from("inv_fixed").select("*").eq("household_id", hh), ctx.supabase.from("inv_settings").select("manual_quotes").eq("household_id", hh).maybeSingle(),
     ]);
     const o = (ops ?? []) as Op[], tickers = [...new Set(o.map((x) => x.ticker))], sym = (t: string) => yahooSymbol(t, o.find((x) => x.ticker === t)?.cls);
     const [macro, q] = await Promise.all([getMacro(ctx), getQuotes(ctx, tickers.map(sym))]);
     const manual = (st?.manual_quotes ?? {}) as Record<string, number>;
-    portfolio = summary(o, (fixed ?? []) as Fixed[], [] as Dividend[], Object.fromEntries(tickers.map((t) => [t, manual[t] ?? q[sym(t)]?.price ?? null])), macro.cdi, ipcaRef(macro), todayIso()).total;
+    const sm = summary(o, (fixed ?? []) as Fixed[], [] as Dividend[], Object.fromEntries(tickers.map((t) => [t, manual[t] ?? q[sym(t)]?.price ?? null])), macro.cdi, ipcaRef(macro), todayIso());
+    portfolio = sm.total;
+    const { data: lk } = await ctx.supabase.from("inv_goal_links").select("ticker, goal_id").eq("household_id", hh);
+    gl = linkGoals(sm.rows, sm.rf, Object.fromEntries(((lk ?? []) as { ticker: string; goal_id: string }[]).map((l) => [l.ticker, l.goal_id])), sm.total);
   }
   const { byId } = categoryIndex(cats);
   const reserve = reserveTarget(txs, byId as unknown as Map<string, { kind: string; grp: string; excluded_from_totals: boolean }>, now);
@@ -66,7 +71,8 @@ export default async function GoalsPage({ searchParams }: { searchParams: Promis
       {goals.length === 0 && <div className="card mb-5"><Empty icon="target">Nenhum objetivo ainda. Crie o primeiro abaixo.</Empty></div>}
       <div className="grid gap-4 xl:grid-cols-2">
         {goals.map((g) => {
-          const T = GOAL_T[g.type], c = goalCalc(g, now, portfolio, reserve), d = g.data;
+          const linked = gl?.totalOf(g.id) ?? 0, items = gl?.byGoal.get(g.id) ?? [];
+          const T = GOAL_T[g.type], c = goalCalc(g, now, portfolio, reserve, { linked, others: (gl?.linkedTotal ?? 0) - linked }), d = g.data;
           return (
             <article key={g.id} className="card relative overflow-hidden">
               <div className="absolute inset-x-0 top-0 h-1" style={{ background: T.c }} />
@@ -98,9 +104,17 @@ export default async function GoalsPage({ searchParams }: { searchParams: Promis
                   </div>
                   {g.type === "patrimonio" ? (
                     <>{c.series && <div className="mt-3"><LineChart series={c.series} target={c.target} color={T.c} /></div>}
-                      <p className="text-xs text-ink/50">Usa o patrimônio da aba Investimentos ({brl0(portfolio)}). Outros valores fora da carteira: <Inline id={g.id} field="extra" value={d.extra ?? 0} edit={edit} /></p></>
+                      <p className="text-xs text-ink/50">{linked > 0 ? <>Usa os investimentos ligados a este objetivo ({brl0(linked)}).</> : <>Usa a carteira da aba Investimentos{gl && gl.linkedTotal > 0 ? <>, menos o que está ligado a outros objetivos ({brl0(Math.max(0, portfolio - gl.linkedTotal))})</> : <> ({brl0(portfolio)})</>}.</>} Outros valores fora da carteira: <Inline id={g.id} field="extra" value={d.extra ?? 0} edit={edit} /></p></>
                   ) : (
-                    <div className="mt-3 flex flex-wrap items-center gap-3 text-xs"><span className="text-ink/50">Saldo atual:</span><Inline id={g.id} field="balance" value={d.balance ?? 0} edit={edit} /><span className="text-ink/50">Aporte/mês:</span><Inline id={g.id} field="monthly" value={d.monthly ?? 0} edit={edit} width="w-24" /></div>
+                    <div className="mt-3 flex flex-wrap items-center gap-3 text-xs"><span className="text-ink/50">{linked > 0 ? "Fora da carteira:" : "Saldo atual:"}</span><Inline id={g.id} field="balance" value={d.balance ?? 0} edit={edit} /><span className="text-ink/50">Aporte/mês:</span><Inline id={g.id} field="monthly" value={d.monthly ?? 0} edit={edit} width="w-24" /></div>
+                  )}
+                  {gl && (
+                    <div className="mt-3 rounded-xl bg-ink/[0.03] p-3 text-xs">
+                      <div className="mb-1 flex items-baseline justify-between"><span className="font-medium text-ink/70">Composição na carteira</span><Link href="/investimentos" className="text-brand">{items.length ? "Ajustar" : "Ligar investimentos"} →</Link></div>
+                      {items.length ? items.sort((a, b) => b.value - a.value).map((it) => (
+                        <div key={it.ref} className="flex justify-between gap-3 py-0.5"><span className="min-w-0 truncate">{it.label} <span className="text-ink/40">{it.detail}</span></span><span className="tabular-nums">{formatBRL(it.value)}</span></div>
+                      )) : <p className="text-ink/45">{g.type === "patrimonio" ? "Sem investimentos ligados: conta toda a carteira que não está em outro objetivo." : "Nenhum investimento ligado ainda. Escolha o objetivo de cada ativo em Investimentos."}</p>}
+                    </div>
                   )}
                   {d.auto === "reserva" && !reserve && <p className="mt-2 text-xs text-amber-700">O alvo da reserva aparece depois de 1 ciclo com pelo menos 5 despesas lançadas.</p>}
                 </>

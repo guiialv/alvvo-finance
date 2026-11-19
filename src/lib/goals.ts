@@ -30,18 +30,25 @@ export function reserveTarget(txs: { cycle: string; amount: number; category_id:
   return Math.round((tot / cyc.length) * 6);
 }
 
-export function goalCalc(g: Goal, now: string, portfolioTotal: number, reserve: number | null) {
+/**
+ * `link`: investimentos ligados a objetivos. `linked` = valor ligado a ESTE objetivo; `others` = ligado a outros objetivos.
+ * Meta de patrimônio: com investimentos ligados, usa só eles; sem, usa a carteira menos o que está reservado para outros objetivos.
+ * Caixinha: saldo informado (fora da carteira) + investimentos ligados.
+ */
+export function goalCalc(g: Goal, now: string, portfolioTotal: number, reserve: number | null, link: { linked: number; others: number } = { linked: 0, others: 0 }) {
   const d = g.data;
   if (g.type === "patrimonio") {
     const target = d.target ?? 0, deadline = d.deadline ?? shiftCycle(now, 12), start = d.start ?? now, i = (d.rate ?? 0) / 100;
-    const current = (d.source === "manual" ? 0 : portfolioTotal) + (d.extra ?? 0), n = Math.max(0, monthsBetween(now, deadline));
+    const fromPortfolio = d.source === "manual" ? 0 : link.linked > 0 ? link.linked : Math.max(0, portfolioTotal - link.others);
+    const current = fromPortfolio + (d.extra ?? 0), n = Math.max(0, monthsBetween(now, deadline));
     const need = pmtNeeded(current, target, n, i), elapsed = Math.max(0, monthsBetween(start, now)), totalM = Math.max(1, monthsBetween(start, deadline));
     const expected = target * (elapsed / totalM);
     return { kind: "meta" as const, current, target, n, need, pct: target ? current / target : 0, onTrack: current >= expected * 0.9, expected, series: growth(current, need, i, n), monthsAtPace: null as number | null };
   }
   if (g.type === "independencia") {
     const i = (d.rate ?? 1) / 100, income = d.income ?? 0, goal = income * (d.multiple ?? 300), monthly = d.monthly ?? 0;
-    let a = (d.initial ?? 0) + monthly, m = d.startMonth ?? now, k = 1;
+    // Com investimentos ligados, parte de hoje com o valor deles
+    let a = (link.linked > 0 ? link.linked : (d.initial ?? 0)) + monthly, m = link.linked > 0 ? now : d.startMonth ?? now, k = 1;
     let renda: { m: string; k: number } | null = null, mult: { m: string; k: number } | null = null;
     const pts: number[] = [];
     while (k < 900 && !mult) { pts.push(a); if (!renda && a * i >= income) renda = { m, k }; if (a >= goal) mult = { m, k }; a = a * (1 + i) + monthly; m = shiftCycle(m, 1); k++; }
@@ -49,6 +56,6 @@ export function goalCalc(g: Goal, now: string, portfolioTotal: number, reserve: 
     return { kind: "fi" as const, goal, rendaAlvo: i ? income / i : 0, renda, mult, ageR: age(renda?.m), ageM: age(mult?.m), series: pts.filter((_, j) => j % 12 === 0) };
   }
   const target = d.auto === "reserva" ? reserve ?? 0 : d.target ?? 0, n = Math.max(0, monthsBetween(now, d.deadline ?? shiftCycle(now, 12)));
-  const bal = d.balance ?? 0, monthly = d.monthly ?? 0, need = pmtNeeded(bal, target, n, 0.0105), proj = bal + monthly * n;
+  const bal = (d.balance ?? 0) + link.linked, monthly = d.monthly ?? 0, need = pmtNeeded(bal, target, n, 0.0105), proj = bal + monthly * n;
   return { kind: "meta" as const, current: bal, target, n, need, pct: target ? bal / target : 0, onTrack: proj >= target, expected: null as number | null, series: null as number[] | null, monthsAtPace: monthly ? Math.ceil(Math.max(0, target - bal) / monthly) : null };
 }

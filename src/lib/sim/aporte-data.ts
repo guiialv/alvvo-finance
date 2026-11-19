@@ -32,7 +32,7 @@ export async function loadAporteExtras(ctx: Ctx, d: SimData): Promise<AporteExtr
   const cx = (goalsR.data ?? []) as { id: string; name: string; data: { auto?: string | null; balance?: number; target?: number; deadline?: string } }[];
   const res = cx.find((g) => g.data?.auto === "reserva") ?? cx.find((g) => /reserva|emerg/i.test(g.name));
   const reserva = res
-    ? { atual: Number(res.data.balance ?? 0), alvo: res.data.target ? Number(res.data.target) : null, nome: res.name, fonte: "caixinha" as const, goalId: res.id, prazo: res.data.deadline ?? null }
+    ? { atual: d.goals.find((g) => g.id === res.id)?.balance ?? Number(res.data.balance ?? 0), alvo: res.data.target ? Number(res.data.target) : null, nome: res.name, fonte: "caixinha" as const, goalId: res.id, prazo: res.data.deadline ?? null }
     : (d.carteira.pos ?? 0) > 0 ? { atual: Number(d.carteira.pos), alvo: null, nome: null, fonte: "carteira" as const, goalId: null, prazo: null } : { atual: 0, alvo: null, nome: null, fonte: "nenhuma" as const, goalId: null, prazo: null };
 
   const links = (linksR.data ?? []) as { balance: number | null; last_sync_at: string | null }[];

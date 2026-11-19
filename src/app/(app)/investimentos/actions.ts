@@ -17,6 +17,7 @@ export async function addOp(f: FormData) {
     household_id: ctx.household.id, date: str(f, "date"), type: str(f, "type") === "venda" ? "venda" : "compra", ticker: str(f, "ticker").toUpperCase(),
     name: str(f, "name") || null, cls: str(f, "cls") || "acao", qty, price, costs: num(f, "costs") ?? 0, created_by: ctx.user.id,
   });
+  if (str(f, "goal_id")) await linkTicker(ctx, str(f, "ticker").toUpperCase(), str(f, "goal_id"));
   done();
 }
 export async function delOp(f: FormData) {
@@ -28,7 +29,7 @@ export async function addFixed(f: FormData) {
   const ctx = await requireEdit("investimentos");
   const amount = num(f, "amount"), rate = num(f, "rate");
   if (!amount || rate == null) return;
-  await ctx.supabase.from("inv_fixed").insert({ household_id: ctx.household.id, name: str(f, "name"), kind: str(f, "kind"), amount, date: str(f, "date"), index: str(f, "index"), rate, maturity: str(f, "maturity") || null });
+  await ctx.supabase.from("inv_fixed").insert({ household_id: ctx.household.id, name: str(f, "name"), kind: str(f, "kind"), amount, date: str(f, "date"), index: str(f, "index"), rate, maturity: str(f, "maturity") || null, goal_id: str(f, "goal_id") || null });
   done();
 }
 export async function delFixed(f: FormData) {
@@ -89,4 +90,24 @@ export async function readBrokerNote(_: NoteState, f: FormData): Promise<NoteSta
     const j = parseJson<{ ops: NonNullable<NoteState>["ops"] }>(out);
     return { ops: (j.ops ?? []).map((o) => ({ ...o, ticker: o.ticker.toUpperCase().replace(/F$/, "") })) };
   } catch (e) { return { error: (e as Error).message }; }
+}
+
+// ---------- Ligação com objetivos ----------
+async function linkTicker(ctx: Awaited<ReturnType<typeof requireEdit>>, ticker: string, goalId: string) {
+  if (!goalId) await ctx.supabase.from("inv_goal_links").delete().eq("household_id", ctx.household.id).eq("ticker", ticker);
+  else await ctx.supabase.from("inv_goal_links").upsert({ household_id: ctx.household.id, ticker, goal_id: goalId, updated_at: new Date().toISOString() }, { onConflict: "household_id,ticker" });
+}
+const goalsChanged = () => { done(); revalidatePath("/objetivos"); revalidatePath("/simulacoes", "layout"); };
+
+/** Ativo de renda variável → objetivo (vale para toda a posição daquele ativo). Vazio = livre. */
+export async function setTickerGoal(f: FormData) {
+  const ctx = await requireEdit("investimentos");
+  await linkTicker(ctx, str(f, "ticker").toUpperCase(), str(f, "goal_id"));
+  goalsChanged();
+}
+/** Título de renda fixa → objetivo. Vazio = livre. */
+export async function setFixedGoal(f: FormData) {
+  const ctx = await requireEdit("investimentos");
+  await ctx.supabase.from("inv_fixed").update({ goal_id: str(f, "goal_id") || null }).eq("id", str(f, "id")).eq("household_id", ctx.household.id);
+  goalsChanged();
 }
