@@ -48,7 +48,7 @@ export function planAporte(inp: AporteIn): { camadas: Camada[]; total: Weights; 
     const v = take(inp.reservaModo === "equilibrar" ? Math.min(gapRes, left * 0.6) : gapRes);
     const meses = inp.despesas > 0 ? (inp.reservaAtual + v) / inp.despesas : 0;
     camadas.push({ key: "reserva", titulo: "Reserva de emergência", valor: v, porClasse: { ...W0, pos: v }, tom: "reserva",
-      motivo: `A reserva tem ${brl0(inp.reservaAtual)} e o alvo é ${brl0(alvo)} (${inp.reservaMeses} meses dos seus gastos médios de ${brl0(inp.despesas)}/mês). Com este valor ela passa a cobrir ${meses.toLocaleString("pt-BR", { maximumFractionDigits: 1 })} meses${v < gapRes ? ` (ainda faltam ${brl0(gapRes - v)})` : ""}. Fica em pós-fixado com resgate no mesmo dia.` });
+      motivo: `A reserva tem ${brl0(inp.reservaAtual)} e o alvo é ${brl0(alvo)}${inp.reservaAlvo ? " (da sua caixinha" : " ("}${inp.despesas > 0 ? `${inp.reservaAlvo ? ", " : ""}≈ ${(alvo / inp.despesas).toLocaleString("pt-BR", { maximumFractionDigits: 1 })} meses dos seus gastos médios de ${brl0(inp.despesas)}/mês` : ""}). Com este valor ela passa a cobrir ${meses.toLocaleString("pt-BR", { maximumFractionDigits: 1 })} meses${v < gapRes ? ` (ainda faltam ${brl0(gapRes - v)})` : ""}. Fica em pós-fixado com resgate no mesmo dia.` });
   }
 
   // 3) Objetivos com prazo (até 10 anos), dos mais próximos para os mais distantes, só o que está atrasado
