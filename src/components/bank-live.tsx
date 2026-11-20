@@ -1,4 +1,8 @@
 import Link from "next/link";
+import { after } from "next/server";
+import { revalidatePath } from "next/cache";
+import { autoSync } from "@/lib/pluggy/sync";
+import { pluggyConfigured } from "@/lib/pluggy/client";
 import type { Ctx } from "@/lib/context";
 import type { Occurrence } from "@/lib/agenda";
 import { addDays } from "@/lib/agenda";
@@ -15,6 +19,7 @@ type Pt = { date: string; bank?: number; plat?: number; proj?: number };
  * Visão geral · conta no banco em tempo real (Open Finance): saldo agora, faturas atuais, previsão até o fim do ciclo
  * com a agenda, e o cruzamento do saldo/entradas/saídas do banco com o que está lançado na plataforma.
  */
+const fmtWhen = (iso: string) => new Date(iso).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
 type Props = { ctx: Ctx; today: string; cycle: string; cycleEnd: string; occ: Occurrence[]; admin: boolean };
 
 /** Nunca derruba a Visão geral: se algo falhar no quadro do banco, mostra um aviso no lugar. */
@@ -32,8 +37,14 @@ async function BankLiveInner({ ctx, today, cycle, cycleEnd, occ, admin }: Props)
   const links = (ls ?? []) as Link_[];
   if (!links.length) return null;
   const contas = links.filter((l) => l.kind === "conta"), cards = links.filter((l) => l.kind === "cartao");
-  const { data: cs } = await ctx.supabase.from("bank_connections").select("provider_updated_at, status").eq("household_id", hh);
-  const updated = ((cs ?? []) as { provider_updated_at: string | null }[]).map((c) => c.provider_updated_at).filter(Boolean).sort().pop() ?? null;
+  const { data: cs } = await ctx.supabase.from("bank_connections").select("provider_updated_at, status, last_sync_at").eq("household_id", hh);
+  const conns = (cs ?? []) as { provider_updated_at: string | null; last_sync_at: string | null }[];
+  const updated = conns.map((c) => c.provider_updated_at).filter(Boolean).sort().pop() ?? null;
+  const lastSync = conns.map((c) => c.last_sync_at).filter(Boolean).sort().pop() ?? null;
+  // Lançamentos novos do banco entram sozinhos: se a última sincronização tem mais de 3 h, roda em segundo plano
+  if (pluggyConfigured() && lastSync && Date.now() - Date.parse(lastSync) > 3 * 3600_000) {
+    after(async () => { try { const r = await autoSync(hh); if (r) for (const p of ["/", "/lancamentos", "/fluxo", "/orcamento", "/conexoes"]) revalidatePath(p); } catch (e) { console.error("[openfinance:auto]", e); } });
+  }
 
   const startDay = ctx.household.cycle_start_day;
   const winStart = addDays(today, -60), tableStart = addDays(today, -200);
@@ -96,7 +107,7 @@ async function BankLiveInner({ ctx, today, cycle, cycleEnd, occ, admin }: Props)
     <section className="card mt-4">
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
         <div><h2>Conta no banco · Open Finance</h2>
-          <p className="text-xs text-ink/45">Dados do banco{updated ? ` atualizados em ${new Date(updated).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}` : ""} · cruzados com os lançamentos e a agenda</p></div>
+          <p className="text-xs text-ink/45">Dados do banco{updated ? ` atualizados em ${fmtWhen(updated)}` : ""}{lastSync ? ` · lançamentos importados em ${fmtWhen(lastSync)}` : " · lançamentos ainda não sincronizados"} · cruzados com os lançamentos e a agenda</p></div>
         {admin && <RefreshBankButton />}
       </div>
 

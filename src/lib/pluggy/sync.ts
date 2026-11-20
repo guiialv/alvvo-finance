@@ -542,5 +542,19 @@ export async function refreshBalances(db: SupabaseClient, householdId: string, o
   return errors;
 }
 
+/**
+ * Sincronização automática (Visão geral / botão "Atualizar"): saldos, histórico e lançamentos novos.
+ * Só roda para quem já aprovou a primeira sincronização; reserva a vez gravando o horário antes (evita duas ao mesmo tempo).
+ */
+export async function autoSync(householdId: string, opts: { minHours?: number } = {}) {
+  const db = createAdminClient();
+  const cutoff = new Date(Date.now() - (opts.minHours ?? 3) * 3600_000).toISOString();
+  const { data: claimed } = await db.from("bank_connections").update({ last_sync_at: new Date().toISOString() })
+    .eq("household_id", householdId).not("last_sync_at", "is", null).lt("last_sync_at", cutoff).select("id");
+  if (!claimed?.length) return null;
+  await refreshBalances(db, householdId);
+  return syncHousehold(await systemCtx(householdId));
+}
+
 export const describeLine = (l: SyncLine) => `${l.label}: ${l.action === "erro" ? `erro — ${l.detail}` : l.action === "sem novidades" ? "sem novidades" : `${l.rows} lançamento(s), ${brl(Math.abs(l.total))}`}`;
 export type { PluggyBill };

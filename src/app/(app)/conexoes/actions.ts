@@ -43,8 +43,10 @@ export async function refreshBankBalances() {
   const ctx = await requireAdmin();
   if (!pluggyConfigured()) return;
   await refreshBalances(ctx.supabase, ctx.household.id, ctx.user.id);
-  revalidatePath("/");
-  revalidatePath("/conexoes");
+  // Depois da primeira aprovação, o botão também traz os lançamentos novos
+  const { data: c } = await ctx.supabase.from("bank_connections").select("last_sync_at").eq("household_id", ctx.household.id).not("last_sync_at", "is", null).limit(1);
+  if (c?.length) await syncHousehold(ctx);
+  for (const p of ["/", "/lancamentos", "/conta", "/faturas", "/orcamento", "/fluxo", "/conexoes"]) revalidatePath(p);
 }
 
 /** Comparação: usar a versão do banco para uma fatura cujo PDF veio incompleto. */
