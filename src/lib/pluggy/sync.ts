@@ -299,12 +299,13 @@ async function syncCard(ctx: Ctx, link: LinkRow, dryRun: boolean): Promise<SyncL
   const out: SyncLine[] = [];
   if (!groups.length) out.push({ link: link.id, label: acc.name, rows: 0, total: 0, action: "sem novidades", detail: `faturas no banco: ${bills.length}${bills.length ? ` (última vence ${brDate(bills[bills.length - 1].dueDate).split("-").reverse().join("/")})` : ""}` });
   for (const g of groups) {
-    const txs = g.txs.filter((t) => (t.status ?? "POSTED") === "POSTED" && !isBillPayment(t));
+    // Fatura aberta: o banco marca as compras como "pendentes" até fechar; entram (a provisória é trocada a cada sincronização)
+    const txs = g.txs.filter((t) => (g.open || (t.status ?? "POSTED") === "POSTED") && !isBillPayment(t));
     const sig = sigOf(txs);
     const { data: prev } = await ctx.supabase.from("import_batches").select("id, external_sig").eq("household_id", hh).eq("external_ref", g.ref).limit(1);
     const label = `${acc.name} · vence ${g.due.slice(8, 10)}/${g.due.slice(5, 7)}${g.open ? " (aberta)" : ""}`;
     if (prev?.[0]?.external_sig === sig) { out.push({ link: link.id, label, rows: txs.length, total: 0, action: "sem novidades" }); continue; }
-    if (!txs.length) continue;
+    if (!txs.length) { out.push({ link: link.id, label, rows: 0, total: 0, action: "sem novidades", detail: `${g.txs.length} lançamento(s) no banco, nenhum para importar` }); continue; }
     const st: ParsedStatement = {
       docType: "fatura", bank: acc.institution ?? link.institution ?? "Cartão", holder: null, dueDate: g.due, closingDate: null,
       statementTotal: g.total != null ? round2(g.total) : null, transactions: txs.map((t) => cardRow(t, fallbackL4)),
