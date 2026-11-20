@@ -182,6 +182,7 @@ export async function syncHousehold(ctx: Ctx, opts: { dryRun?: boolean; linkIds?
     try {
       const lines = link.kind === "cartao" ? await syncCard(ctx, link, !!opts.dryRun) : link.kind === "conta" ? await syncConta(ctx, link, !!opts.dryRun) : [];
       summary.lines.push(...lines);
+      for (const l of lines) if (l.action === "erro") summary.errors.push(`${l.label}: ${l.detail}`);
       if (!opts.dryRun) await db.from("bank_links").update({ last_sync_at: summary.at }).eq("id", link.id);
     } catch (e) {
       const msg = e instanceof PluggyError || e instanceof Error ? e.message : String(e);
@@ -310,7 +311,8 @@ async function syncCard(ctx: Ctx, link: LinkRow, dryRun: boolean): Promise<SyncL
       cardTotals: {}, futureInstallments: [], currentTotal: null, mainCard: fallbackL4 ? { last4: fallbackL4 } : null, warnings: [],
     };
     const res = await importStatement(ctx, st, { fileName: `Open Finance · ${label}`, accountId: acc.id, ownerUserId: acc.owner_user_id, externalRef: g.ref, externalSig: sig, replaceRefs: g.open ? [] : [`pluggy:open:${link.ext_account_id}`], dryRun });
-    out.push({ link: link.id, label, rows: res.rows, total: res.total, action: prev?.length ? "atualizar" : "importar", detail: res.error, cards: res.cards });
+    out.push({ link: link.id, label, rows: res.rows, total: res.total, action: res.error ? "erro" : prev?.length ? "atualizar" : "importar", detail: res.error, cards: res.cards });
+    if (res.error) console.error("[openfinance]", label, res.error);
   }
   return out;
 }
@@ -374,7 +376,8 @@ async function syncConta(ctx: Ctx, link: LinkRow, dryRun: boolean): Promise<Sync
     };
     const label = `${acc.name} · ${cycle.slice(5, 7)}/${cycle.slice(0, 4)}`;
     const res = await importStatement(ctx, st, { fileName: `Open Finance · ${label}`, accountId: acc.id, ownerUserId: acc.owner_user_id, externalRef: ref, appendTo: (prev?.[0]?.id as string | undefined) ?? null, dryRun });
-    out.push({ link: link.id, label, rows: res.rows, total: res.total, action: res.rows ? (prev?.length ? "atualizar" : "importar") : "sem novidades", detail: res.error });
+    out.push({ link: link.id, label, rows: res.rows, total: res.total, action: res.error ? "erro" : res.rows ? (prev?.length ? "atualizar" : "importar") : "sem novidades", detail: res.error });
+    if (res.error) console.error("[openfinance]", label, res.error);
   }
   if (!byCycle.size) out.push({ link: link.id, label: acc.name, rows: 0, total: 0, action: "sem novidades" });
   return out;
