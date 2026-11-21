@@ -339,7 +339,8 @@ function natureOf(t: PluggyTransaction, ownDoc: string | null): string | null {
   if (payer && receiver && payer === receiver) return "transferencia_propria";
   if (ownDoc && ((t.type === "DEBIT" && receiver === ownDoc) || (t.type === "CREDIT" && payer === ownDoc))) return "transferencia_propria";
   if (/TARIFA|ENCARGOS|JUROS|IOF/.test(op)) return "tarifa";
-  if (/RENDIMENTO_APLIC|RESGATE_APLIC|APLICACAO/.test(op)) return "aplicacao_automatica";
+  // Só o vai-e-volta automático da conta (aplicação/resgate automático) fica de fora; compra de Tesouro, CDB etc. é investimento
+  if (/RENDIMENTO_APLIC|RESGATE_APLIC/.test(op) && /AUT/i.test(t.description)) return "aplicacao_automatica";
   if (op === "OPERACAO_CREDITO") return t.type === "CREDIT" ? "emprestimo" : "pagamento_emprestimo";
   return null;
 }

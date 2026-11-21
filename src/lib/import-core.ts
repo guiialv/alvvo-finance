@@ -512,6 +512,11 @@ function extratoDefaults(r: PreviewRow, cats: Category[], own: Category | undefi
     if (/MAINA/.test(d)) return set(named("Maína"), "Dinheiro vindo da Maína");
     return;
   }
+  // Aplicações feitas por você (não automáticas): contam como investimento do mês
+  if (/TESOURO|\bTD\b|TIT(ULO)? PUB|TESOURO DIRETO/.test(d)) return set(named("Tesouro Direto"), "Compra de Tesouro Direto: conta em Investido");
+  if (/\bCDB\b|\bLCI\b|\bLCA\b|\bCRI\b|\bCRA\b|DEBENTURE|APLIC(ACAO)? (EM )?(CDB|RENDA FIXA|FUNDO)|APLICACAO FINANCEIRA/.test(d)) return set(named("Renda fixa"), "Aplicação em renda fixa: conta em Investido");
+  if (/PREVIDENCIA|\bPGBL\b|\bVGBL\b/.test(d)) return set(named("Previdência Privada"), "Aporte em previdência: conta em Investido");
+  if (/XP INVEST|BTG PACTUAL|NU INVEST|RICO INVEST|CLEAR CORRETORA|INTER DTVM|ITAU CORRETORA|AGORA INVEST|ORAMA|WARREN|AVENUE|NOMAD/.test(d)) return set(named("Outros investimentos"), "Envio para corretora: conta em Investido (ajuste a categoria se for outra coisa)");
   if (/ELETROPAULO|ENEL/.test(d)) return set(named("Luz"), "Conta de luz");
   if (/COMGAS|NATURGY/.test(d)) return set(named("Gás"), "Conta de gás");
   if (/SABESP/.test(d)) return set(named("Água"), "Conta de água");
