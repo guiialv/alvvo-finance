@@ -16,7 +16,7 @@ export const metadata: Metadata = {
   description: "Gestão financeira, orçamento, investimentos e objetivos em um só lugar.",
   manifest: "/manifest.webmanifest",
   applicationName: "alvvo finance",
-  appleWebApp: { capable: true, title: "alvvo", statusBarStyle: "black" },
+  appleWebApp: { capable: true, title: "alvvo(f)", statusBarStyle: "black" },
   icons: { icon: "/icon.svg", apple: "/apple-touch-icon.png" },
   robots: { index: false, follow: false },
 };
