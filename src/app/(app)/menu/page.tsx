@@ -17,7 +17,7 @@ export default async function MenuPage() {
   const options = TAB_OPTIONS.filter(([h]) => allowed.includes(h));
   return (
     <div className="max-w-3xl">
-      <PageHeader title="Barra do celular" subtitle="Escolha as 4 abas da barra de baixo, na ordem em que quer vê-las. O Lançar fica no meio; o que ficar de fora continua no Mais e no menu completo." />
+      <PageHeader title="Barra do celular" subtitle="Escolha as 4 abas da barra de baixo, na ordem em que quer vê-las. O “+” de lançar fica no topo; o que ficar de fora continua no Mais e no menu completo." />
       <TabsEditor current={activeTabs((me?.prefs as { menu?: unknown } | null)?.menu, allowed)} options={options} />
     </div>
   );

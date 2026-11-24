@@ -29,9 +29,7 @@ export function TabsEditor({ current, options }: { current: string[]; options: [
       <section className="card">
         <div className="label mb-2">Prévia</div>
         <div className="flex items-end rounded-2xl bg-espresso px-1 pb-2 pt-3">
-          <Slot h={draft[0]} n={1} /><Slot h={draft[1]} n={2} />
-          <span className="flex flex-1 flex-col items-center gap-0.5 text-[10.5px] text-[#f4f1ea]/70"><span className="-mt-5 grid h-10 w-10 place-items-center rounded-full bg-gold text-espresso"><Icon name="plus" className="h-5 w-5" /></span>Lançar</span>
-          <Slot h={draft[2]} n={3} /><Slot h={draft[3]} n={4} />
+          <Slot h={draft[0]} n={1} /><Slot h={draft[1]} n={2} /><Slot h={draft[2]} n={3} /><Slot h={draft[3]} n={4} />
           <span className="flex flex-1 flex-col items-center gap-0.5 text-[10.5px] text-[#f4f1ea]/55"><Icon name="dots" className="h-5 w-5" />Mais</span>
         </div>
       </section>

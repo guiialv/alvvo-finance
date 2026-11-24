@@ -1,11 +1,11 @@
-/** Barra de baixo no celular (como no alvvo health): 4 abas escolhidas pela pessoa + Lançar no meio + Mais. */
+/** Barra de baixo no celular (como no alvvo health): 4 abas escolhidas pela pessoa + Mais; o "+" de lançar fica no topo. */
 export const TAB_MAX = 4;
-export const TAB_DEFAULT = ["/", "/lancamentos", "/orcamento", "/agenda"];
+export const TAB_DEFAULT = ["/", "/lancamentos", "/investimentos", "/mercado"];
 /** Áreas que podem ir para a barra (as de configuração ficam no Mais). */
 export const TAB_OPTIONS: [string, string, string][] = [
   ["/", "Início", "home"], ["/lancamentos", "Lançamentos", "list"], ["/orcamento", "Orçamento", "pie"], ["/agenda", "Agenda", "calendar"],
   ["/fluxo", "Fluxo", "flow"], ["/insights", "Insights", "spark"], ["/conta", "Conta", "bank"], ["/faturas", "Faturas", "card"],
-  ["/parcelamentos", "Parcelas", "layers"], ["/pj", "PJ", "building"], ["/investimentos", "Investir", "trend"], ["/objetivos", "Objetivos", "target"],
+  ["/parcelamentos", "Parcelas", "layers"], ["/pj", "PJ", "building"], ["/investimentos", "Investimentos", "trend"], ["/objetivos", "Objetivos", "target"],
   ["/simulacoes", "Simular", "sliders"], ["/mercado", "Mercado", "globe2"], ["/analise", "Análise", "candle"],
 ];
 /** Abas válidas para quem está vendo, completando com o padrão quando faltar. */

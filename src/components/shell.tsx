@@ -73,8 +73,8 @@ export function Shell({ children, allowed, badges, household, viewer, initialCol
   const tabItems = tabs.map((h) => TAB_OPTIONS.find(([x]) => x === h)).filter((x): x is [string, string, string] => !!x);
   const isActive = (h: string) => (h === "/" ? path === "/" : path.startsWith(h));
   const Tab = ({ t }: { t: [string, string, string] }) => (
-    <Link href={t[0]} className={`flex min-w-0 flex-1 flex-col items-center gap-0.5 py-1.5 text-[10px] tracking-tight ${isActive(t[0]) ? "font-semibold text-gold" : "text-[#f4f1ea]/55"}`}>
-      <Icon name={t[2]} className="h-[21px] w-[21px]" /><span className="max-w-full truncate">{t[1]}</span>
+    <Link href={t[0]} className={`flex min-w-0 flex-1 flex-col items-center gap-1 pb-1.5 pt-2 text-[10px] tracking-tight ${isActive(t[0]) ? "font-semibold text-gold" : "text-[#f4f1ea]/55"}`}>
+      <span className={`grid h-7 w-12 place-items-center rounded-full transition-colors ${isActive(t[0]) ? "bg-gold/15" : ""}`}><Icon name={t[2]} className="h-[20px] w-[20px]" /></span><span className="max-w-full truncate">{t[1]}</span>
     </Link>
   );
 
@@ -83,6 +83,7 @@ export function Shell({ children, allowed, badges, household, viewer, initialCol
       {/* Barra superior no celular: marca à esquerda; ocultar valores, feedback e perfil à direita */}
       <header className="sticky top-0 z-30 flex items-center gap-1 bg-espresso px-3 py-2.5 text-[#f4f1ea] md:hidden" style={{ paddingTop: "max(0.625rem, env(safe-area-inset-top))" }}>
         <Link href="/" className="flex-1 pl-1"><Wordmark size={22} /></Link>
+        {tabItems.length > 0 && <button type="button" onClick={() => setPlus(true)} className="mr-1 grid h-8 w-8 place-items-center rounded-full bg-gold text-espresso shadow" aria-label="Lançar"><Icon name="plus" className="h-[18px] w-[18px]" /></button>}
         <span className="flex items-center [&>button]:text-[#f4f1ea] [&>button:hover]:bg-white/10">{eye}{fbBtn}</span>
         {avatarBtn}
       </header>
@@ -134,16 +135,12 @@ export function Shell({ children, allowed, badges, household, viewer, initialCol
         <div className="px-4 pb-28 pt-6 md:px-12 md:py-8"><div className="mx-auto max-w-[1440px]">{children}</div></div>
       </main>
 
-      {/* Barra de baixo no celular: 4 abas escolhidas pela pessoa, Lançar no meio e Mais (abre o menu completo) */}
+      {/* Barra de baixo no celular: 4 abas escolhidas pela pessoa + Mais (abre o menu completo). O "+" de lançar fica no topo. */}
       {tabItems.length > 0 && (
-        <nav aria-label="Principal" className="fixed inset-x-0 bottom-0 z-30 flex items-end border-t border-white/[0.06] bg-espresso px-1 md:hidden print:hidden" style={{ paddingBottom: "max(0.35rem, env(safe-area-inset-bottom))" }}>
-          {tabItems.slice(0, 2).map((t) => <Tab key={t[0]} t={t} />)}
-          <button type="button" onClick={() => setPlus(true)} className="flex flex-1 flex-col items-center gap-0.5 pb-1.5 text-[10.5px] text-[#f4f1ea]/70" aria-label="Lançar">
-            <span className="-mt-4 grid h-12 w-12 place-items-center rounded-full bg-gold text-espresso shadow-lg"><Icon name="plus" className="h-6 w-6" /></span>Lançar
-          </button>
-          {tabItems.slice(2, 4).map((t) => <Tab key={t[0]} t={t} />)}
-          <button type="button" onClick={() => setOpen(true)} className={`flex flex-1 flex-col items-center gap-0.5 py-1.5 text-[10.5px] ${tabItems.some((t) => isActive(t[0])) ? "text-[#f4f1ea]/55" : "font-semibold text-gold"}`}>
-            <Icon name="dots" className="h-[21px] w-[21px]" /><span>Mais</span>
+        <nav aria-label="Principal" className="fixed inset-x-0 bottom-0 z-30 flex border-t border-white/[0.06] bg-espresso px-1 md:hidden print:hidden" style={{ paddingBottom: "max(0.35rem, env(safe-area-inset-bottom))" }}>
+          {tabItems.slice(0, 4).map((t) => <Tab key={t[0]} t={t} />)}
+          <button type="button" onClick={() => setOpen(true)} className={`flex min-w-0 flex-1 flex-col items-center gap-1 pb-1.5 pt-2 text-[10px] tracking-tight ${tabItems.some((t) => isActive(t[0])) ? "text-[#f4f1ea]/55" : "font-semibold text-gold"}`}>
+            <span className="grid h-7 w-12 place-items-center rounded-full"><Icon name="dots" className="h-[20px] w-[20px]" /></span><span>Mais</span>
           </button>
         </nav>
       )}
