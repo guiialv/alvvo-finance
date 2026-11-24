@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { isAdminRole, requireArea, visibleAreas } from "@/lib/context";
 import { BankLive } from "@/components/bank-live";
+import { InstallBanner } from "@/components/pwa";
 import { currentCycle, cycleLabel, cycleRange, isValidCycle, shiftCycle, todayIso } from "@/lib/cycle";
 import { addDays, eventLabel, occurrenceStatus } from "@/lib/agenda";
 import { loadAgenda } from "@/lib/agenda-data";
@@ -147,6 +148,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
 
   return (
     <div>
+      <InstallBanner />
       <PageHeader title={`Olá, ${ctx.member.display_name}`} subtitle={`Resumo das finanças pessoais do ciclo de ${cycleLong(cycle).toLowerCase()}.`}>
         <CycleNav cycle={cycle} startDay={startDay} basePath="/" today={nowCycle} />
       </PageHeader>

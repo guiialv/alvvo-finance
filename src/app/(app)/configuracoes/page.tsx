@@ -1,6 +1,7 @@
 import { requireAdmin } from "@/lib/context";
 import { categoryIndex, loadAccounts, loadCategories, loadMembers } from "@/lib/data";
 import { PageHeader } from "@/components/ui";
+import { PhoneCard } from "@/components/pwa";
 import { addCategory, deleteRule, grantSupport, renameCategory, revokeSupport, saveAiKey, setAiMode, toggleCategory, updateAccount, updateHousehold } from "./actions";
 
 
@@ -20,6 +21,7 @@ export default async function ConfigPage() {
   return (
     <div className="space-y-6">
       <PageHeader title="Configurações" />
+      <PhoneCard userId={ctx.user.id} />
 
       <section className="card">
         <div className="flex flex-wrap items-start justify-between gap-3">

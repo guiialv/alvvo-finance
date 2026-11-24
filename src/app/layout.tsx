@@ -14,6 +14,11 @@ export const viewport: Viewport = {
 export const metadata: Metadata = {
   title: "alvvo finance",
   description: "Gestão financeira, orçamento, investimentos e objetivos em um só lugar.",
+  manifest: "/manifest.webmanifest",
+  applicationName: "alvvo finance",
+  appleWebApp: { capable: true, title: "alvvo", statusBarStyle: "black" },
+  icons: { icon: "/icon.svg", apple: "/apple-touch-icon.png" },
+  robots: { index: false, follow: false },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

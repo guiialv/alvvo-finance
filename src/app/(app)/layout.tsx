@@ -5,6 +5,7 @@ import { cookies } from "next/headers";
 import { Shell } from "@/components/shell";
 import { signOut } from "@/app/login/actions";
 import { FeedbackButton } from "@/components/feedback-button";
+import { PwaBoot } from "@/components/pwa";
 import { Suspense } from "react";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
@@ -45,6 +46,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         {children}
       </Shell>
       {!ctx.support && <Suspense fallback={null}><FeedbackButton /></Suspense>}
+      {!ctx.support && <PwaBoot userId={ctx.user.id} signOut={signOut} />}
     </>
   );
 }

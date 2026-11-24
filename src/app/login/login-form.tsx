@@ -7,8 +7,8 @@ import { authenticate, signInWithGoogle, type AuthState } from "./actions";
 
 type Mode = "entrar" | "criar" | "magic";
 
-export function LoginForm({ next, googleError }: { next: string; googleError: boolean }) {
-  const [mode, setMode] = useState<Mode>("entrar");
+export function LoginForm({ next, googleError, beta = "", startMode = "entrar" }: { next: string; googleError: boolean; beta?: string; startMode?: Mode }) {
+  const [mode, setMode] = useState<Mode>(startMode);
   const [state, action, pending] = useActionState<AuthState, FormData>(authenticate, undefined);
 
   return (
@@ -31,6 +31,12 @@ export function LoginForm({ next, googleError }: { next: string; googleError: bo
               <button key={m} type="button" onClick={() => setMode(m)} className={`rounded-full px-4 py-1.5 font-medium ${mode === m ? "bg-ink text-[#f6efe2]" : "text-ink/55"}`}>{l}</button>
             ))}
           </div>
+          {beta && (
+            <div className="mb-4 rounded-2xl border border-[#e2a64b]/50 bg-[#e2a64b]/10 p-3 text-[13px]">
+              <b>Convite para o beta: <span className="font-mono tracking-wider">{beta}</span></b>
+              <div className="text-ink/60">Crie sua conta com Google ou e-mail. Na próxima tela, o código já vai preenchido.</div>
+            </div>
+          )}
           <form action={signInWithGoogle} className="mb-4">
             <input type="hidden" name="next" value={next} />
             <button className="flex w-full items-center justify-center gap-2 rounded-full border border-ink/12 bg-surface px-3 py-2.5 text-sm font-medium hover:border-ink/25">
@@ -54,7 +60,8 @@ export function LoginForm({ next, googleError }: { next: string; googleError: bo
               {mode === "magic" ? "Prefiro entrar com senha" : "Prefiro receber um link de acesso por e-mail"}
             </button>
           </form>
-          <p className="mt-6 text-center text-xs text-ink/45">Recebeu um convite? Entre ou crie a conta e informe o código na próxima tela.</p>
+          <p className="mt-6 text-center text-xs text-ink/45">{beta ? "Já tem conta? Entre normalmente: o convite continua valendo." : "Recebeu um convite? Crie a conta e informe o código na próxima tela."}</p>
+          <p className="mt-2 text-center text-xs"><a href="/instalar" className="text-brand hover:underline">📲 Instalar o app no celular</a></p>
           <p className="mt-3 text-center text-[11px] text-ink/40"><a href="/termos" className="hover:underline">Termos de Uso</a> · <a href="/privacidade" className="hover:underline">Política de Privacidade</a></p>
         </div>
       </div>

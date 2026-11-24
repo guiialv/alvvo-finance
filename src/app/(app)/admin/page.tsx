@@ -1,3 +1,4 @@
+import { ShareButton } from "@/components/share-button";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getContext } from "@/lib/context";
@@ -20,9 +21,17 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
   ]);
   type Fam = { household_id: string; name: string; created_at: string; beta_code: string | null; members: number; tx_count: number; last_activity: string | null; support_until: string | null };
   type Code = { code: string; note: string | null; uses_left: number; used: number; expires_at: string | null; created_at: string };
-  type Fb = { id: string; author_name: string | null; kind: string; page: string | null; message: string; status: string; created_at: string; household_id: string | null };
+  type Att = { path: string; tipo: "audio" | "print"; mime: string; segundos?: number };
+  type Fb = { id: string; author_name: string | null; kind: string; page: string | null; message: string; status: string; created_at: string; household_id: string | null; attachments?: Att[] | null; device?: string | null };
   const families = (fams ?? []) as Fam[], betaCodes = (codes ?? []) as Code[];
   const feedback = ((fbs ?? []) as Fb[]).filter((f) => (sp.fb ?? "abertos") === "todos" || f.status !== "resolvido");
+  // Áudios e prints: links temporários (1 h) para ouvir e ver aqui
+  const paths = feedback.flatMap((f) => (f.attachments ?? []).map((a) => a.path));
+  const signed = new Map<string, string>();
+  if (paths.length) {
+    const { data: su } = await ctx.supabase.storage.from("feedback").createSignedUrls(paths, 3600);
+    for (const x of su ?? []) if (x.path && x.signedUrl) signed.set(x.path, x.signedUrl);
+  }
   const famName = new Map(families.map((f) => [f.household_id, f.name]));
   const site = process.env.NEXT_PUBLIC_SITE_URL ?? "https://alvvo-finance.vercel.app";
 
@@ -42,6 +51,14 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
                 <div className="min-w-[240px] flex-1">
                   <p className="whitespace-pre-wrap text-sm">{f.message}</p>
                   <p className="mt-1 text-xs text-ink/45">{f.author_name ?? "—"} · {famName.get(f.household_id ?? "") ?? "—"} · {fmt(f.created_at)} · tela <code>{f.page}</code></p>
+                  {(f.attachments ?? []).length > 0 && (
+                    <div className="mt-2 flex flex-wrap items-center gap-2">
+                      {(f.attachments ?? []).map((x) => { const u = signed.get(x.path); if (!u) return null; return x.tipo === "audio"
+                        ? <audio key={x.path} controls preload="none" src={u} className="h-9 max-w-full" />
+                        : <a key={x.path} href={u} target="_blank" rel="noreferrer"><img src={u} alt="Print" className="h-20 w-20 rounded-lg border border-ink/10 object-cover" /></a>; })}
+                    </div>
+                  )}
+                  {f.device && <p className="mt-1 text-[11px] text-ink/35">{f.device}</p>}
                 </div>
                 <div className="flex gap-1">
                   {(["visto", "resolvido"] as const).map((s) => (
@@ -57,7 +74,7 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
       <div className="grid gap-4 xl:grid-cols-2">
         <section className="card">
           <h2 className="mb-1">Códigos de acesso ao beta</h2>
-          <p className="mb-3 text-xs text-ink/50">Para criar uma família nova é preciso um código. Envie ao colega: o link <b>{site}</b> + o código. Quem entra numa família existente usa o convite da própria família (não precisa de código).</p>
+          <p className="mb-3 text-xs text-ink/50">Para criar uma família nova é preciso um código. Toque em <b>Enviar convite</b>: a pessoa recebe um link que ensina a instalar o app e já leva o código para o cadastro. Quem entra numa família existente usa o convite da própria família (não precisa de código).</p>
           <form action={createBetaCode} className="mb-4 grid gap-2 sm:grid-cols-[1fr_90px_90px_auto]">
             <input className="input" name="note" placeholder="Para quem? (ex.: Família do Rafael)" />
             <input className="input" name="uses" type="number" min={1} max={50} defaultValue={1} aria-label="Usos" title="Quantas famílias podem usar" />
@@ -73,7 +90,9 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
                   <tr key={c.code} className={off ? "opacity-50" : ""}>
                     <td className="font-mono text-[13px]">{c.code}</td><td>{c.note ?? "—"}</td>
                     <td className="num">{c.used} usado(s) · {c.uses_left} livre(s)</td><td className="text-ink/60">{c.expires_at ? fmt(c.expires_at).slice(0, 8) : "sem prazo"}</td>
-                    <td>{!off && <form action={disableBetaCode.bind(null, c.code)}><button className="text-[12px] text-ink/45 hover:text-loss">Desativar</button></form>}</td>
+                    <td>{!off && <div className="flex flex-col items-start gap-1">
+                      <ShareButton url={`${site}/instalar?beta=${c.code}`} text={`Convite para o beta do alvvo finance${c.note ? ` (${c.note})` : ""}. Abra o link no celular, instale o app e crie sua conta: o código ${c.code} já vai preenchido.`} />
+                      <form action={disableBetaCode.bind(null, c.code)}><button className="text-[12px] text-ink/45 hover:text-loss">Desativar</button></form></div>}</td>
                   </tr>
                 );
               })}</tbody>

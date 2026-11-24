@@ -1,3 +1,4 @@
+import { ShareButton } from "@/components/share-button";
 import { headers } from "next/headers";
 import { requireAdmin } from "@/lib/context";
 import { AREAS, LEVEL_LABEL, ROLE_LABEL, type Level, type Role } from "@/lib/access";
@@ -86,13 +87,14 @@ export default async function AccessPage() {
         <aside className="space-y-4">
           <section className="card">
             <h2 className="mb-2">Convidar</h2>
-            <p className="mb-3 text-xs text-ink/50">Mande o link ou o código. A pessoa entra com e-mail e senha, Google ou link mágico, e o pedido chega aqui para você aprovar.</p>
+            <p className="mb-3 text-xs text-ink/50">Mande o link ou o código. A pessoa entra com e-mail e senha, Google ou link mágico, e o pedido chega aqui para você aprovar. Depois de aprovar, você escolhe o papel e o que ela vê em cada área. No celular, ela pode instalar o app em /instalar.</p>
             <div className="rounded-xl bg-ink/[0.04] p-3">
               <div className="label">Link</div><div className="break-all font-mono text-xs">{link}</div>
               <div className="label mt-2">Código</div><div className="font-mono text-xl font-semibold tracking-widest">{ctx.household.invite_code}</div>
               <div className={`mt-1 text-[11px] ${expired ? "text-loss" : "text-ink/45"}`}>{expired ? "Vencido — gere um novo" : `Vale até ${formatDateBR(ctx.household.invite_expires_at.slice(0, 10))}`}</div>
             </div>
-            <div className="mt-3 flex gap-2"><CopyButton text={link} label="Copiar link" /><form action={newInviteCode} className="flex-1"><button className="btn-ghost w-full !py-1.5 text-xs">Gerar novo código</button></form></div>
+            {!expired && <ShareButton url={link} text={`${ctx.member.display_name} convidou você para a família "${ctx.household.name}" no alvvo finance. Abra o link, crie sua conta e o pedido de entrada chega para aprovação.`} className="btn mt-3 w-full !py-2 text-sm" label="📲 Enviar convite (WhatsApp, e-mail…)" />}
+            <div className="mt-2 flex gap-2"><CopyButton text={link} label="Copiar link" /><form action={newInviteCode} className="flex-1"><button className="btn-ghost w-full !py-1.5 text-xs">Gerar novo código</button></form></div>
             <p className="mt-2 text-[11px] text-ink/45">Gerar um novo código invalida o anterior.</p>
           </section>
           <section className="card">
