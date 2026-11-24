@@ -40,6 +40,13 @@ export default async function ConexoesPage() {
   type Item = { date: string; description: string; amount: number };
   const comps = (cmp ?? []) as { id: string; kind: string; ref: string; label: string; pdf_count: number; pdf_total: number; of_count: number; of_total: number; matched: number; only_pdf: Item[]; only_of: Item[]; updated_at: string }[];
   const ready = L.length > 0;
+  const { data: isPlat } = await ctx.supabase.rpc("is_platform_admin");
+  if (!C.length && !isPlat) return (
+    <div className="space-y-4">
+      <PageHeader title="Open Finance" subtitle="Contas e cartões lidos direto do banco, com a sua autorização." />
+      <section className="card text-sm leading-relaxed text-ink/70">A conexão direta com o banco está em teste fechado e chega para todos nas próximas versões do beta. Enquanto isso, importe as faturas e extratos em PDF: tudo entra nas mesmas telas.</section>
+    </div>
+  );
 
   return (
     <div className="space-y-4">
