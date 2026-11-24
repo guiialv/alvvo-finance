@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Icon } from "./icons";
 
-const SECTIONS: { title: string; items: { href: string; label: string; icon: string; soon?: string }[] }[] = [
+export const SECTIONS: { title: string; items: { href: string; label: string; icon: string; soon?: string }[] }[] = [
   { title: "Dia a dia", items: [
     { href: "/", label: "Visão geral", icon: "home" },
     { href: "/fluxo", label: "Fluxo do dinheiro", icon: "flow" },

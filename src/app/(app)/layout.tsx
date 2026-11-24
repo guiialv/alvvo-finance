@@ -7,6 +7,7 @@ import { signOut } from "@/app/login/actions";
 import { FeedbackButton } from "@/components/feedback-button";
 import { PwaBoot } from "@/components/pwa";
 import { Suspense } from "react";
+import { activeTabs } from "@/lib/mobile-tabs";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const ctx = await getContext();
@@ -21,6 +22,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   if (areas.includes("analise")) allowed.push("/mercado", "/mercado/carteiras");
   const { data: platformAdmin } = await ctx.supabase.rpc("is_platform_admin");
   if (platformAdmin) allowed.push("/admin");
+  // Abas da barra de baixo escolhidas pela pessoa (valem em todos os aparelhos)
+  const { data: me } = await ctx.supabase.from("household_members").select("prefs").eq("household_id", household.id).eq("user_id", ctx.user.id).maybeSingle();
+  const tabs = activeTabs((me?.prefs as { menu?: unknown } | null)?.menu, allowed);
   let pending = 0;
   if (admin) {
     const { count } = await ctx.supabase.from("household_members").select("user_id", { count: "exact", head: true }).eq("household_id", household.id).eq("status", "pendente");
@@ -40,7 +44,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           <a href="/ver-como/sair" className="ml-auto rounded-lg bg-white/15 px-3 py-1 text-xs font-medium hover:bg-white/25">Voltar a ser {member.display_name}</a>
         </div>
       )}
-      <Shell allowed={allowed} badges={{ "/acessos": pending }} household={household.name} signOut={signOut}
+      <Shell allowed={allowed} badges={{ "/acessos": pending }} household={household.name} signOut={signOut} tabs={tabs} feedback={!ctx.support}
         viewer={{ name: viewer.name, initials: viewer.name.split(/\s+/).map((w) => w[0]).slice(0, 2).join("").toUpperCase() }}
         initialCollapsed={jar.get("alvvo_nav")?.value === "min"} initialPrivacy={jar.get("alvvo_priv")?.value === "1"}>
         {children}

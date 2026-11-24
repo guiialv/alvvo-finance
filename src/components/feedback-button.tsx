@@ -27,8 +27,11 @@ async function shrink(file: File): Promise<Blob | null> {
   } finally { URL.revokeObjectURL(url); }
 }
 
-/** Botão flutuante de feedback: registra junto a tela em que a pessoa estava. */
-export function FeedbackButton() {
+/** Abre o feedback de qualquer lugar (topo da tela, menu do perfil, Lançar). */
+export const openFeedback = () => window.dispatchEvent(new Event("alvvo:feedback"));
+
+/** Formulário de feedback (abre pelo ícone 💬 no topo): registra junto a tela em que a pessoa estava. */
+export function FeedbackButton({ floating = false }: { floating?: boolean }) {
   const [open, setOpen] = useState(false), [kind, setKind] = useState("problema"), [msg, setMsg] = useState("");
   const [done, setDone] = useState<string | null>(null), [pending, start] = useTransition();
   const [imgs, setImgs] = useState<Img[]>([]), [audio, setAudio] = useState<Aud | null>(null);
@@ -68,6 +71,7 @@ export function FeedbackButton() {
     }
     setImgs(next);
   }
+  useEffect(() => { const f = () => setOpen(true); addEventListener("alvvo:feedback", f); return () => removeEventListener("alvvo:feedback", f); }, []);
   useEffect(() => {
     if (!open) return;
     const onPaste = (e: ClipboardEvent) => { const fs = [...(e.clipboardData?.files ?? [])].filter((f) => /^image\//.test(f.type)); if (fs.length) { e.preventDefault(); addImages(fs); } };
@@ -100,9 +104,9 @@ export function FeedbackButton() {
   const recSec = rec ? (Date.now() - rec.t0) / 1000 : 0;
   return (
     <>
-      <button type="button" onClick={() => setOpen(true)} className="fixed bottom-4 right-4 z-40 rounded-full bg-espresso px-4 py-2.5 text-[13px] font-medium text-[#f6efe2] shadow-lg hover:bg-[#2a241f] print:hidden" style={{ bottom: "max(1rem, env(safe-area-inset-bottom))" }} aria-label="Enviar feedback">
+      {floating && <button type="button" onClick={() => setOpen(true)} className="fixed bottom-4 right-4 z-40 rounded-full bg-espresso px-4 py-2.5 text-[13px] font-medium text-[#f6efe2] shadow-lg hover:bg-[#2a241f] print:hidden" style={{ bottom: "max(1rem, env(safe-area-inset-bottom))" }} aria-label="Enviar feedback">
         💬 Feedback
-      </button>
+      </button>}
       {open && (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/30 p-4 sm:items-center" onClick={close}>
           <div role="dialog" aria-label="Enviar feedback" className="max-h-[92vh] w-full max-w-md overflow-y-auto rounded-2xl bg-surface p-5 shadow-xl" onClick={(e) => e.stopPropagation()}>
