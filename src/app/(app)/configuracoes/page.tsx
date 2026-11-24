@@ -48,9 +48,9 @@ export default async function ConfigPage() {
             <div><label className="label">Nome</label><input className="input" name="name" defaultValue={ctx.household.name} /></div>
             <div><label className="label">Seu nome</label><input className="input" name="display_name" defaultValue={ctx.member.display_name} /></div>
             <div>
-              <label className="label">Dia de início do ciclo</label>
+              <label className="label">O mês começa no dia</label>
               <input className="input w-24" type="number" min={1} max={28} name="cycle_start_day" defaultValue={ctx.household.cycle_start_day} />
-              <p className="mt-1 text-xs text-ink/40">Hoje: dia {ctx.household.cycle_start_day} até o dia {ctx.household.cycle_start_day - 1 || 28} do mês seguinte. A fatura entra no ciclo da data de vencimento.</p>
+              <p className="mt-1 text-xs text-ink/40">{ctx.household.cycle_start_day === 1 ? "Hoje: mês de calendário (dia 1 ao último dia)." : `Hoje: dia ${ctx.household.cycle_start_day} até o dia ${ctx.household.cycle_start_day - 1} do mês seguinte.`} Vale para toda a família. As compras do cartão entram no mês em que a fatura é paga (vencimento), item a item. Ao mudar, o mês de todos os lançamentos é recalculado.</p>
             </div>
             <button className="btn">Salvar</button>
           </form>

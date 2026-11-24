@@ -8,8 +8,14 @@ const done = () => revalidatePath("/", "layout");
 
 export async function updateHousehold(formData: FormData) {
   const ctx = await requireAdmin();
-  const day = Math.max(1, Math.min(28, Number(formData.get("cycle_start_day")) || 8));
-  await ctx.supabase.from("households").update({ name: String(formData.get("name") ?? "").trim() || ctx.household.name, cycle_start_day: day }).eq("id", ctx.household.id);
+  const day = Math.max(1, Math.min(28, Number(formData.get("cycle_start_day")) || 1));
+  await ctx.supabase.from("households").update({ name: String(formData.get("name") ?? "").trim() || ctx.household.name }).eq("id", ctx.household.id);
+  // Mudou o dia em que o mês começa: recalcula o mês de todos os lançamentos (faturas seguem o vencimento)
+  if (day !== ctx.household.cycle_start_day) {
+    const { data: n, error } = await ctx.supabase.rpc("recompute_cycles", { hh: ctx.household.id, p_day: day });
+    if (error) throw new Error(error.message);
+    await logAction(ctx, `Mês passou a começar no dia ${day} (${n ?? 0} lançamentos mudaram de mês)`);
+  }
   await ctx.supabase.from("household_members").update({ display_name: String(formData.get("display_name") ?? "").trim() || ctx.member.display_name })
     .eq("household_id", ctx.household.id).eq("user_id", ctx.user.id);
   done();
