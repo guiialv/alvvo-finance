@@ -7,7 +7,7 @@ import { hideHomeTools } from "@/app/(app)/menu/actions";
 export function HomeTools({ tools }: { tools: HomeTool[] }) {
   if (!tools.length) return null;
   return (
-    <section className="mt-4">
+    <section data-tour="atalhos" className="mt-4">
       <div className="mb-2 flex items-baseline justify-between gap-3 px-1">
         <span className="label !mb-0">Atalhos</span>
         <span className="flex items-center gap-3 text-xs">

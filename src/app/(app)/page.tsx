@@ -218,14 +218,14 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
         );
       })}
 
-      <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
+      <div data-tour="resumo" className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
         <Kpi label="Receitas" value={s.receitas} accent="#4f7a52" bg={KPI_BG.receitas} sub={<Delta cur={s.receitas} prev={p.receitas} prevLabel={cycleLabel(prevC)} />} />
         <Kpi label="Despesas" value={s.despesas} accent="#a33f30" bg={KPI_BG.despesas} sub={<Delta cur={s.despesas} prev={p.despesas} invert prevLabel={cycleLabel(prevC)} />} />
         <Kpi label="Investido" value={s.investimentos} accent="#4a5a73" bg={KPI_BG.investido} sub={s.receitas ? `${formatPct(s.investimentos / s.receitas)} da receita` : "—"} />
         <Kpi label="Sobra do ciclo" bg={KPI_BG.sobra} value={s.saldo} accent={s.saldo >= 0 ? "#7a5c32" : "#a33f30"} sub={s.receitas ? `${formatPct(s.saldo / s.receitas)} da receita` : "—"} />
       </div>
 
-      <section className="card mt-4 grid grid-cols-2 gap-4 !border-transparent !py-4 text-[#f6efe2] shadow-[0_18px_40px_-26px_rgba(60,40,20,.7)] md:grid-cols-[1fr_1fr_1fr_1.2fr] md:gap-5 md:divide-x md:divide-white/10 [&_.label]:!text-[#cfc3b0]"
+      <section data-tour="ciclo" className="card mt-4 grid grid-cols-2 gap-4 !border-transparent !py-4 text-[#f6efe2] shadow-[0_18px_40px_-26px_rgba(60,40,20,.7)] md:grid-cols-[1fr_1fr_1fr_1.2fr] md:gap-5 md:divide-x md:divide-white/10 [&_.label]:!text-[#cfc3b0]"
         style={{ background: "radial-gradient(90% 80% at 100% 0%, rgba(226,166,75,.38), rgba(226,166,75,0) 60%), radial-gradient(70% 80% at 0% 100%, rgba(143,94,19,.45), rgba(143,94,19,0) 70%), linear-gradient(160deg, #2a211a, #15120f)" }}>
         <div><div className="label">Recebido</div><div className="display text-[22px] leading-tight text-[#b9cfae]">{formatBRL(s.receitas)}</div><div className="text-xs text-[#f6efe2]/55">{aReceber ? <>+ <span className="tabular-nums">{formatBRL(aReceber)}</span> a receber</> : "nada mais previsto"}</div></div>
         <div className="md:pl-5"><div className="label">Pago</div><div className="display text-[22px] leading-tight">{formatBRL(pago)}</div><div className="text-xs text-[#f6efe2]/55">despesas e aportes do ciclo</div></div>
@@ -240,7 +240,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
       <HomeTools tools={tools} />
 
       {noticias.length > 0 && (
-        <section className="card mt-4">
+        <section data-tour="noticias" className="card mt-4">
           <div className="flex items-baseline justify-between gap-3"><div className="label !mb-0">Notícias do dia para você</div><Link href="/noticias" className="text-xs text-brand">Ver todas →</Link></div>
           <div className="mt-1"><NewsCards itens={noticias} compacta /></div>
         </section>

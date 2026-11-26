@@ -35,19 +35,19 @@ export function Shell({ children, allowed, badges, household, viewer, initialCol
   const inPj = path.startsWith("/pj");
 
   const eye = (
-    <button type="button" onClick={togglePrivacy} title={privacy ? "Mostrar valores" : "Ocultar valores"} aria-pressed={privacy}
+    <button type="button" data-tour="privacidade" onClick={togglePrivacy} title={privacy ? "Mostrar valores" : "Ocultar valores"} aria-pressed={privacy}
       className="grid h-9 w-9 place-items-center rounded-full text-current/70 transition hover:bg-black/5">
       <Icon name={privacy ? "eyeoff" : "eye"} className="h-[18px] w-[18px]" />
     </button>
   );
 
   const fbBtn = feedback && (
-    <button type="button" onClick={openFeedback} title="Enviar feedback" aria-label="Enviar feedback" className="grid h-9 w-9 place-items-center rounded-full text-current/70 transition hover:bg-black/5">
+    <button type="button" data-tour="feedback" onClick={openFeedback} title="Enviar feedback" aria-label="Enviar feedback" className="grid h-9 w-9 place-items-center rounded-full text-current/70 transition hover:bg-black/5">
       <Icon name="chat" className="h-[18px] w-[18px]" />
     </button>
   );
   const avatarBtn = (
-    <button type="button" onClick={() => setAcct((v) => !v)} aria-expanded={acct} aria-label="Perfil e conta" className="ml-0.5 grid h-8 w-8 place-items-center rounded-full border border-gold/50 text-[12px] font-semibold text-gold">{viewer.initials}</button>
+    <button type="button" data-tour="perfil" onClick={() => setAcct((v) => !v)} aria-expanded={acct} aria-label="Perfil e conta" className="ml-0.5 grid h-8 w-8 place-items-center rounded-full border border-gold/50 text-[12px] font-semibold text-gold">{viewer.initials}</button>
   );
   const MenuItem = ({ href, icon, label, onClick }: { href?: string; icon: string; label: string; onClick?: () => void }) => href
     ? <Link href={href} className="flex items-center gap-3 rounded-xl px-3 py-2 text-sm text-ink/80 hover:bg-ink/[0.05]"><Icon name={icon} className="h-[18px] w-[18px] text-ink/50" />{label}</Link>
@@ -61,6 +61,7 @@ export function Shell({ children, allowed, badges, household, viewer, initialCol
         <div className="my-1 h-px bg-ink/[0.06]" />
         {feedback && <MenuItem icon="chat" label="Enviar feedback (texto, áudio ou print)" onClick={() => { setAcct(false); openFeedback(); }} />}
         <MenuItem href="/bem-vindo?editar=1" icon="user" label="Meu perfil financeiro" />
+        <MenuItem href="/tutorial" icon="help" label="Como usar o Alvvo" />
         <MenuItem href="/menu" icon="grid" label="Personalizar atalhos e barra do celular" />
         <MenuItem href="/instalar" icon="phone" label="Instalar o app no celular" />
         {allowed.includes("/acessos") && <MenuItem href="/acessos" icon="users" label="Membros e acessos" />}
@@ -84,7 +85,7 @@ export function Shell({ children, allowed, badges, household, viewer, initialCol
       {/* Barra superior no celular: marca à esquerda; ocultar valores, feedback e perfil à direita */}
       <header className="sticky top-0 z-30 flex items-center gap-1 bg-espresso px-3 py-2.5 text-[#f4f1ea] md:hidden" style={{ paddingTop: "max(0.625rem, env(safe-area-inset-top))" }}>
         <Link href="/" className="flex-1 pl-1"><Wordmark size={22} /></Link>
-        {tabItems.length > 0 && <button type="button" onClick={() => setPlus(true)} className="mr-1 grid h-8 w-8 place-items-center rounded-full bg-gold text-espresso shadow" aria-label="Lançar"><Icon name="plus" className="h-[18px] w-[18px]" /></button>}
+        {tabItems.length > 0 && <button type="button" data-tour="lancar" onClick={() => setPlus(true)} className="mr-1 grid h-8 w-8 place-items-center rounded-full bg-gold text-espresso shadow" aria-label="Lançar"><Icon name="plus" className="h-[18px] w-[18px]" /></button>}
         <span className="flex items-center [&>button]:text-[#f4f1ea] [&>button:hover]:bg-white/10">{eye}{fbBtn}</span>
         {avatarBtn}
       </header>
@@ -92,7 +93,7 @@ export function Shell({ children, allowed, badges, household, viewer, initialCol
 
       {open && <div className="fixed inset-0 z-40 bg-black/40 backdrop-blur-[2px] md:hidden" onClick={() => setOpen(false)} />}
 
-      <aside className={`fixed inset-y-0 left-0 z-50 flex w-72 flex-col bg-espresso text-[#f4f1ea] transition-[transform,width] duration-300 ease-out md:sticky md:top-0 md:z-auto md:h-screen md:translate-x-0 ${open ? "translate-x-0" : "-translate-x-full"} ${collapsed ? "md:w-[76px]" : "md:w-64"}`}>
+      <aside data-tour="menu" className={`fixed inset-y-0 left-0 z-50 flex w-72 flex-col bg-espresso text-[#f4f1ea] transition-[transform,width] duration-300 ease-out md:sticky md:top-0 md:z-auto md:h-screen md:translate-x-0 ${open ? "translate-x-0" : "-translate-x-full"} ${collapsed ? "md:w-[76px]" : "md:w-64"}`}>
         <div className={`flex items-center gap-2 p-4 ${collapsed ? "md:justify-center md:px-2" : "md:p-5"}`}>
           <Link href="/" className="min-w-0 flex-1">
             {collapsed ? <><span className="hidden md:block"><BrandMark className="h-9 w-9" /></span><span className="md:hidden"><Wordmark size={26} /></span></> : <Wordmark size={26} />}
@@ -128,8 +129,8 @@ export function Shell({ children, allowed, badges, household, viewer, initialCol
       <main className="min-w-0 flex-1">
         {/* Barra de atalhos no desktop */}
         <div className="sticky top-0 z-20 hidden items-center justify-end gap-1 border-b border-ink/[0.05] bg-paper/80 px-12 py-2 backdrop-blur-md md:flex">
-          {allowed.includes("/faturas") && <Link href="/faturas/importar" className="rounded-full px-3 py-1.5 text-sm text-ink/60 transition hover:bg-ink/[0.05] hover:text-ink">Importar faturas e extratos</Link>}
-          {allowed.includes("/lancamentos") && <Link href="/lancamentos?novo=1" className="rounded-full px-3 py-1.5 text-sm text-ink/60 transition hover:bg-ink/[0.05] hover:text-ink">+ Lançamento</Link>}
+          {allowed.includes("/faturas") && <Link href="/faturas/importar" data-tour="importar" className="rounded-full px-3 py-1.5 text-sm text-ink/60 transition hover:bg-ink/[0.05] hover:text-ink">Importar faturas e extratos</Link>}
+          {allowed.includes("/lancamentos") && <Link href="/lancamentos?novo=1" data-tour="lancar" className="rounded-full px-3 py-1.5 text-sm text-ink/60 transition hover:bg-ink/[0.05] hover:text-ink">+ Lançamento</Link>}
           <span className="mx-1 h-5 w-px bg-ink/10" />
           {eye}{fbBtn}{avatarBtn}
         </div>
@@ -138,7 +139,7 @@ export function Shell({ children, allowed, badges, household, viewer, initialCol
 
       {/* Barra de baixo no celular: 4 abas escolhidas pela pessoa + Mais (abre o menu completo). O "+" de lançar fica no topo. */}
       {tabItems.length > 0 && (
-        <nav aria-label="Principal" className="fixed inset-x-0 bottom-0 z-30 flex border-t border-white/[0.06] bg-espresso px-1 md:hidden print:hidden" style={{ paddingBottom: "max(0.35rem, env(safe-area-inset-bottom))" }}>
+        <nav aria-label="Principal" data-tour="barra" className="fixed inset-x-0 bottom-0 z-30 flex border-t border-white/[0.06] bg-espresso px-1 md:hidden print:hidden" style={{ paddingBottom: "max(0.35rem, env(safe-area-inset-bottom))" }}>
           {tabItems.slice(0, 4).map((t) => <Tab key={t[0]} t={t} />)}
           <button type="button" onClick={() => setOpen(true)} className={`flex min-w-0 flex-1 flex-col items-center gap-1 pb-1.5 pt-2 text-[10px] tracking-tight ${tabItems.some((t) => isActive(t[0])) ? "text-[#f4f1ea]/55" : "font-semibold text-gold"}`}>
             <span className="grid h-7 w-12 place-items-center rounded-full"><Icon name="dots" className="h-[20px] w-[20px]" /></span><span>Mais</span>

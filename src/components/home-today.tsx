@@ -37,7 +37,7 @@ export function HomeToday({ pulso, proximos, pendencias, editAgenda }: { pulso: 
   return (
     <div className="mt-4 grid gap-4 lg:grid-cols-3">
       {pulso && (
-        <section className="card !border-transparent" style={{ background: "radial-gradient(90% 80% at 100% 0%, #f6e4c2 0%, rgba(246,228,194,0) 60%), linear-gradient(160deg, #fffdf8, #f6efe2)" }}>
+        <section data-tour="pulso" className="card !border-transparent" style={{ background: "radial-gradient(90% 80% at 100% 0%, #f6e4c2 0%, rgba(246,228,194,0) 60%), linear-gradient(160deg, #fffdf8, #f6efe2)" }}>
           <div className="label">Pulso do mês</div>
           <div className="mt-2 flex items-center gap-4">
             <div className="relative shrink-0">
@@ -54,7 +54,7 @@ export function HomeToday({ pulso, proximos, pendencias, editAgenda }: { pulso: 
         </section>
       )}
 
-      <section className="card">
+      <section data-tour="proximos" className="card">
         <div className="flex items-baseline justify-between"><div className="label">Próximos 7 dias</div><Link href="/agenda" className="text-xs text-brand">Agenda →</Link></div>
         {proximos.length === 0 ? <p className="mt-3 text-sm text-ink/55">Nenhum compromisso nos próximos dias.</p> : (
           <div className="mt-1 divide-y divide-[#efe7da]">
@@ -77,7 +77,7 @@ export function HomeToday({ pulso, proximos, pendencias, editAgenda }: { pulso: 
         )}
       </section>
 
-      <section className="card">
+      <section data-tour="pendencias" className="card">
         <div className="flex items-baseline justify-between"><div className="label">Pendências do mês</div><span className="text-xs tabular-nums text-ink/50">{feitas} de {pendencias.length}</span></div>
         <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-ink/[0.06]"><div className="h-full rounded-full" style={{ width: `${pendencias.length ? (feitas / pendencias.length) * 100 : 0}%`, background: "linear-gradient(90deg, #c9d6c0, #6f8f68)" }} /></div>
         {pendencias.length > 0 && feitas === pendencias.length ? (

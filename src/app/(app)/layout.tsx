@@ -6,6 +6,7 @@ import { Shell } from "@/components/shell";
 import { signOut } from "@/app/login/actions";
 import { FeedbackButton } from "@/components/feedback-button";
 import { PwaBoot } from "@/components/pwa";
+import { Tour } from "@/components/tour";
 import { Suspense } from "react";
 import { activeTabs } from "@/lib/mobile-tabs";
 
@@ -51,6 +52,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       </Shell>
       {!ctx.support && <Suspense fallback={null}><FeedbackButton /></Suspense>}
       {!ctx.support && <PwaBoot userId={ctx.user.id} signOut={signOut} />}
+      {!ctx.support && <Tour auto={(me?.prefs as { tour?: string } | null)?.tour !== "visto" && !ctx.viewer.simulated} />}
     </>
   );
 }
