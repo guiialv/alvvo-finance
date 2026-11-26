@@ -9,6 +9,7 @@ export const SECTIONS: { title: string; items: { href: string; label: string; ic
     { href: "/", label: "Visão geral", icon: "home" },
     { href: "/fluxo", label: "Fluxo do dinheiro", icon: "flow" },
     { href: "/insights", label: "Insights", icon: "spark" },
+    { href: "/noticias", label: "Notícias para você", icon: "news" },
     { href: "/agenda", label: "Agenda", icon: "calendar" },
     { href: "/orcamento", label: "Orçamento", icon: "pie" },
     { href: "/lancamentos", label: "Lançamentos", icon: "list" },

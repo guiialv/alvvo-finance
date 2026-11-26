@@ -13,7 +13,7 @@ export default async function MenuPage() {
   const allowed = [...AREAS.filter(([k]) => areas.includes(k)).map(([, , href]) => href), ...(isAdminRole(ctx.member.role) ? ["/acessos"] : [])];
   if (areas.includes("orcamento") || areas.includes("visao-geral")) allowed.push("/fluxo");
   if (areas.includes("faturas")) allowed.push("/conta");
-  if (areas.includes("visao-geral")) allowed.push("/simulacoes");
+  if (areas.includes("visao-geral")) allowed.push("/simulacoes", "/noticias");
   if (areas.includes("analise")) allowed.push("/mercado");
   const { data: me } = await ctx.supabase.from("household_members").select("prefs").eq("household_id", ctx.household.id).eq("user_id", ctx.user.id).maybeSingle();
   const options = TAB_OPTIONS.filter(([h]) => allowed.includes(h));

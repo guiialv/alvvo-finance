@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { getContext } from "@/lib/context";
 import { PageHeader, Empty } from "@/components/ui";
 import { createBetaCode, disableBetaCode, setFeedbackStatus } from "./actions";
+import { PERGUNTAS, rotulo, type Respostas } from "@/lib/perfil";
 
 const fmt = (iso?: string | null) => (iso ? new Date(iso).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo", day: "2-digit", month: "2-digit", year: "2-digit", hour: "2-digit", minute: "2-digit" }) : "—");
 const KIND: Record<string, string> = { problema: "Algo errado", ideia: "Ideia", duvida: "Dúvida", elogio: "Elogio" };
@@ -14,11 +15,13 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
   const { data: isAdmin } = await ctx.supabase.rpc("is_platform_admin");
   if (!isAdmin) redirect("/");
   const sp = await searchParams;
-  const [{ data: fams }, { data: codes }, { data: fbs }] = await Promise.all([
+  const [{ data: fams }, { data: codes }, { data: fbs }, { data: perfisD }] = await Promise.all([
     ctx.supabase.rpc("platform_overview"),
     ctx.supabase.from("beta_codes").select("*").order("created_at", { ascending: false }),
     ctx.supabase.from("feedback").select("*").order("created_at", { ascending: false }).limit(200),
+    ctx.supabase.from("member_profiles").select("user_id, household_id, display_name, answers, completed_at, updated_at").order("updated_at", { ascending: false }).limit(300),
   ]);
+  const perfis = (perfisD ?? []) as { user_id: string; household_id: string | null; display_name: string | null; answers: Respostas; completed_at: string | null; updated_at: string }[];
   type Fam = { household_id: string; name: string; created_at: string; beta_code: string | null; members: number; tx_count: number; last_activity: string | null; support_until: string | null };
   type Code = { code: string; note: string | null; uses_left: number; used: number; expires_at: string | null; created_at: string };
   type Att = { path: string; tipo: "audio" | "print"; mime: string; segundos?: number };
@@ -97,6 +100,30 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
                 );
               })}</tbody>
             </table>
+          )}
+        </section>
+
+        <section className="card xl:col-span-2">
+          <h2 className="mb-1">Perfis respondidos na pesquisa inicial</h2>
+          <p className="mb-3 text-xs text-ink/50">{perfis.filter((x) => x.completed_at).length} concluídos · {perfis.filter((x) => !x.completed_at).length} em andamento. Respostas de cada pessoa, sem dados financeiros da conta.</p>
+          {perfis.length === 0 ? <Empty icon="user">Nenhuma resposta ainda.</Empty> : (
+            <div className="space-y-2">
+              {perfis.map((x) => (
+                <details key={x.user_id} className="rounded-2xl border border-[#e9e0d0] bg-surface px-4 py-3">
+                  <summary className="flex cursor-pointer flex-wrap items-baseline justify-between gap-2">
+                    <span className="font-semibold">{x.display_name ?? "Sem nome"}<span className="ml-2 text-xs font-normal text-ink/45">{x.household_id ? famName.get(x.household_id) ?? "" : ""}</span></span>
+                    <span className="text-xs text-ink/50">{x.completed_at ? `concluído em ${fmt(x.completed_at)}` : `em andamento · ${fmt(x.updated_at)}`}</span>
+                  </summary>
+                  <dl className="mt-3 grid gap-x-6 gap-y-2 text-sm sm:grid-cols-2">
+                    {PERGUNTAS.map((q) => {
+                      const v = x.answers?.[q.id];
+                      if (v == null || (Array.isArray(v) && !v.length)) return null;
+                      return <div key={q.id}><dt className="text-[11.5px] text-ink/45">{q.titulo}</dt><dd className="text-ink/80">{Array.isArray(v) ? v.map((k) => rotulo(q.id, k)).join(" · ") : q.kind === "text" ? v : rotulo(q.id, v)}</dd></div>;
+                    })}
+                  </dl>
+                </details>
+              ))}
+            </div>
           )}
         </section>
 

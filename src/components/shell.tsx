@@ -60,7 +60,8 @@ export function Shell({ children, allowed, badges, household, viewer, initialCol
           <div className="min-w-0"><div className="truncate text-sm font-medium">{viewer.name}</div><div className="truncate text-xs text-ink/45">{household}</div></div></div>
         <div className="my-1 h-px bg-ink/[0.06]" />
         {feedback && <MenuItem icon="chat" label="Enviar feedback (texto, áudio ou print)" onClick={() => { setAcct(false); openFeedback(); }} />}
-        <MenuItem href="/menu" icon="grid" label="Personalizar a barra do celular" />
+        <MenuItem href="/bem-vindo?editar=1" icon="user" label="Meu perfil financeiro" />
+        <MenuItem href="/menu" icon="grid" label="Personalizar atalhos e barra do celular" />
         <MenuItem href="/instalar" icon="phone" label="Instalar o app no celular" />
         {allowed.includes("/acessos") && <MenuItem href="/acessos" icon="users" label="Membros e acessos" />}
         {allowed.includes("/configuracoes") && <MenuItem href="/configuracoes" icon="cog" label="Configurações" />}

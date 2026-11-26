@@ -18,7 +18,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const allowed = [...AREAS.filter(([k]) => areas.includes(k)).map(([, , href]) => href), ...(admin ? ["/acessos", "/conexoes", "/configuracoes"] : [])];
   if (areas.includes("orcamento") || areas.includes("visao-geral")) allowed.push("/fluxo");
   if (areas.includes("faturas")) allowed.push("/conta");
-  if (areas.includes("visao-geral")) allowed.push("/simulacoes");
+  if (areas.includes("visao-geral")) allowed.push("/simulacoes", "/noticias");
   if (areas.includes("analise")) allowed.push("/mercado", "/mercado/carteiras");
   const { data: platformAdmin } = await ctx.supabase.rpc("is_platform_admin");
   if (platformAdmin) allowed.push("/admin");

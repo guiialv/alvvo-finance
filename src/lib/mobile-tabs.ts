@@ -6,7 +6,7 @@ export const TAB_OPTIONS: [string, string, string][] = [
   ["/", "Início", "home"], ["/lancamentos", "Lançamentos", "list"], ["/orcamento", "Orçamento", "pie"], ["/agenda", "Agenda", "calendar"],
   ["/fluxo", "Fluxo", "flow"], ["/insights", "Insights", "spark"], ["/conta", "Conta", "bank"], ["/faturas", "Faturas", "card"],
   ["/parcelamentos", "Parcelas", "layers"], ["/pj", "PJ", "building"], ["/investimentos", "Investimentos", "trend"], ["/objetivos", "Objetivos", "target"],
-  ["/simulacoes", "Simular", "sliders"], ["/mercado", "Mercado", "globe2"], ["/analise", "Análise", "candle"],
+  ["/simulacoes", "Simular", "sliders"], ["/noticias", "Notícias", "news"], ["/mercado", "Mercado", "globe2"], ["/analise", "Análise", "candle"],
 ];
 /** Abas válidas para quem está vendo, completando com o padrão quando faltar. */
 export function activeTabs(saved: unknown, allowed: string[]) {

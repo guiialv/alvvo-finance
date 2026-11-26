@@ -1,4 +1,7 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
+import { NewsCards } from "@/components/news-cards";
+import { carregarPerfil, noticiasParaVoce } from "@/lib/news/personal";
 import { canEdit, isAdminRole, requireArea, visibleAreas } from "@/lib/context";
 import { BankLive } from "@/components/bank-live";
 import { InstallBanner } from "@/components/pwa";
@@ -45,6 +48,11 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
   const { data: meP } = await ctx.supabase.from("household_members").select("prefs").eq("household_id", ctx.household.id).eq("user_id", ctx.user.id).maybeSingle();
   const toolAllowed = [areas.includes("visao-geral") && "/simulacoes", areas.includes("lancamentos") && "/lancamentos", areas.includes("faturas") && "/faturas", areas.includes("agenda") && "/agenda"].filter(Boolean) as string[];
   const tools = activeTools((meP?.prefs as { homeTools?: unknown } | null)?.homeTools, toolAllowed);
+  // Pesquisa inicial: abre sozinha no primeiro acesso (até a pessoa responder ou escolher "responder depois")
+  const perfil = await carregarPerfil(ctx);
+  const adiada = (meP?.prefs as { anamnese?: string } | null)?.anamnese === "adiada";
+  if (!perfil.concluido && !adiada && !ctx.support && !ctx.viewer.simulated && Object.keys(perfil.answers).length === 0) redirect("/bem-vindo");
+  const noticias = areas.includes("visao-geral") ? await noticiasParaVoce(ctx, perfil, 3).catch(() => []) : [];
   const { data: lembretes } = await ctx.supabase.from("purchase_checks").select("id, item, amount, params, created_at").eq("household_id", ctx.household.id).eq("status", "reavaliar").lte("remind_on", today).order("created_at").limit(3);
   const [cats, txs, budgetsRes, agenda, lastBatch, cycAgenda, accRes, goalsRes, opsRes, fixedRes, fatRes] = await Promise.all([
     loadCategories(ctx, "pessoal"),
@@ -171,6 +179,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
     return !((fatRes.data ?? []) as { account_id: string | null; due_date: string }[]).some((b) => b.account_id === a.id && b.due_date >= range.start && b.due_date <= range.end);
   }).map((a) => a.name);
   const pendencias: Pendencia[] = [
+    ...(!perfil.concluido ? [{ label: "Completar o seu perfil financeiro", href: "/bem-vindo?editar=1", done: false, detail: "Personaliza as notícias e os destaques" }] : []),
     { label: "Classificar os lançamentos do ciclo", href: `/lancamentos?ciclo=${cycle}&categoria=a-classificar`, done: toClassify === 0, detail: `${toClassify} sem categoria` },
     { label: "Definir o orçamento do ciclo", href: "/orcamento", done: (budgetsRes.data ?? []).length > 0 },
     { label: "Importar as faturas do mês", href: "/faturas/importar", done: semFatura.length === 0, detail: semFatura.join(", ") },
@@ -229,6 +238,13 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
       {cycle === nowCycle && <HomeToday pulso={pulso} proximos={proximos} pendencias={pendencias} editAgenda={canEdit(ctx, "agenda")} />}
 
       <HomeTools tools={tools} />
+
+      {noticias.length > 0 && (
+        <section className="card mt-4">
+          <div className="flex items-baseline justify-between gap-3"><div className="label !mb-0">Notícias do dia para você</div><Link href="/noticias" className="text-xs text-brand">Ver todas →</Link></div>
+          <div className="mt-1"><NewsCards itens={noticias} compacta /></div>
+        </section>
+      )}
 
       {cycle === nowCycle && <BankLive ctx={ctx} today={today} cycle={cycle} cycleEnd={range.end} occ={cycAgenda.occ} admin={isAdminRole(ctx.member.role) && !ctx.viewer.simulated} />}
 
