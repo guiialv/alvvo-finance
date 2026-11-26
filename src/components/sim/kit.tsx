@@ -68,7 +68,7 @@ export function Layout({ inputs, children }: { inputs: React.ReactNode; children
 
 export function Answer({ children, sub }: { children: React.ReactNode; sub?: React.ReactNode }) {
   return (
-    <section className="rounded-[22px] bg-espresso px-6 py-5 text-[#f6efe2]">
+    <section className="rounded-[22px] px-6 py-5 text-[#f6efe2] shadow-[0_18px_40px_-24px_rgba(60,40,20,.6)]" style={{ background: "radial-gradient(90% 70% at 100% 0%, rgba(226,166,75,.38), rgba(226,166,75,0) 60%), radial-gradient(80% 70% at 0% 100%, rgba(143,94,19,.45), rgba(143,94,19,0) 70%), linear-gradient(160deg, #2a211a, #15120f)" }}>
       <div className="eyebrow !text-[#d9b77e]">Resposta</div>
       <p className="mt-2 text-[24px] font-light leading-snug tracking-[-0.02em] sm:text-[28px]">{children}</p>
       {sub && <p className="mt-2 text-sm leading-relaxed text-[#cfc3b0]">{sub}</p>}

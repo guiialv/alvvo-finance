@@ -58,7 +58,7 @@ export default async function FluxoPage({ searchParams }: { searchParams: Promis
         <CycleNav cycle={cycle} startDay={startDay} basePath="/fluxo" params={{ periodo, nivel }} />
       </PageHeader>
 
-      <section className="card px-6 py-6">
+      <section className="card !border-transparent px-6 py-6" style={{ background: "radial-gradient(70% 60% at 100% 0%, #f6e4c2 0%, rgba(246,228,194,0) 60%), radial-gradient(60% 60% at 0% 100%, #eef1e8 0%, rgba(238,241,232,0) 70%), #fffdf8" }}>
         <div className="mb-4 flex flex-wrap items-end justify-between gap-4">
           <div><div className="eyebrow">Fluxo de {label}</div>
             {flow && <div className="display mt-1 text-[40px] leading-none">{formatBRL(flow.receitas)}</div>}

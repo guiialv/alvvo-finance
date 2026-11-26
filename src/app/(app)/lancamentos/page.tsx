@@ -6,7 +6,7 @@ import { toCashView } from "@/lib/cash-flow";
 import { formatBRL } from "@/lib/format";
 import type { Scope } from "@/lib/categories-default";
 import { buildTxViews, toCatLite, toMemberLite } from "@/lib/tx-view";
-import { CycleNav, Empty, PageHeader, Pill, ScopeTabs } from "@/components/ui";
+import { KPI_BG, CycleNav, Empty, PageHeader, Pill, ScopeTabs } from "@/components/ui";
 import { Icon } from "@/components/icons";
 import { TxTable } from "@/components/tx-table";
 import { createTransaction } from "./actions";
@@ -95,9 +95,9 @@ export default async function LancamentosPage({ searchParams }: { searchParams: 
         <div className="ml-auto flex flex-wrap items-center justify-end gap-x-4 gap-y-1 text-sm">
           <span className="text-ink/50">{txs.length} itens</span>
           {sp.origem !== "cartao" && <>
-            <span title="Só o que passou pela conta corrente (extrato)">Entradas <b className="tabular-nums text-gain">{formatBRL(inc)}</b></span>
-            <span title="O que saiu da conta corrente; cada fatura paga entra pelas compras dela">Saídas <b className="tabular-nums">{formatBRL(out)}</b></span>
-            <span className="text-ink/45">Saldo <b className={`tabular-nums ${inc - out < 0 ? "text-loss" : "text-ink/70"}`}>{formatBRL(inc - out)}</b></span>
+            <span className="rounded-full px-3 py-1" style={{ background: KPI_BG.receitas }} title="Só o que passou pela conta corrente (extrato)">Entradas <b className="tabular-nums text-gain">{formatBRL(inc)}</b></span>
+            <span className="rounded-full px-3 py-1" style={{ background: KPI_BG.despesas }} title="O que saiu da conta corrente; cada fatura paga entra pelas compras dela">Saídas <b className="tabular-nums">{formatBRL(out)}</b></span>
+            <span className="rounded-full px-3 py-1 text-ink/60" style={{ background: KPI_BG.sobra }}>Saldo <b className={`tabular-nums ${inc - out < 0 ? "text-loss" : "text-ink/75"}`}>{formatBRL(inc - out)}</b></span>
           </>}
           {cardTotal !== 0 && (hasExtrato
             ? <span className="text-ink/45" title="Compras das faturas pagas neste ciclo (já somadas nas saídas)">Faturas pagas <b className="tabular-nums text-ink/60">{formatBRL(cardTotal)}</b>{openedPay.size ? ` · ${openedPay.size} pagamento(s) aberto(s) por compra` : ""}</span>

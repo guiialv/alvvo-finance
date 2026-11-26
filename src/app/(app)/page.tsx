@@ -9,6 +9,8 @@ import { categoryIndex, loadCategories, loadTransactions, summarize, sumByCatego
 import { formatBRL, formatPct } from "@/lib/format";
 import { groupColor } from "@/lib/theme";
 import { atualizarCompra } from "./simulacoes/actions";
+import { HomeTools } from "@/components/home-tools";
+import { activeTools } from "@/lib/home-tools";
 import { Bar, cycleLong, CycleNav, Delta, Donut, Empty, Kpi, KPI_BG, PageHeader } from "@/components/ui";
 import { Icon } from "@/components/icons";
 import { buildFlow } from "@/lib/flow";
@@ -39,6 +41,9 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
   const areas = visibleAreas(ctx);
   const seeInv = areas.includes("investimentos"), seeGoals = areas.includes("objetivos");
   const nextRange = cycleRange(shiftCycle(cycle, 1), startDay);
+  const { data: meP } = await ctx.supabase.from("household_members").select("prefs").eq("household_id", ctx.household.id).eq("user_id", ctx.user.id).maybeSingle();
+  const toolAllowed = [areas.includes("visao-geral") && "/simulacoes", areas.includes("lancamentos") && "/lancamentos", areas.includes("faturas") && "/faturas", areas.includes("agenda") && "/agenda"].filter(Boolean) as string[];
+  const tools = activeTools((meP?.prefs as { homeTools?: unknown } | null)?.homeTools, toolAllowed);
   const { data: lembretes } = await ctx.supabase.from("purchase_checks").select("id, item, amount, params, created_at").eq("household_id", ctx.household.id).eq("status", "reavaliar").lte("remind_on", today).order("created_at").limit(3);
   const [cats, txs, budgetsRes, agenda, lastBatch, cycAgenda, accRes, goalsRes, opsRes, fixedRes, fatRes] = await Promise.all([
     loadCategories(ctx, "pessoal"),
@@ -187,6 +192,8 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
           <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-white/10"><div className="h-full rounded-full bg-gold" style={{ width: `${Math.min(100, ((pago) / Math.max(1, pago + aPagar)) * 100)}%` }} /></div>
           <div className="mt-1 text-[11px] text-[#f6efe2]/55">{pago + aPagar ? `${Math.round((pago / (pago + aPagar)) * 100)}% dos compromissos já pagos` : ""}</div></div>
       </section>
+
+      <HomeTools tools={tools} />
 
       {cycle === nowCycle && <BankLive ctx={ctx} today={today} cycle={cycle} cycleEnd={range.end} occ={cycAgenda.occ} admin={isAdminRole(ctx.member.role) && !ctx.viewer.simulated} />}
 

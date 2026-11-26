@@ -6,7 +6,7 @@ import { colorOf, type Group, KIND_COLOR, KIND_HINT, KIND_LABEL, KIND_ORDER, loa
 import { BudgetEditor } from "./budget-editor";
 import { formatBRL, formatPct } from "@/lib/format";
 import type { Kind, Scope } from "@/lib/categories-default";
-import { Bar, CycleNav, PageHeader, ScopeTabs } from "@/components/ui";
+import { KPI_BG, Bar, CycleNav, PageHeader, ScopeTabs } from "@/components/ui";
 import { BudgetInput } from "./budget-input";
 import { fillBudget } from "./actions";
 import { toCashView } from "@/lib/cash-flow";
@@ -97,7 +97,7 @@ export default async function OrcamentoPage({ searchParams }: { searchParams: Pr
   const realOf: Record<Kind, number> = { receita: s.receitas, investimento: s.investimentos, despesa: s.despesas, transferencia: 0 };
 
   const Kpi = ({ k, label }: { k: Kind; label: string }) => (
-    <div className="card flex-1 py-3" style={{ borderTop: `3px solid ${KIND_COLOR[k]}` }}>
+    <div className="card flex-1 !border-transparent py-3" style={{ background: k === "receita" ? KPI_BG.receitas : k === "despesa" ? KPI_BG.despesas : KPI_BG.investido }}>
       <span className="label">{label}</span>
       <span className="text-lg font-semibold tabular-nums">{formatBRL(realOf[k])}</span>
       <span className="block text-xs text-ink/45 tabular-nums">{plan[k] ? `orçado ${formatBRL(plan[k])}` : "sem orçamento"}</span>

@@ -6,7 +6,7 @@ import { categoryIndex, loadAccounts, loadCategories, loadMembers, type Transact
 import { formatBRL, formatDateBR, formatPct } from "@/lib/format";
 import { groupColor } from "@/lib/theme";
 import { buildTxViews, toCatLite, toMemberLite } from "@/lib/tx-view";
-import { Avatar, Bar, cycleLong, Donut, Empty, GroupTag, PageHeader, Pill } from "@/components/ui";
+import { KPI_BG, Avatar, Bar, cycleLong, Donut, Empty, GroupTag, PageHeader, Pill } from "@/components/ui";
 import { Icon } from "@/components/icons";
 import { TxTable } from "@/components/tx-table";
 import { deleteBatch } from "../actions";
@@ -89,11 +89,11 @@ export default async function FaturaDetailPage({ params, searchParams }: { param
       </PageHeader>
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <div className="card"><div className="label">{currentTotal != null ? "Total dos lançamentos atuais" : "Total da fatura"}</div><div className="mt-1 text-[26px] font-semibold tabular-nums">{formatBRL(total)}</div>
+        <div className="card !border-transparent" style={{ background: KPI_BG.investido }}><div className="label">{currentTotal != null ? "Total dos lançamentos atuais" : "Total da fatura"}</div><div className="mt-1 text-[26px] font-semibold tabular-nums">{formatBRL(total)}</div>
           <div className={`mt-1 text-xs font-medium ${Math.abs(sumAll - total) < 0.05 ? "text-emerald-700" : "text-amber-700"}`}>{Math.abs(sumAll - total) < 0.05 ? "✓ confere com o PDF" : `itens somam ${formatBRL(sumAll)}`}</div></div>
-        <div className="card"><div className="label">Parcelados</div><div className="mt-1 text-[26px] font-semibold tabular-nums">{formatBRL(parc)}</div>{batch.future_total != null && <div className="mt-1 text-xs text-ink/50">{formatBRL(batch.future_total)} já comprometidos nas próximas</div>}</div>
-        <div className="card"><div className="label">Internacional + IOF</div><div className="mt-1 text-[26px] font-semibold tabular-nums">{formatBRL(intl)}</div><div className="mt-1 text-xs text-ink/50">{total ? formatPct(intl / total) : "—"} da fatura</div></div>
-        <div className="card"><div className="label">Classificação</div><div className="mt-1 text-[26px] font-semibold tabular-nums">{all.length - unc}<span className="text-base text-ink/40">/{all.length}</span></div><div className="mt-2"><Bar value={all.length - unc} max={all.length || 1} color={unc ? "#c08a3e" : "#4f7a52"} /></div></div>
+        <div className="card !border-transparent" style={{ background: KPI_BG.sobra }}><div className="label">Parcelados</div><div className="mt-1 text-[26px] font-semibold tabular-nums">{formatBRL(parc)}</div>{batch.future_total != null && <div className="mt-1 text-xs text-ink/50">{formatBRL(batch.future_total)} já comprometidos nas próximas</div>}</div>
+        <div className="card !border-transparent" style={{ background: KPI_BG.ardosia }}><div className="label">Internacional + IOF</div><div className="mt-1 text-[26px] font-semibold tabular-nums">{formatBRL(intl)}</div><div className="mt-1 text-xs text-ink/50">{total ? formatPct(intl / total) : "—"} da fatura</div></div>
+        <div className="card !border-transparent" style={{ background: KPI_BG.receitas }}><div className="label">Classificação</div><div className="mt-1 text-[26px] font-semibold tabular-nums">{all.length - unc}<span className="text-base text-ink/40">/{all.length}</span></div><div className="mt-2"><Bar value={all.length - unc} max={all.length || 1} color={unc ? "#c08a3e" : "#4f7a52"} /></div></div>
       </div>
 
       <div className="mt-5 grid gap-4 xl:grid-cols-[1fr_320px]">

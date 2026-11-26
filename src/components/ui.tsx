@@ -15,12 +15,13 @@ const qs = (params: Record<string, string | undefined>) => {
 
 export function PageHeader({ title, subtitle, children }: { title: React.ReactNode; subtitle?: React.ReactNode; children?: React.ReactNode }) {
   return (
-    <div className="mb-8 flex flex-wrap items-end justify-between gap-4 border-b border-ink/[0.07] pb-6">
-      <div>
+    <div className="relative mb-8 flex flex-wrap items-end justify-between gap-4 border-b border-ink/[0.07] pb-6">
+      <div aria-hidden className="pointer-events-none absolute -left-6 -top-8 -z-0 h-40 w-[70%] max-w-xl bg-[radial-gradient(60%_70%_at_20%_30%,rgba(226,166,75,.13),rgba(226,166,75,0)_70%)]" />
+      <div className="relative">
         <h1>{title}</h1>
         {subtitle && <p className="mt-2 max-w-2xl text-sm leading-relaxed text-ink/55">{subtitle}</p>}
       </div>
-      <div className="flex flex-wrap items-center gap-2">{children}</div>
+      <div className="relative flex flex-wrap items-center gap-2">{children}</div>
     </div>
   );
 }
@@ -78,11 +79,25 @@ export const KPI_BG = {
   despesas: "radial-gradient(120% 90% at 100% 0%, #f3dcd4 0%, rgba(243,220,212,0) 60%), linear-gradient(150deg, #fcf4f1, #f3e1da)",
   investido: "radial-gradient(120% 90% at 100% 0%, #f6dfb0 0%, rgba(246,223,176,0) 60%), linear-gradient(150deg, #fcf6ea, #f3e3c2)",
   sobra: "radial-gradient(120% 90% at 100% 0%, #eadbc4 0%, rgba(234,219,196,0) 60%), linear-gradient(150deg, #faf5ed, #ecdecb)",
+  ardosia: "radial-gradient(120% 90% at 100% 0%, #dde3ea 0%, rgba(221,227,234,0) 60%), linear-gradient(150deg, #f6f7f9, #e4e8ee)",
+  areia: "radial-gradient(120% 90% at 100% 0%, #ebe5da 0%, rgba(235,229,218,0) 60%), linear-gradient(150deg, #fbf9f5, #eee8de)",
 } as const;
+
+/** Degradê da paleta a partir da cor de destaque de cada indicador (vale para todas as abas). */
+export function kpiBg(accent: string, value?: number, tone?: "auto"): string {
+  if (tone === "auto" && value != null) return value >= 0 ? KPI_BG.receitas : KPI_BG.despesas;
+  const a = accent.toLowerCase();
+  if (["#4f7a52", "#4e6a47", "#557553", "#456246", "#8a9a7b"].includes(a)) return KPI_BG.receitas;
+  if (["#a33f30", "#a2412f", "#b35a49", "#9c4436"].includes(a)) return KPI_BG.despesas;
+  if (["#c9973f", "#e2a64b", "#c0954f", "#8f5e13"].includes(a)) return KPI_BG.investido;
+  if (["#4a5a73", "#0284c7", "#3f5a70"].includes(a)) return KPI_BG.ardosia;
+  if (["#6b6459", "#6e6458"].includes(a)) return KPI_BG.areia;
+  return KPI_BG.sobra;
+}
 
 export function Kpi({ label, value, sub, accent = "#7a5c32", tone, bg }: { label: string; value: number; sub?: React.ReactNode; accent?: string; tone?: "auto"; bg?: string }) {
   return (
-    <div className={`card relative overflow-hidden ${bg ? "!border-transparent" : ""}`} style={bg ? { background: bg } : undefined}>
+    <div className="card relative overflow-hidden !border-transparent" style={{ background: bg ?? kpiBg(accent, value, tone) }}>
       <div className="flex items-center gap-2"><span className="h-1.5 w-1.5 rounded-full" style={{ background: accent }} /><div className="label !mb-0">{label}</div></div>
       <div className={`display mt-2 text-[22px] leading-none sm:text-[32px] ${tone === "auto" ? (value >= 0 ? "text-gain" : "text-loss") : ""}`}>{formatBRL(value)}</div>
       {sub && <div className="mt-1 text-xs text-ink/45">{sub}</div>}
@@ -104,13 +119,14 @@ export function Delta({ cur, prev, invert, prevLabel }: { cur: number; prev: num
 
 export function Bar({ value, max, color = "#7a5c32" }: { value: number; max: number; color?: string }) {
   const pct = max > 0 ? Math.max(0, Math.min(100, (value / max) * 100)) : 0;
-  return <div className="h-1.5 w-full overflow-hidden rounded-full bg-ink/[0.06]"><div className="h-full rounded-full" style={{ width: `${pct}%`, background: color }} /></div>;
+  const solid = /^#[0-9a-f]{6}$/i.test(color);
+  return <div className="h-1.5 w-full overflow-hidden rounded-full bg-ink/[0.06]"><div className="h-full rounded-full" style={{ width: `${pct}%`, background: solid ? `linear-gradient(90deg, ${color}99, ${color})` : color }} /></div>;
 }
 
 export function Empty({ children, icon = "spark" }: { children: React.ReactNode; icon?: string }) {
   return (
-    <div className="flex flex-col items-center gap-2 rounded-2xl border border-dashed border-ink/15 px-6 py-10 text-center text-sm text-ink/50">
-      <Icon name={icon} className="h-6 w-6 text-ink/30" />{children}
+    <div className="flex flex-col items-center gap-2 rounded-2xl border border-dashed border-[#e2d8c6] bg-[radial-gradient(80%_90%_at_50%_0%,#f6ead3_0%,rgba(246,234,211,0)_70%)] px-6 py-10 text-center text-sm text-ink/55">
+      <span className="grid h-11 w-11 place-items-center rounded-full bg-[linear-gradient(145deg,#f3e3c2,#e8d2a1)] text-brand"><Icon name={icon} className="h-5 w-5" /></span>{children}
     </div>
   );
 }
