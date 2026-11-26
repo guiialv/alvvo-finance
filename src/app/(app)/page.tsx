@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { isAdminRole, requireArea, visibleAreas } from "@/lib/context";
+import { canEdit, isAdminRole, requireArea, visibleAreas } from "@/lib/context";
 import { BankLive } from "@/components/bank-live";
 import { InstallBanner } from "@/components/pwa";
 import { currentCycle, cycleLabel, cycleRange, isValidCycle, shiftCycle, todayIso } from "@/lib/cycle";
@@ -10,6 +10,7 @@ import { formatBRL, formatPct } from "@/lib/format";
 import { groupColor } from "@/lib/theme";
 import { atualizarCompra } from "./simulacoes/actions";
 import { HomeTools } from "@/components/home-tools";
+import { HomeToday, type Pendencia, type Proximo, type Pulso } from "@/components/home-today";
 import { activeTools } from "@/lib/home-tools";
 import { Bar, cycleLong, CycleNav, Delta, Donut, Empty, Kpi, KPI_BG, PageHeader } from "@/components/ui";
 import { Icon } from "@/components/icons";
@@ -145,6 +146,38 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
     }
     cards.push(...[...byCard.values()].filter((c) => c.fat || c.next).sort((a, b) => b.fat - a.fat));
   }
+
+  // ---------- Seu dia: pulso do mês, próximos 7 dias e pendências ----------
+  const despCats = new Set(cats.filter((c) => c.kind === "despesa").map((c) => c.id));
+  const planned = ((budgetsRes.data ?? []) as { category_id: string; planned: number }[]).filter((b) => despCats.has(b.category_id)).reduce((a, b) => a + Number(b.planned), 0);
+  const past = hist.filter((h) => h.c !== cycle && h.despesas > 0).slice(-3);
+  const refGasto = planned > 0 ? planned : past.length ? past.reduce((a, h) => a + h.despesas, 0) / past.length : 0;
+  const diaIdx = Math.max(0, days.indexOf(today < range.start ? range.start : today > range.end ? range.end : today));
+  const pulso: Pulso | null = refGasto > 0 ? {
+    usado: s.despesas, ref: refGasto, refLabel: planned > 0 ? "do orçamento de despesas utilizado" : "da média de gastos dos últimos ciclos atingida",
+    centro: planned > 0 ? "do orçamento" : "da média", diasPassados: diaIdx + 1, diasTotal: days.length,
+    porDia: (refGasto - s.despesas) / Math.max(1, days.length - diaIdx),
+  } : null;
+  const ate7 = addDays(today, 7);
+  const occ7 = [...cycAgenda.occ.filter((o) => o.date < today && o.event === "conta"), ...agenda.occ.filter((o) => o.date >= today)];
+  const proximos: Proximo[] = occ7
+    .filter((o, i, arr) => !o.paid && o.date <= ate7 && arr.findIndex((x) => x.key === o.key) === i)
+    .map((o) => ({ key: o.key, date: o.date, name: o.item.name, amount: o.amount, tipo: o.event, atrasado: o.date < today, pagavel: o.event !== "fechamento" }))
+    .sort((a, b) => Number(b.atrasado) - Number(a.atrasado) || a.date.localeCompare(b.date));
+  const semFatura = ((accRes.data ?? []) as { id: string; name: string; due_day: number | null }[]).filter((a) => {
+    if (!a.due_day) return false;
+    const due = days.find((d) => Number(d.slice(8, 10)) === a.due_day);
+    if (!due || today < addDays(due, -3)) return false;
+    return !((fatRes.data ?? []) as { account_id: string | null; due_date: string }[]).some((b) => b.account_id === a.id && b.due_date >= range.start && b.due_date <= range.end);
+  }).map((a) => a.name);
+  const pendencias: Pendencia[] = [
+    { label: "Classificar os lançamentos do ciclo", href: `/lancamentos?ciclo=${cycle}&categoria=a-classificar`, done: toClassify === 0, detail: `${toClassify} sem categoria` },
+    { label: "Definir o orçamento do ciclo", href: "/orcamento", done: (budgetsRes.data ?? []).length > 0 },
+    { label: "Importar as faturas do mês", href: "/faturas/importar", done: semFatura.length === 0, detail: semFatura.join(", ") },
+    { label: "Regularizar contas em atraso", href: "/agenda", done: cnt.atras === 0, detail: `${cnt.atras} em atraso` },
+    ...(seeInv ? [{ label: "Registrar o aporte do mês", href: "/investimentos", done: s.investimentos > 0 }] : []),
+    ...((lembretes ?? []).length ? [{ label: "Reavaliar as compras pendentes", href: "/simulacoes/posso-comprar", done: false, detail: (lembretes ?? []).map((l) => l.item as string).join(", ") }] : []),
+  ];
   const maxFat = Math.max(1, ...cards.map((c) => c.fat + c.next));
   const sideCols = [cards.length > 0, seeGoals, seeInv].filter(Boolean).length;
   const caixinhas = (goalsRes.data ?? []) as Goal[];
@@ -192,6 +225,8 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
           <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-white/10"><div className="h-full rounded-full bg-gold" style={{ width: `${Math.min(100, ((pago) / Math.max(1, pago + aPagar)) * 100)}%` }} /></div>
           <div className="mt-1 text-[11px] text-[#f6efe2]/55">{pago + aPagar ? `${Math.round((pago / (pago + aPagar)) * 100)}% dos compromissos já pagos` : ""}</div></div>
       </section>
+
+      {cycle === nowCycle && <HomeToday pulso={pulso} proximos={proximos} pendencias={pendencias} editAgenda={canEdit(ctx, "agenda")} />}
 
       <HomeTools tools={tools} />
 
