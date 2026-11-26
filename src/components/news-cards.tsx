@@ -25,7 +25,7 @@ export function NewsCards({ itens, compacta = false }: { itens: NoticiaPessoal[]
           </a>
         );
         return (
-          <a key={s.id} href={s.lead.url} target="_blank" rel="noreferrer" className="card-hover group block rounded-[22px] p-5 shadow-[0_12px_32px_-24px_rgba(60,45,30,.5)]" style={{ background: FUNDOS[i % FUNDOS.length] }}>
+          <a key={s.id} id={`n-${i + 1}`} href={s.lead.url} target="_blank" rel="noreferrer" className="card-hover group block scroll-mt-24 rounded-[22px] p-5 shadow-[0_12px_32px_-24px_rgba(60,45,30,.5)]" style={{ background: FUNDOS[i % FUNDOS.length] }}>
             <div className="flex flex-wrap items-center gap-1.5">
               <span className="grid h-6 w-6 place-items-center rounded-full bg-white/75 text-[11px] font-semibold text-brand">{i + 1}</span>
               {tags.map((t) => <span key={t} className="rounded-full bg-white/70 px-2.5 py-0.5 text-[11px] font-semibold text-finance">{t}</span>)}

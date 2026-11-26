@@ -56,13 +56,14 @@ export async function noticiasParaVoce(ctx: Ctx, perfil: { answers: Respostas; a
     })
     .sort((a, b) => b.nota - a.nota);
 
-  // Variedade: no máximo 2 notícias pelo mesmo motivo principal e 1 resumo de mercado
+  // Variedade: poucas notícias pelo mesmo motivo principal e poucos resumos de mercado (afrouxa ao carregar mais)
   const out: NoticiaPessoal[] = [], por = new Map<string, number>();
+  const porMotivo = 2 + Math.floor((max - 5) / 5), maxResumos = max > 5 ? 2 : 1, corte = max > 5 ? 1.5 : 3;
   let resumos = 0;
   for (const p of pontuadas) {
-    if (out.length >= max || p.nota < 3) break;
-    if ((por.get(p.chave) ?? 0) >= 2) continue;
-    if (p.story.wrap) { if (resumos >= 1) continue; resumos++; }
+    if (out.length >= max || p.nota < corte) break;
+    if ((por.get(p.chave) ?? 0) >= Math.max(2, porMotivo)) continue;
+    if (p.story.wrap) { if (resumos >= maxResumos) continue; resumos++; }
     por.set(p.chave, (por.get(p.chave) ?? 0) + 1);
     out.push({ story: p.story, motivos: p.motivos, nota: Math.round(p.nota * 10) / 10 });
   }

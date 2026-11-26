@@ -7,10 +7,13 @@ import { INTERESSES, interessesDe } from "@/lib/perfil";
 
 export const dynamic = "force-dynamic";
 
-export default async function NoticiasPage() {
+export default async function NoticiasPage({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
   const ctx = await requireArea("visao-geral");
   const perfil = await carregarPerfil(ctx);
-  const itens = await noticiasParaVoce(ctx, perfil, 5);
+  const sp = await searchParams;
+  const qtd = Math.min(30, Math.max(5, Math.round((Number(sp.mais) || 5) / 5) * 5));
+  const itens = await noticiasParaVoce(ctx, perfil, qtd);
+  const temMais = itens.length >= qtd && qtd < 30;
   const ints = interessesDe(perfil.answers);
   const hoje = new Date().toLocaleDateString("pt-BR", { weekday: "long", day: "numeric", month: "long", timeZone: "America/Sao_Paulo" });
   return (
@@ -23,6 +26,12 @@ export default async function NoticiasPage() {
         <Link href="/bem-vindo?editar=1" className="ml-auto text-xs font-medium text-brand">{perfil.concluido ? "Ajustar interesses" : "Informar meus interesses"} →</Link>
       </section>
       <NewsCards itens={itens} />
+      <div className="mt-5 flex flex-col items-center gap-2">
+        {temMais
+          ? <Link href={`/noticias?mais=${qtd + 5}#n-${qtd + 1}`} className="btn-ghost">Carregar mais notícias</Link>
+          : itens.length > 5 && <p className="text-sm text-ink/50">Estas são todas as notícias relevantes para o seu perfil nas últimas 48 horas.</p>}
+        {qtd > 5 && <Link href="/noticias" className="text-xs text-ink/45 hover:text-ink">Voltar às 5 principais</Link>}
+      </div>
       <p className="mt-5 text-[12px] leading-relaxed text-ink/45">A seleção combina a relevância da notícia (fonte, tema, cobertura e horário) com os setores, investimentos e objetivos do seu perfil. Os links abrem o site da fonte. Conteúdo informativo, não constitui recomendação de investimento.</p>
     </div>
   );
