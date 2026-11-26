@@ -7,6 +7,7 @@ export const GROUPS: { title: string; desc: string; dark?: boolean; items: SimIn
     { slug: "investimentos", name: "Comparador de investimentos", q: "CDB, LCI, Tesouro, poupança, bolsa — qual rende mais no meu prazo?", uses: "Usa: curva do Focus · taxas do Tesouro" },
   ] },
   { title: "Decidir uma compra", desc: "O custo real de cada caminho, incluindo o que o dinheiro deixaria de render.", items: [
+    { slug: "posso-comprar", name: "Posso comprar?", q: "Avalia uma compra adicional com base no seu orçamento, nas parcelas já assumidas, na reserva e nos objetivos, e indica alternativas.", uses: "Usa: renda e despesas médias · parcelas futuras · saldo e agenda · reserva · objetivos" },
     { slug: "alugar-ou-comprar", name: "Alugar × comprar", q: "À vista ou financiado, com custos, valorização e o aluguel reajustado.", uses: "Usa: juros imobiliários (BC) · CDI · IPCA" },
     { slug: "financiar-ou-consorcio", name: "Financiar × consórcio × juntar", q: "Qual sai mais barato e quando eu tenho o bem?", uses: "Usa: juros de veículos (BC) · CDI · IPCA" },
   ] },

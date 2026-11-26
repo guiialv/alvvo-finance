@@ -152,6 +152,7 @@ export function Shell({ children, allowed, badges, household, viewer, initialCol
               {allowed.includes("/lancamentos") && <MenuItem href="/lancamentos?novo=1" icon="edit" label="Novo lançamento" />}
               {allowed.includes("/faturas") && <MenuItem href="/faturas/importar" icon="upload" label="Importar fatura ou extrato (PDF)" />}
               {allowed.includes("/agenda") && <MenuItem href="/agenda" icon="calendar" label="Conta a pagar ou a receber" />}
+              {allowed.includes("/simulacoes") && <MenuItem href="/simulacoes/posso-comprar" icon="bag" label="Posso comprar? Avaliar uma compra" />}
               {feedback && <MenuItem icon="chat" label="Enviar feedback" onClick={() => { setPlus(false); openFeedback(); }} />}
             </div>
           </div>

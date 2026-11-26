@@ -11,6 +11,7 @@ import { formatBRL, formatPct } from "@/lib/format";
 import { Bar, Empty, PageHeader, Seg, cycleLong } from "@/components/ui";
 import { Icon } from "@/components/icons";
 import { deleteGoal, patchGoal, saveGoal } from "./actions";
+import { GoalPhoto } from "@/components/goal-photo";
 
 const brl0 = (v: number) => formatBRL(v).replace(/,\d\d$/, "");
 function LineChart({ series, target, color }: { series: number[]; target?: number | null; color: string }) {
@@ -57,6 +58,13 @@ export default async function GoalsPage({ searchParams }: { searchParams: Promis
     const { data: lk } = await ctx.supabase.from("inv_goal_links").select("ticker, goal_id").eq("household_id", hh);
     gl = linkGoals(sm.rows, sm.rf, Object.fromEntries(((lk ?? []) as { ticker: string; goal_id: string }[]).map((l) => [l.ticker, l.goal_id])), sm.total);
   }
+  // Fotos dos objetivos (links temporários do armazenamento privado da família)
+  const photoPaths = goals.map((g) => g.data.photo).filter((x): x is string => !!x);
+  const photoUrl = new Map<string, string>();
+  if (photoPaths.length) {
+    const { data: signed } = await ctx.supabase.storage.from("goals").createSignedUrls(photoPaths, 3600);
+    for (const s of signed ?? []) if (s.path && s.signedUrl) photoUrl.set(s.path, s.signedUrl);
+  }
   const { byId } = categoryIndex(cats);
   const reserve = reserveTarget(txs, byId as unknown as Map<string, { kind: string; grp: string; excluded_from_totals: boolean }>, now);
   const ed = sp.editar ? goals.find((g) => g.id === sp.editar) : null;
@@ -74,8 +82,10 @@ export default async function GoalsPage({ searchParams }: { searchParams: Promis
           const linked = gl?.totalOf(g.id) ?? 0, items = gl?.byGoal.get(g.id) ?? [];
           const T = GOAL_T[g.type], c = goalCalc(g, now, portfolio, reserve, { linked, others: (gl?.linkedTotal ?? 0) - linked }), d = g.data;
           return (
-            <article key={g.id} className="card relative overflow-hidden">
-              <div className="absolute inset-x-0 top-0 h-1" style={{ background: T.c }} />
+            <article key={g.id} id={g.id} className="card relative scroll-mt-20 overflow-hidden">
+              <GoalPhoto goalId={g.id} householdId={hh} url={g.data.photo ? photoUrl.get(g.data.photo) ?? null : null} edit={edit}
+                chip={g.type !== "independencia" && d.deadline ? `${cycleLong(d.deadline)}${c.kind !== "fi" ? (c.onTrack ? " · no ritmo" : " · atrás do ritmo") : ""}` : null} />
+              <div className="absolute inset-x-0 top-0 z-10 h-1" style={{ background: T.c }} />
               <div className="mb-3 flex items-start justify-between gap-3">
                 <div className="flex items-center gap-3"><div className="grid h-10 w-10 place-items-center rounded-xl text-white" style={{ background: T.c }}><Icon name={T.i} className="h-5 w-5" /></div>
                   <div><div className="text-[11px] font-semibold uppercase tracking-wider" style={{ color: T.c }}>{T.l}</div><h2>{g.name}</h2>{d.note && <div className="text-xs text-ink/45">{d.note}</div>}</div></div>

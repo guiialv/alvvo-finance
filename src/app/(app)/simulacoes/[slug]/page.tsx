@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { requireArea } from "@/lib/context";
+import { canEdit, requireArea } from "@/lib/context";
 import { loadSimData } from "@/lib/sim/load";
 import { PageHeader } from "@/components/ui";
 import { Icon } from "@/components/icons";
@@ -14,6 +14,8 @@ import { ConsorcioSim } from "../sims/consorcio";
 import { CarteiraSim } from "../sims/carteira";
 import { AporteSim } from "../sims/aporte";
 import { loadAporteExtras } from "@/lib/sim/aporte-data";
+import { CompraSim } from "../sims/compra";
+import { loadCompraBase } from "@/lib/sim/compra-data";
 
 export default async function SimPage({ params, searchParams }: { params: Promise<{ slug: string }>; searchParams: Promise<Record<string, string | undefined>> }) {
   const ctx = await requireArea("visao-geral");
@@ -24,6 +26,7 @@ export default async function SimPage({ params, searchParams }: { params: Promis
   const { data, tesouro } = await loadSimData(ctx);
   const extras = slug === "aporte" ? await loadAporteExtras(ctx, data) : null;
   const num = (v?: string) => (v && isFinite(Number(v)) ? Number(v) : undefined);
+  const compra = slug === "posso-comprar" ? await loadCompraBase(ctx, data) : null;
 
   return (
     <div>
@@ -34,6 +37,8 @@ export default async function SimPage({ params, searchParams }: { params: Promis
         </div>
       </PageHeader>
       {slug === "meta" && <MetaSim d={data} />}
+      {compra && <CompraSim b={compra.base} hist={compra.hist} canGoal={canEdit(ctx, "objetivos")}
+        init={{ item: sp.item, valor: num(sp.valor), parcelas: num(sp.parcelas), modo: (["vista", "cartao", "financiado"] as const).find((m) => m === sp.modo) }} />}
       {slug === "aporte" && extras && <AporteSim d={data} x={extras} />}
       {slug === "carteira" && <CarteiraSim d={data} />}
       {slug === "investimentos" && <InvestSim d={data} tesouro={tesouro} />}

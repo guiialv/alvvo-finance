@@ -8,7 +8,8 @@ import { loadAgenda } from "@/lib/agenda-data";
 import { categoryIndex, loadCategories, loadTransactions, summarize, sumByCategory } from "@/lib/data";
 import { formatBRL, formatPct } from "@/lib/format";
 import { groupColor } from "@/lib/theme";
-import { Bar, cycleLong, CycleNav, Delta, Donut, Empty, Kpi, PageHeader } from "@/components/ui";
+import { atualizarCompra } from "./simulacoes/actions";
+import { Bar, cycleLong, CycleNav, Delta, Donut, Empty, Kpi, KPI_BG, PageHeader } from "@/components/ui";
 import { Icon } from "@/components/icons";
 import { buildFlow } from "@/lib/flow";
 import { toCashView } from "@/lib/cash-flow";
@@ -38,6 +39,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
   const areas = visibleAreas(ctx);
   const seeInv = areas.includes("investimentos"), seeGoals = areas.includes("objetivos");
   const nextRange = cycleRange(shiftCycle(cycle, 1), startDay);
+  const { data: lembretes } = await ctx.supabase.from("purchase_checks").select("id, item, amount, params, created_at").eq("household_id", ctx.household.id).eq("status", "reavaliar").lte("remind_on", today).order("created_at").limit(3);
   const [cats, txs, budgetsRes, agenda, lastBatch, cycAgenda, accRes, goalsRes, opsRes, fixedRes, fatRes] = await Promise.all([
     loadCategories(ctx, "pessoal"),
     loadTransactions(ctx, { scope: "pessoal", cycles: [...new Set([...history, prevC, cycle, shiftCycle(cycle, 1)])] }),
@@ -153,20 +155,37 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
         <CycleNav cycle={cycle} startDay={startDay} basePath="/" today={nowCycle} />
       </PageHeader>
 
+      {(lembretes ?? []).map((l) => {
+        const pr = (l.params ?? {}) as { modo?: string; parcelas?: number };
+        const href = `/simulacoes/posso-comprar?item=${encodeURIComponent(l.item as string)}&valor=${Number(l.amount)}${pr.modo ? `&modo=${pr.modo}` : ""}${pr.parcelas ? `&parcelas=${pr.parcelas}` : ""}`;
+        return (
+          <section key={l.id as string} className="card mb-4 flex flex-wrap items-center gap-3 !border-amber-200" style={{ background: "linear-gradient(135deg, #fcf6ea, #f3e6c9)" }}>
+            <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-white/70 text-brand"><Icon name="bag" className="h-5 w-5" /></div>
+            <div className="min-w-0 flex-1"><p className="text-sm font-semibold">Reavaliação pendente: {l.item as string} ({formatBRL(Number(l.amount))})</p><p className="text-xs text-ink/60">Você pediu para reavaliar esta compra hoje. O interesse se mantém?</p></div>
+            <div className="flex flex-wrap gap-2">
+              <Link href={href} className="btn !py-1.5 text-xs">Rever a análise</Link>
+              <form action={atualizarCompra.bind(null, l.id as string, "reavaliar")}><button className="btn-ghost !py-1.5 text-xs">Lembrar amanhã</button></form>
+              <form action={atualizarCompra.bind(null, l.id as string, "descartada")}><button className="btn-ghost !py-1.5 text-xs">Descartar</button></form>
+            </div>
+          </section>
+        );
+      })}
+
       <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
-        <Kpi label="Receitas" value={s.receitas} accent="#4f7a52" sub={<Delta cur={s.receitas} prev={p.receitas} prevLabel={cycleLabel(prevC)} />} />
-        <Kpi label="Despesas" value={s.despesas} accent="#a33f30" sub={<Delta cur={s.despesas} prev={p.despesas} invert prevLabel={cycleLabel(prevC)} />} />
-        <Kpi label="Investido" value={s.investimentos} accent="#4a5a73" sub={s.receitas ? `${formatPct(s.investimentos / s.receitas)} da receita` : "—"} />
-        <Kpi label="Sobra do ciclo" value={s.saldo} accent={s.saldo >= 0 ? "#7a5c32" : "#a33f30"} sub={s.receitas ? `${formatPct(s.saldo / s.receitas)} da receita` : "—"} />
+        <Kpi label="Receitas" value={s.receitas} accent="#4f7a52" bg={KPI_BG.receitas} sub={<Delta cur={s.receitas} prev={p.receitas} prevLabel={cycleLabel(prevC)} />} />
+        <Kpi label="Despesas" value={s.despesas} accent="#a33f30" bg={KPI_BG.despesas} sub={<Delta cur={s.despesas} prev={p.despesas} invert prevLabel={cycleLabel(prevC)} />} />
+        <Kpi label="Investido" value={s.investimentos} accent="#4a5a73" bg={KPI_BG.investido} sub={s.receitas ? `${formatPct(s.investimentos / s.receitas)} da receita` : "—"} />
+        <Kpi label="Sobra do ciclo" bg={KPI_BG.sobra} value={s.saldo} accent={s.saldo >= 0 ? "#7a5c32" : "#a33f30"} sub={s.receitas ? `${formatPct(s.saldo / s.receitas)} da receita` : "—"} />
       </div>
 
-      <section className="card mt-4 grid grid-cols-2 gap-4 !py-4 md:grid-cols-[1fr_1fr_1fr_1.2fr] md:gap-5 md:divide-x md:divide-ink/[0.06]">
-        <div><div className="label">Recebido</div><div className="display text-[22px] leading-tight text-gain">{formatBRL(s.receitas)}</div><div className="text-xs text-ink/45">{aReceber ? <>+ <span className="tabular-nums">{formatBRL(aReceber)}</span> a receber</> : "nada mais previsto"}</div></div>
-        <div className="md:pl-5"><div className="label">Pago</div><div className="display text-[22px] leading-tight">{formatBRL(pago)}</div><div className="text-xs text-ink/45">despesas e aportes do ciclo</div></div>
-        <div className="md:pl-5"><div className="label">Falta pagar</div><div className={`display text-[22px] leading-tight ${aPagar ? "text-[#b0703f]" : ""}`}>{formatBRL(aPagar)}</div><div className="text-xs text-ink/45">contas da agenda em aberto</div></div>
-        <div className="col-span-2 md:col-span-1 md:pl-5"><div className="label flex items-center gap-1.5">Saldo previsto no fim do ciclo</div><div className={`display text-[28px] leading-tight ${saldoPrev >= 0 ? "text-gain" : "text-loss"}`}>{formatBRL(saldoPrev)}</div>
-          <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-ink/[0.06]"><div className="h-full rounded-full bg-[#7a5c32]" style={{ width: `${Math.min(100, ((pago) / Math.max(1, pago + aPagar)) * 100)}%` }} /></div>
-          <div className="mt-1 text-[11px] text-ink/45">{pago + aPagar ? `${Math.round((pago / (pago + aPagar)) * 100)}% dos compromissos já pagos` : ""}</div></div>
+      <section className="card mt-4 grid grid-cols-2 gap-4 !border-transparent !py-4 text-[#f6efe2] shadow-[0_18px_40px_-26px_rgba(60,40,20,.7)] md:grid-cols-[1fr_1fr_1fr_1.2fr] md:gap-5 md:divide-x md:divide-white/10 [&_.label]:!text-[#cfc3b0]"
+        style={{ background: "radial-gradient(90% 80% at 100% 0%, rgba(226,166,75,.38), rgba(226,166,75,0) 60%), radial-gradient(70% 80% at 0% 100%, rgba(143,94,19,.45), rgba(143,94,19,0) 70%), linear-gradient(160deg, #2a211a, #15120f)" }}>
+        <div><div className="label">Recebido</div><div className="display text-[22px] leading-tight text-[#b9cfae]">{formatBRL(s.receitas)}</div><div className="text-xs text-[#f6efe2]/55">{aReceber ? <>+ <span className="tabular-nums">{formatBRL(aReceber)}</span> a receber</> : "nada mais previsto"}</div></div>
+        <div className="md:pl-5"><div className="label">Pago</div><div className="display text-[22px] leading-tight">{formatBRL(pago)}</div><div className="text-xs text-[#f6efe2]/55">despesas e aportes do ciclo</div></div>
+        <div className="md:pl-5"><div className="label">Falta pagar</div><div className={`display text-[22px] leading-tight ${aPagar ? "text-gold" : ""}`}>{formatBRL(aPagar)}</div><div className="text-xs text-[#f6efe2]/55">contas da agenda em aberto</div></div>
+        <div className="col-span-2 md:col-span-1 md:pl-5"><div className="label flex items-center gap-1.5">Saldo previsto no fim do ciclo</div><div className={`display text-[28px] leading-tight ${saldoPrev >= 0 ? "text-[#b9cfae]" : "text-[#e6a596]"}`}>{formatBRL(saldoPrev)}</div>
+          <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-white/10"><div className="h-full rounded-full bg-gold" style={{ width: `${Math.min(100, ((pago) / Math.max(1, pago + aPagar)) * 100)}%` }} /></div>
+          <div className="mt-1 text-[11px] text-[#f6efe2]/55">{pago + aPagar ? `${Math.round((pago / (pago + aPagar)) * 100)}% dos compromissos já pagos` : ""}</div></div>
       </section>
 
       {cycle === nowCycle && <BankLive ctx={ctx} today={today} cycle={cycle} cycleEnd={range.end} occ={cycAgenda.occ} admin={isAdminRole(ctx.member.role) && !ctx.viewer.simulated} />}

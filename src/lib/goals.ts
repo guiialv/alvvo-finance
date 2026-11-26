@@ -7,6 +7,7 @@ export interface GoalData {
   target?: number; deadline?: string; start?: string; rate?: number; source?: "carteira" | "manual"; extra?: number; note?: string;
   income?: number; multiple?: number; initial?: number; monthly?: number; birth?: string; startMonth?: string;
   balance?: number; auto?: "reserva" | null;
+  photo?: string; // caminho da foto no armazenamento privado da família
 }
 export const GOAL_T: Record<GoalType, { l: string; c: string; i: string }> = {
   patrimonio: { l: "Meta de patrimônio", c: "#7a5c32", i: "trend" },

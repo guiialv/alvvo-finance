@@ -41,6 +41,33 @@ export async function patchGoal(f: FormData) {
 
 export async function deleteGoal(f: FormData) {
   const ctx = await requireEdit("objetivos");
+  const { data: old } = await ctx.supabase.from("goals").select("data").eq("id", str(f, "id")).eq("household_id", ctx.household.id).maybeSingle();
+  const photo = (old?.data as GoalData | undefined)?.photo;
+  if (photo) await ctx.supabase.storage.from("goals").remove([photo]);
   await ctx.supabase.from("goals").delete().eq("id", str(f, "id")).eq("household_id", ctx.household.id);
+  revalidatePath("/objetivos");
+}
+
+/** Foto do objetivo: guarda o caminho no armazenamento privado da família e apaga a anterior. */
+export async function setGoalPhoto(id: string, path: string): Promise<{ error?: string } | void> {
+  const ctx = await requireEdit("objetivos");
+  const hh = ctx.household.id;
+  if (!path.startsWith(`${hh}/${id}/`) || path.includes("..")) return { error: "Arquivo inválido." };
+  const { data: old } = await ctx.supabase.from("goals").select("data").eq("id", id).eq("household_id", hh).maybeSingle();
+  if (!old) return { error: "Objetivo não encontrado." };
+  const prev = (old.data as GoalData).photo;
+  await ctx.supabase.from("goals").update({ data: { ...(old.data as GoalData), photo: path } }).eq("id", id).eq("household_id", hh);
+  if (prev && prev !== path) await ctx.supabase.storage.from("goals").remove([prev]);
+  revalidatePath("/objetivos");
+}
+
+export async function removeGoalPhoto(id: string) {
+  const ctx = await requireEdit("objetivos");
+  const hh = ctx.household.id;
+  const { data: old } = await ctx.supabase.from("goals").select("data").eq("id", id).eq("household_id", hh).maybeSingle();
+  if (!old) return;
+  const { photo, ...rest } = old.data as GoalData;
+  await ctx.supabase.from("goals").update({ data: rest }).eq("id", id).eq("household_id", hh);
+  if (photo) await ctx.supabase.storage.from("goals").remove([photo]);
   revalidatePath("/objetivos");
 }

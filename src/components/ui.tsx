@@ -72,9 +72,17 @@ export function ScopeTabs({ scope, basePath, params = {} }: { scope: string; bas
   return <Seg options={[["pessoal", "Pessoal"], ["pj", "PJ"]]} current={scope} hrefFor={(s) => `${basePath}?${qs({ ...params, escopo: s })}`} />;
 }
 
-export function Kpi({ label, value, sub, accent = "#7a5c32", tone }: { label: string; value: number; sub?: React.ReactNode; accent?: string; tone?: "auto" }) {
+/** Fundos suaves da paleta para os indicadores (degradê claro, sem mudar o conteúdo). */
+export const KPI_BG = {
+  receitas: "radial-gradient(120% 90% at 100% 0%, #dfe8d6 0%, rgba(223,232,214,0) 60%), linear-gradient(150deg, #f6f8f2, #e6eddf)",
+  despesas: "radial-gradient(120% 90% at 100% 0%, #f3dcd4 0%, rgba(243,220,212,0) 60%), linear-gradient(150deg, #fcf4f1, #f3e1da)",
+  investido: "radial-gradient(120% 90% at 100% 0%, #f6dfb0 0%, rgba(246,223,176,0) 60%), linear-gradient(150deg, #fcf6ea, #f3e3c2)",
+  sobra: "radial-gradient(120% 90% at 100% 0%, #eadbc4 0%, rgba(234,219,196,0) 60%), linear-gradient(150deg, #faf5ed, #ecdecb)",
+} as const;
+
+export function Kpi({ label, value, sub, accent = "#7a5c32", tone, bg }: { label: string; value: number; sub?: React.ReactNode; accent?: string; tone?: "auto"; bg?: string }) {
   return (
-    <div className="card relative overflow-hidden">
+    <div className={`card relative overflow-hidden ${bg ? "!border-transparent" : ""}`} style={bg ? { background: bg } : undefined}>
       <div className="flex items-center gap-2"><span className="h-1.5 w-1.5 rounded-full" style={{ background: accent }} /><div className="label !mb-0">{label}</div></div>
       <div className={`display mt-2 text-[22px] leading-none sm:text-[32px] ${tone === "auto" ? (value >= 0 ? "text-gain" : "text-loss") : ""}`}>{formatBRL(value)}</div>
       {sub && <div className="mt-1 text-xs text-ink/45">{sub}</div>}
