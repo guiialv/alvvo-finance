@@ -7,6 +7,8 @@ import { signOut } from "@/app/login/actions";
 import { FeedbackButton } from "@/components/feedback-button";
 import { PwaBoot } from "@/components/pwa";
 import { Tour } from "@/components/tour";
+import { PlanRibbon } from "@/components/plan-ribbon";
+import { planoAtual } from "@/lib/planos";
 import { Suspense } from "react";
 import { activeTabs } from "@/lib/mobile-tabs";
 
@@ -48,6 +50,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       <Shell allowed={allowed} badges={{ "/acessos": pending }} household={household.name} signOut={signOut} tabs={tabs} feedback={!ctx.support}
         viewer={{ name: viewer.name, initials: viewer.name.split(/\s+/).map((w) => w[0]).slice(0, 2).join("").toUpperCase() }}
         initialCollapsed={jar.get("alvvo_nav")?.value === "min"} initialPrivacy={jar.get("alvvo_priv")?.value === "1"}>
+        <PlanRibbon plano={planoAtual(household)} origem={household.plan_origin ?? null} />
         {children}
       </Shell>
       {!ctx.support && <Suspense fallback={null}><FeedbackButton /></Suspense>}

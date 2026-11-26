@@ -62,6 +62,7 @@ export function Shell({ children, allowed, badges, household, viewer, initialCol
         {feedback && <MenuItem icon="chat" label="Enviar feedback (texto, áudio ou print)" onClick={() => { setAcct(false); openFeedback(); }} />}
         <MenuItem href="/bem-vindo?editar=1" icon="user" label="Meu perfil financeiro" />
         <MenuItem href="/tutorial" icon="help" label="Como usar o Alvvo" />
+        <MenuItem href="/planos" icon="spark" label="Planos e assinatura" />
         <MenuItem href="/menu" icon="grid" label="Personalizar atalhos e barra do celular" />
         <MenuItem href="/instalar" icon="phone" label="Instalar o app no celular" />
         {allowed.includes("/acessos") && <MenuItem href="/acessos" icon="users" label="Membros e acessos" />}

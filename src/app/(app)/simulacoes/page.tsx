@@ -2,6 +2,8 @@ import Link from "next/link";
 import { requireArea } from "@/lib/context";
 import { PageHeader } from "@/components/ui";
 import { GROUPS } from "./catalog";
+import { PlanBadge } from "@/components/plan-badge";
+import { SIM_FREE } from "@/lib/planos";
 
 const CAPA: Record<string, string> = {
   "Investir": "radial-gradient(90% 120% at 100% 0%, #f6d79a 0%, rgba(246,215,154,0) 60%), linear-gradient(135deg, #e2a64b, #8f5e13)",
@@ -25,7 +27,7 @@ export default async function SimulacoesPage() {
             <p className={`text-sm ${g.dark ? "text-[#cfc3b0]" : "text-ink/60"}`}>{g.desc}</p>
             {g.items.map((it) => (
               <Link key={it.slug} href={`/simulacoes/${it.slug}`} className={`flex flex-col gap-1 rounded-2xl px-4 py-3.5 transition ${g.dark ? "bg-[#2a241f] hover:bg-[#332c26]" : "bg-paper hover:bg-[#ece6db]"}`}>
-                <span className="flex items-center gap-2 text-[15.5px] font-semibold">{it.name}{it.slug === "posso-comprar" && <span className="rounded-full bg-gold/20 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-finance">novo</span>}</span>
+                <span className="flex items-center gap-2 text-[15.5px] font-semibold">{it.name}{it.slug === "posso-comprar" && <span className="rounded-full bg-gold/20 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-finance">novo</span>}{!SIM_FREE.has(it.slug) && <PlanBadge tom={g.dark ? "escuro" : "claro"} />}</span>
                 <span className={`text-sm ${g.dark ? "text-[#e7dccb]" : "text-ink/70"}`}>{it.q}</span>
                 <span className={`text-[12px] ${g.dark ? "text-[#bfb3a0]" : "text-ink/45"}`}>{it.uses}</span>
               </Link>

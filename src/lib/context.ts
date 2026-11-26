@@ -13,6 +13,7 @@ export interface Household {
   template: string;
   ai_mode: "nenhuma" | "incluida" | "chave";
   ai_included: boolean;
+  plan?: "free" | "premium" | "familia"; plan_until?: string | null; plan_origin?: "codigo" | "assinatura" | "cortesia" | null; beta_code?: string | null;
 }
 
 export interface Member {
@@ -46,7 +47,7 @@ async function loadContext() {
 
   const { data: memberships } = await supabase
     .from("household_members")
-    .select("household_id, user_id, display_name, role, status, areas, tx_scope, support, expires_at, households(id, name, invite_code, invite_expires_at, cycle_start_day, template, ai_mode, ai_included)")
+    .select("household_id, user_id, display_name, role, status, areas, tx_scope, support, expires_at, households(id, name, invite_code, invite_expires_at, cycle_start_day, template, ai_mode, ai_included, plan, plan_until, plan_origin, beta_code)")
     .eq("user_id", user.id);
 
   const all = (memberships ?? []) as (Member & { support?: boolean; expires_at?: string | null; households: Household | Household[] | null })[];

@@ -1,5 +1,7 @@
 "use client";
 
+import { planoDaRota } from "@/lib/planos";
+import { PlanBadge } from "./plan-badge";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Icon } from "./icons";
@@ -46,6 +48,7 @@ export function Nav({ allowed, badges = {}, collapsed = false }: { allowed: stri
                 className={`relative flex shrink-0 items-center gap-3 rounded-2xl px-3 py-2 text-sm transition ${collapsed ? "md:justify-center md:px-0" : ""} ${active ? "bg-[#2a241e] font-semibold text-[#f6f2ea] shadow-[inset_2px_0_0_#e2a64b]" : "text-[#b9ad9b] hover:bg-white/[0.04] hover:text-[#f6f2ea]"}`}>
                 <Icon name={it.icon} className="h-[18px] w-[18px] shrink-0" />
                 <span className={`flex-1 whitespace-nowrap ${collapsed ? "md:hidden" : ""}`}>{it.label}</span>
+                {planoDaRota(it.href) && <span className={collapsed ? "md:hidden" : ""}><PlanBadge plano={planoDaRota(it.href)!} tom="escuro" so /></span>}
                 {it.soon && <span className="hidden rounded bg-white/10 px-1.5 py-0.5 text-[9px] text-white/40 md:inline">{it.soon}</span>}
                 {badges[it.href] ? <span className={`rounded-full bg-gold px-1.5 text-[10px] font-semibold text-espresso ${collapsed ? "md:absolute md:right-1 md:top-1" : ""}`}>{badges[it.href]}</span> : null}
               </Link>
