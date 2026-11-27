@@ -21,7 +21,7 @@ export function NewsCards({ itens, compacta = false }: { itens: NoticiaPessoal[]
           <a key={s.id} href={s.lead.url} target="_blank" rel="noreferrer" className="group block py-2.5">
             <div className="flex flex-wrap gap-1.5">{tags.slice(0, 2).map((t) => <span key={t} className="rounded-full bg-gold/15 px-2 py-0.5 text-[10.5px] font-semibold text-finance">{t}</span>)}</div>
             <p className="mt-1 text-[14px] font-medium leading-snug group-hover:text-brand">{s.lead.title}</p>
-            <p className="mt-0.5 text-[11.5px] text-ink/45">{s.lead.source}{extra > 0 ? ` e mais ${extra} ${extra === 1 ? "fonte" : "fontes"}` : ""} · {ha(s.published_at)}</p>
+            <p className="mt-0.5 text-[11.5px] text-ink/45">{s.lead.source}{extra > 0 ? ` e mais ${extra} ${extra === 1 ? "fonte" : "fontes"}` : ""} · {ha(s.published_at)}{n.assinatura ? " · para assinantes" : ""}</p>
           </a>
         );
         return (
@@ -32,7 +32,8 @@ export function NewsCards({ itens, compacta = false }: { itens: NoticiaPessoal[]
             </div>
             <h3 className="mt-3 text-[17px] font-semibold leading-snug tracking-[-0.01em] group-hover:text-brand">{s.lead.title}</h3>
             {s.lead.summary && <p className="mt-1.5 line-clamp-3 text-[13.5px] leading-relaxed text-ink/65">{s.lead.summary}</p>}
-            <p className="mt-3 text-xs text-ink/50">{s.lead.source}{extra > 0 ? ` e mais ${extra} ${extra === 1 ? "fonte" : "fontes"}` : ""} · {ha(s.published_at)}</p>
+            <p className="mt-3 text-xs text-ink/50">{s.lead.source}{extra > 0 ? ` e mais ${extra} ${extra === 1 ? "fonte" : "fontes"}` : ""} · {ha(s.published_at)}
+              {n.assinatura && <span className="ml-2 rounded-full bg-white/70 px-2 py-0.5 text-[10.5px] font-semibold text-ink/60">Conteúdo para assinantes</span>}</p>
           </a>
         );
       })}

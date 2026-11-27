@@ -2,6 +2,9 @@ import { createHash } from "crypto";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 /** Fontes consolidadas com feed público. `w` = peso de autoridade na relevância. */
+/** Fontes que costumam exigir assinatura para ler a matéria completa. */
+export const PAYWALL = new Set(["valor", "valor_fin", "bloomberg", "estadao"]);
+
 export const FEEDS: { key: string; name: string; url: string; w: number; kind?: "banco_central" }[] = [
   { key: "bcb_notas", name: "Banco Central", url: "https://www.bcb.gov.br/api/feed/sitebcb/sitefeeds/notasImprensa", w: 3, kind: "banco_central" },
   { key: "bcb_copom", name: "Banco Central · Copom", url: "https://www.bcb.gov.br/api/feed/sitebcb/sitefeeds/comunicadoscopom", w: 3.5, kind: "banco_central" },

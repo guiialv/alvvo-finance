@@ -73,7 +73,7 @@ export const INTERESSES: Record<string, { label: string; re: RegExp; w: number }
   o_dividas: { label: "Crédito", re: /\b(endividamento|inadimplencia|serasa|rotativo|cartao de credito|juros do cartao|renegocia\w*|desenrola)\b/, w: 2.5 },
   o_independencia: { label: "Aposentadoria", re: /\b(aposentadoria|previdencia|independencia financeira|renda passiva|inss)\b/, w: 2 },
   o_carro: { label: "Veículos", re: /\b(financiamento de veiculos|carros?|veiculos?|montadoras?|ipva)\b/, w: 1.5 },
-  o_viagem: { label: "Viagem", re: /\b(passagens aereas|turismo|iof|cartao internacional|cambio para viagem)\b/, w: 1.5 },
+  o_viagem: { label: "Viagem", re: /\b(viagens?|viajantes?|passagens?( aereas?)?|turismo|turistas?|aereas?|companhias? aereas?|aviacao|aeroportos?|voos?|latam|azul|gol linhas|hoteis|hotelaria|resorts?|cvc|airbnb|booking|cruzeiros?|ferias|milhas|iof|cartao internacional|dolar turismo|cambio para viagem|passaporte|visto americano)\b/, w: 1.5 },
 };
 
 /** Lista de interesses (com peso) a partir das respostas. */
