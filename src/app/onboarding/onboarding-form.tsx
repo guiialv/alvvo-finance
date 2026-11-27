@@ -11,6 +11,7 @@ const TEMPLATES = [
 
 export function OnboardingForm({ code, beta = "" }: { code: string; beta?: string }) {
   const [mode, setMode] = useState<"criar" | "entrar">(code ? "entrar" : "criar");
+  const [betaTyped, setBetaTyped] = useState(beta);
   const [state, action, pending] = useActionState<OnbState, FormData>(onboard, undefined);
 
   return (
@@ -33,7 +34,7 @@ export function OnboardingForm({ code, beta = "" }: { code: string; beta?: strin
           <div><label className="label">Seu nome</label><input className="input" name="display_name" required placeholder="Nome e sobrenome" /></div>
           {mode === "criar" ? (
             <>
-              <div><label className="label">Código de acesso ao beta</label><input className="input font-mono uppercase" name="beta_code" defaultValue={beta} placeholder="EX.: ALVVO-7K2Q" autoComplete="off" />
+              <div><label className="label">Código de acesso ao beta</label><input className="input font-mono uppercase" name="beta_code" key={betaTyped} defaultValue={betaTyped} placeholder="EX.: ALVVO-7K2Q" autoComplete="off" />
                 <p className="mt-1 text-xs text-ink/45">O alvvo finance está em beta fechado: para criar uma família nova, use o código que você recebeu.</p></div>
               <div><label className="label">Nome da conta</label><input className="input" name="household_name" placeholder="Ex.: Casa Silva" /></div>
               <div><label className="label">Comece com o modelo</label>
@@ -48,7 +49,9 @@ export function OnboardingForm({ code, beta = "" }: { code: string; beta?: strin
             </>
           ) : (
             <>
-              <div><label className="label">Código de convite</label><input className="input font-mono uppercase" name="code" required defaultValue={code} placeholder="EX.: 3F9A1C2B" /></div>
+              <div><label className="label">Código de convite</label><input className="input font-mono uppercase" name="code" required defaultValue={code} placeholder="EX.: 3F9A1C2B"
+                onChange={(e) => { if (/^ALVVO-/i.test(e.target.value.trim())) { setBetaTyped(e.target.value.trim().toUpperCase()); setMode("criar"); } }} />
+                <p className="mt-1 text-xs text-ink/45">Use esta opção para entrar numa conta já existente. Se recebeu um código de acesso ao beta (ALVVO-…), escolha “Criar minha conta”.</p></div>
               <div><label className="label">Mensagem para o dono (opcional)</label><input className="input" name="message" placeholder="Ex.: sou a contadora do CNPJ" /></div>
               <p className="text-xs text-ink/50">O dono da conta precisa aprovar o seu pedido. Até lá, você não vê nenhum dado.</p>
             </>

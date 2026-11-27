@@ -12,8 +12,13 @@ export async function onboard(_: OnbState, formData: FormData): Promise<OnbState
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const mode = String(formData.get("mode"));
+  let mode = String(formData.get("mode"));
   const displayName = String(formData.get("display_name") ?? "").trim();
+  let betaCode = String(formData.get("beta_code") ?? "");
+
+  // Código do beta (ALVVO-…) informado na aba "Tenho um convite": cria a conta normalmente.
+  const typed = String(formData.get("code") ?? "").trim().toUpperCase();
+  if (mode === "entrar" && /^ALVVO-/.test(typed)) { mode = "criar"; betaCode = typed; }
 
   if (mode === "entrar") {
     const provider = (user.app_metadata as { provider?: string } | undefined)?.provider ?? "email";
@@ -25,7 +30,7 @@ export async function onboard(_: OnbState, formData: FormData): Promise<OnbState
   }
 
   const template = (String(formData.get("template") ?? "familia") as Template);
-  const { data: hh, error } = await supabase.rpc("create_household_beta", { p_code: String(formData.get("beta_code") ?? ""), p_name: String(formData.get("household_name") ?? ""), p_display_name: displayName });
+  const { data: hh, error } = await supabase.rpc("create_household_beta", { p_code: betaCode, p_name: String(formData.get("household_name") ?? ""), p_display_name: displayName });
   if (error || !hh) return { error: error?.message?.includes("Código de acesso") ? "Código de acesso inválido, vencido ou já usado. Peça um código a quem te convidou para o beta." : error?.message ?? "Não foi possível criar a conta." };
   await supabase.from("households").update({ template }).eq("id", hh as string);
 
